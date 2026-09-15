@@ -1,0 +1,101 @@
+' Shared PlantUML theme for every diagram in notes/**/diagrams/*.puml
+' Include from a diagram with:  !include ../../../tools/diagrams/kcna-theme.puml
+' Light, GitHub-friendly palette. Kubernetes blue for primary boxes, red for
+' "tightly coupled"/problem edges, green for "good"/cloud-native edges.
+
+!pragma layout smetana
+hide stereotype
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam defaultFontColor #0F172A
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam padding 4
+skinparam nodesep 40
+skinparam ranksep 40
+
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1.6
+skinparam ArrowFontColor #334155
+skinparam ArrowFontSize 12
+
+skinparam titleFontSize 18
+skinparam titleFontStyle bold
+skinparam titleFontColor #0F172A
+
+skinparam rectangle {
+  BackgroundColor #EFF6FF
+  BorderColor #326CE5
+  BorderThickness 1.5
+  FontColor #0F172A
+  FontStyle bold
+}
+
+' Grouping containers (a host, a monolith boundary, a team)
+skinparam rectangle<<group>> {
+  BackgroundColor #F8FAFC
+  BorderColor #94A3B8
+  BorderThickness 1.2
+  FontColor #334155
+  FontStyle bold
+}
+skinparam rectangle<<groupGood>> {
+  BackgroundColor #F0FDF4
+  BorderColor #16A34A
+  BorderThickness 1.5
+  FontColor #14532D
+}
+skinparam rectangle<<groupBad>> {
+  BackgroundColor #FEF2F2
+  BorderColor #DC2626
+  BorderThickness 1.5
+  FontColor #7F1D1D
+}
+
+' Plain, low-emphasis boxes (paths, labels, secondary detail)
+skinparam rectangle<<plain>> {
+  BackgroundColor #FFFFFF
+  BorderColor #CBD5E1
+  BorderThickness 1
+  FontColor #334155
+  FontStyle normal
+}
+' Emphasis boxes
+skinparam rectangle<<good>> {
+  BackgroundColor #DCFCE7
+  BorderColor #16A34A
+  FontColor #14532D
+}
+skinparam rectangle<<bad>> {
+  BackgroundColor #FEE2E2
+  BorderColor #DC2626
+  FontColor #7F1D1D
+}
+skinparam rectangle<<accent>> {
+  BackgroundColor #326CE5
+  BorderColor #1E4FB8
+  FontColor #FFFFFF
+}
+skinparam rectangle<<muted>> {
+  BackgroundColor #F1F5F9
+  BorderColor #94A3B8
+  FontColor #475569
+  FontStyle normal
+}
+
+skinparam database {
+  BackgroundColor #F1F5F9
+  BorderColor #64748B
+  BorderThickness 1.5
+  FontColor #0F172A
+}
+
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #CA8A04
+  BorderThickness 1
+  FontColor #422006
+  FontSize 12
+}

@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Monolithic architecture — everything bound to everything
+
+rectangle "Web server\n<size:11>Apache HTTP Server</size>\n<size:11>or NGINX</size>" <<muted>> as ws
+rectangle "Runtime\n<size:11>PHP or Java</size>" <<muted>> as rt
+rectangle "Monolith — one deployable unit" <<groupBad>> as mono {
+  rectangle "User\nInterface" as ui
+  rectangle "Business\nLogic" as bl
+  rectangle "Data\nInterface" as di
+  ui -[#DC2626]-> bl
+  bl -[#DC2626]-> di
+}
+rectangle "ODBC driver\n<size:11>Open Database</size>\n<size:11>Connectivity</size>" <<muted>> as odbc
+database "Database" as db
+
+ws -[#DC2626]-> rt
+rt -[#DC2626]-> ui
+di -[#DC2626]-> odbc
+odbc -[#DC2626]-> db
+
+caption <i>Every red link is a tight coupling. A change to one piece — a library version, the runtime, the web server, the driver, the schema —</i>\n<i>can ripple into every other piece, so the whole unit is rebuilt, retested and redeployed together.</i>
+@enduml

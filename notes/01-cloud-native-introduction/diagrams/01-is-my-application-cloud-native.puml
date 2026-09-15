@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Is my application cloud native?
+
+rectangle "Running in the cloud gives you (for free)" <<groupGood>> as cloud {
+  rectangle "Cloud infrastructure benefits\n<size:11>cost savings vs legacy · scale as required</size>" <<good>> as c1
+  rectangle "Guaranteed availability\n<size:11>the provider's SLA within a region</size>" <<good>> as c2
+  rectangle "Cloud provider API\n<size:11>automation with Terraform / Ansible</size>" <<good>> as c3
+  label "<i>Comes with the <b>provider</b>.</i>\n<i>A lift-and-shift monolith gets all three.</i>" as cap1
+  c1 -[hidden]down-> c2
+  c2 -[hidden]down-> c3
+  c3 -[hidden]down-> cap1
+}
+
+rectangle "Cloud native requires the application itself to be" <<group>> as cn {
+  rectangle "Automated\n<size:11>in its setup and delivery</size>" as q1
+  rectangle "Resilient\n<size:11>designed to protect from failure</size>" as q2
+  rectangle "Autoscaling\n<size:11>based on its operational workload</size>" as q3
+  rectangle "Secure by default\n<size:11>not bolted on afterwards</size>" as q4
+  label "<i>Comes from <b>design and practice</b>.</i>\n<i>These decide whether it is cloud native.</i>" as cap2
+  q1 -[hidden]down-> q2
+  q2 -[hidden]down-> q3
+  q3 -[hidden]down-> q4
+  q4 -[hidden]down-> cap2
+}
+
+cloud -[hidden]right-> cn
+@enduml

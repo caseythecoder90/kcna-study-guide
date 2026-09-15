@@ -10,6 +10,8 @@ The notes follow James Spurin's Udemy course *"KCNA: Kubernetes and Cloud Native
 
 - Notes live in `notes/`, grouped into **per-section folders** named `NN-<section-slug>/`, one per course section. Each section folder contains its own numbered chapter notes.
 - Each section folder has its own `diagrams/` subfolder alongside the notes. Diagrams live with the section that references them — **not** in a single global folder.
+- **Diagrams are original PlantUML drawings, never course screenshots.** Each diagram is a `NN-slug.puml` source rendered to `NN-slug.svg` beside it by `tools/diagrams/render.sh`. Lecture screenshots are reference input only — the instructor's slides are not ours to redistribute.
+- `tools/diagrams/` holds the shared PlantUML theme (`kcna-theme.puml`) and the render script.
 - `notes/exam-facts.md` is the **global recall sheet**: every hard fact worth a multiple-choice question (dates, version numbers, ports, defaults, personas, acronyms). Grows with every chapter.
 - `notes/cncf-projects.md` is the **project cheat sheet**: every CNCF project, tool, or standard the course mentions, with its category, maturity level, and a one-line "what it does". Grows with every chapter.
 - `notes/commands.md` is the global single-file command reference; `notes/commands/` holds per-topic command files. Same idea as the CKAD repo, lighter weight.
@@ -37,7 +39,8 @@ notes/
 │   ├── 01-what-is-cloud-native.md
 │   ├── 02-...
 │   └── diagrams/
-│       ├── 01-is-my-application-cloud-native.png
+│       ├── 01-is-my-application-cloud-native.puml   # source
+│       ├── 01-is-my-application-cloud-native.svg    # rendered, committed
 │       └── ...
 ├── 02-cloud-native-architecture/
 │   ├── 01-...
@@ -48,15 +51,31 @@ notes/
 ├── exam-facts.md
 ├── cncf-projects.md
 └── NOTES-WORKFLOW.md
+tools/diagrams/
+├── kcna-theme.puml        # shared skinparams — every diagram !includes it
+└── render.sh              # renders notes/**/diagrams/*.puml → .svg
 ```
 
 **Rules for new notes (apply this when generating chapters):**
 - A new chapter goes in its section folder (`NN-<section>/CC-<chapter-slug>.md`). **Chapter numbers reset at each section** — every section's notes start at `01-...` (or `00-...` for an intro/setup file). Do *not* continue the numbering from the previous section.
 - Diagrams referenced by a chapter go in that same section's `diagrams/` subfolder. Diagram numbers run continuously **within a section** and reset per section — `02-cloud-native-architecture/diagrams/` starts at `01-...` independently of `01-cloud-native-introduction/diagrams/`.
-- Image references in markdown use **relative paths from the notes file**: `![Caption](./diagrams/NN-name.png)`. Never use `../diagrams/...` and never hard-code repo-rooted paths (e.g. `notes/...`) in image links.
-- **Diagrams must be embedded in the body to render.** A `companion_diagrams:` list in YAML frontmatter is metadata only and does **not** display the image. Every diagram a chapter references must appear in the body as `![Caption](./diagrams/NN-name.png)`, placed in the relevant section.
-- Lecture screenshots are supplied by the user in chat and cannot be written to disk by Claude. When a chapter embeds a diagram, end the reply with an **image save list**: exact filename (`NN-slug.png`) plus a one-line description of which screenshot to save under it.
+- Image references in markdown use **relative paths from the notes file**: `![Caption](./diagrams/NN-name.svg)`. Never use `../diagrams/...` and never hard-code repo-rooted paths (e.g. `notes/...`) in image links.
+- **Diagrams must be embedded in the body to render.** A `companion_diagrams:` list in YAML frontmatter is metadata only and does **not** display the image. Every diagram a chapter references must appear in the body as `![Caption](./diagrams/NN-name.svg)`, placed in the relevant section.
 - One topic per file. Don't bundle multiple course lectures into one markdown file unless they are genuinely one topic split across short videos.
+
+### Diagram workflow (PlantUML → SVG)
+
+1. Write `notes/<section>/diagrams/NN-slug.puml`. First line after `@startuml` is always `!include ../../../tools/diagrams/kcna-theme.puml` — it pins the Smetana layout engine (no Graphviz needed) and the palette.
+2. Render: `tools/diagrams/render.sh notes/<section>/diagrams/NN-slug.puml` (or no args for everything). Commit **both** the `.puml` and the `.svg`.
+3. **Verify visually before committing.** Render a PNG to the scratchpad (`java -jar ~/.cache/plantuml/plantuml.jar -tpng -o <scratchpad> file.puml`) and Read it. Check for text overflowing boxes, notes drifting sideways, and unreadable arrow crossings. Re-layout and re-render until clean.
+4. Design rules that have worked:
+   - Redraw the *concept*, not the slide. Use the course's structure as input; layout, wording, and grouping are ours.
+   - `left to right direction` for flows and timelines; default top-to-bottom for hierarchies and side-by-side comparisons.
+   - Group with `rectangle "Title" <<group>> { ... }` (`<<groupGood>>` green / `<<groupBad>>` red for contrast). Stack items inside a group with `-[hidden]down->` links; place groups side by side with `-[hidden]right->`.
+   - Captions go inside the group as a `label` (hidden-linked below the last item). `note bottom of X` tends to float to the side — avoid it.
+   - Emphasis stereotypes: `<<good>>`, `<<bad>>`, `<<accent>>` (filled blue), `<<muted>>`, `<<plain>>`. Red arrows (`-[#DC2626]->`) for tight coupling / problems, green (`-[#16A34A]->`) for the cloud native alternative.
+   - Sub-text inside a box: `Main line\n<size:11>detail · detail</size>`.
+   - Earn the diagram: hierarchies, flows, before/after, comparisons. Tables of values are markdown, not images.
 
 ---
 
@@ -140,5 +159,5 @@ Commands are supporting material for the KCNA — record what the course demonst
 - **Comparison tables over prose** for anything the exam can contrast: Docker vs containerd, ReplicaSet vs Deployment, logs vs metrics vs traces, CKA vs CKAD vs KCNA scope.
 - **`## Exam angle` closes every chapter** (before References): 3-6 bullets on what a multiple-choice question about this topic looks like and the distractor to avoid. This is the KCNA equivalent of the CKAD "exam-pattern gotchas" — keep it tight, no quiz scaffolding.
 - **References section.** Each chapter ends with a `## References` section of 2-4 canonical, verified links. Acceptable sources: `kubernetes.io`, `cncf.io`, `github.com/cncf/*`, `docs.docker.com`, `opencontainers.org`, `landscape.cncf.io`, `prometheus.io`, `opentelemetry.io`, and the official site of any project discussed. Verify URLs before adding them — never guess a doc URL.
-- Diagrams referenced by their numbered filename prefix from the **section's own** `diagrams/` subfolder, via `./diagrams/<NN-name>.png`.
+- Diagrams referenced by their numbered filename prefix from the **section's own** `diagrams/` subfolder, via `./diagrams/<NN-name>.svg`.
 - Prefer editing existing files over creating new ones; keep new files focused (one topic per file).

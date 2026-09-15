@@ -2,14 +2,22 @@
 
 ## 1. The official definition
 
-The CNCF maintains the canonical definition (v1.1, approved by the TOC and Governing Board on 2024-02-26). The parts that matter for the exam:
+The CNCF maintains the canonical definition. Two versions exist and the exam can draw on either, so know both lists.
 
-- Cloud native practices let organizations develop, build, and deploy workloads in **public, private, and hybrid clouds** at scale, in a **programmatic and repeatable** manner.
-- Cloud native systems are **loosely coupled** and interoperate in a way that is **secure, resilient, manageable, sustainable, and observable**.
-- Typical building blocks (the list is explicitly non-exhaustive): **containers, service meshes, multi-tenancy, microservices, immutable infrastructure, serverless, declarative APIs**.
-- Combined with **robust automation**, this lets engineers make **high-impact changes frequently and predictably with minimal toil**.
+**v1.0 (2018)** — still the wording shown on cncf.io and the one the course and most exam questions use:
 
-"Cloud native" is about *how* an application is designed and operated, not *where* it runs.
+- Cloud native technologies let organizations build and run **scalable** applications in **modern, dynamic environments** such as public, private, and hybrid clouds.
+- Example technologies: **containers, service meshes, microservices, immutable infrastructure, declarative APIs**.
+- These enable **loosely coupled** systems that are **resilient, manageable, and observable**.
+- Combined with **robust automation**, engineers can make **high-impact changes frequently and predictably with minimal toil**.
+
+**v1.1 (approved 2024-02-26)** — the current text in the CNCF TOC repo. Same shape, wider lists:
+
+- Adds **serverless** and **multi-tenancy** to the technologies (and says the list is non-exhaustive).
+- Adds **secure** and **sustainable** to the properties: secure, resilient, manageable, sustainable, observable.
+- Reframes the goal as deploying workloads "in a **programmatic and repeatable** manner" across public, private, and hybrid clouds.
+
+Either way: "cloud native" is about *how* an application is designed and operated, not *where* it runs.
 
 ---
 
@@ -43,7 +51,7 @@ None of that makes the application cloud native. The questions that actually dec
 3. Can it **automatically scale** based on its operational workload?
 4. Is it **secure by default**?
 
-![Is my application cloud native? Cloud benefits vs the questions that decide it](./diagrams/01-is-my-application-cloud-native.png)
+![Is my application cloud native? Cloud benefits vs the questions that decide it](./diagrams/01-is-my-application-cloud-native.svg)
 
 A lift-and-shift monolith on a cloud VM ticks the three left-hand boxes and none of the four on the right. That is "running in the cloud", not "cloud native".
 
@@ -72,7 +80,7 @@ The course organizes the rest of Section 2 around four philosophies. Each one ge
 | **Community and Governance** | How the CNCF and its projects are run: the TOC, SIGs, project maturity levels, open governance |
 | **Open Standards** | The specifications that keep the ecosystem interoperable: OCI, CRI, CNI, CSI, and others |
 
-![The four cloud native philosophies](./diagrams/02-cloud-native-philosophies.png)
+![The four cloud native philosophies](./diagrams/02-cloud-native-philosophies.svg)
 
 ---
 
@@ -87,7 +95,7 @@ How it came to exist:
 | **2014** | Kubernetes is open-sourced by **Google** |
 | **2015** | Kubernetes is donated to the newly formed CNCF — the **first ever CNCF project** |
 
-![CNCF formation timeline: Kubernetes open-sourced 2014, donated to the CNCF 2015](./diagrams/03-cncf-formation-timeline.png)
+![CNCF formation timeline: Kubernetes open-sourced 2014, donated to the CNCF 2015](./diagrams/03-cncf-formation-timeline.svg)
 
 Kubernetes being the seed project is why the KCNA is "Kubernetes *and* Cloud Native": Kubernetes is the anchor, and the surrounding CNCF projects (Prometheus, Envoy, containerd, Helm, Argo, and so on) are the ecosystem that grew around it. Those projects are tracked in [`../cncf-projects.md`](../cncf-projects.md) as the course introduces them.
 
@@ -96,7 +104,7 @@ Kubernetes being the seed project is why the KCNA is "Kubernetes *and* Cloud Nat
 ## Exam angle
 
 - Expect a question that asks for the **defining property** of cloud native and offers "runs in a container" or "runs on a public cloud" as distractors. The correct framing is design and operational practice: automation, resilience, scalability, security, observability, loose coupling.
-- Know the CNCF definition's list of **example technologies** (containers, service meshes, microservices, immutable infrastructure, serverless, declarative APIs, multi-tenancy) and its list of **system properties** (secure, resilient, manageable, sustainable, observable). A question can ask which item does *not* belong.
+- Know the CNCF definition's list of **example technologies** (v1.0: containers, service meshes, microservices, immutable infrastructure, declarative APIs; v1.1 adds serverless and multi-tenancy) and its list of **system properties** (v1.0: resilient, manageable, observable; v1.1 adds secure and sustainable). A question can ask which item does *not* belong — an answer that appears only in v1.1 is still a valid cloud native property, so the safe elimination is something in neither list (e.g. "monolithic", "manually provisioned").
 - **2014 / 2015 / Google / first CNCF project** — the Kubernetes origin facts are a reliable easy question.
 - The CNCF is part of the **Linux Foundation**. A distractor will offer Google, the Apache Foundation, or the OpenStack Foundation.
 - Cloud native has a **culture** component with named personas (DevOps, SRE, FinOps). A question may ask which persona is *not* a cloud native role, or which one owns cost.
@@ -104,7 +112,8 @@ Kubernetes being the seed project is why the KCNA is "Kubernetes *and* Cloud Nat
 
 ## References
 
-- [CNCF Cloud Native Definition v1.1](https://github.com/cncf/toc/blob/main/DEFINITION.md) — the canonical definition, with the technology and property lists quoted above
+- [CNCF Cloud Native Definition v1.1](https://github.com/cncf/toc/blob/main/DEFINITION.md) — the current canonical text in the TOC repo
+- [CNCF Charter, section 1](https://github.com/cncf/foundation/blob/main/charter.md) — the v1.0 wording (also shown on the *Who we are* page above)
 - [Who we are — CNCF](https://www.cncf.io/about/who-we-are/) — the foundation's mission and its relationship to the Linux Foundation
 - [Kubernetes — Overview](https://kubernetes.io/docs/concepts/overview/) — includes the "Going back in time" history from traditional to virtualized to container deployment
 - [CNCF Landscape](https://landscape.cncf.io/) — the interactive map of every CNCF project by category and maturity

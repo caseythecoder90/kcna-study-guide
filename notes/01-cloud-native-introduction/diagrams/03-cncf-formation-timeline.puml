@@ -1,0 +1,16 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title How the Cloud Native Computing Foundation was formed
+
+rectangle "**2014**\nKubernetes open-sourced\nby Google\n<size:11>built on ~15 years of running Borg</size>" as y2014
+rectangle "**2015**\nKubernetes donated to the CNCF\n<size:11>the first ever CNCF project</size>" as y2015
+rectangle "Linux Foundation" <<group>> as lf {
+  rectangle "CNCF\n<size:11>founded 2015 · vendor-neutral home</size>\n<size:11>for cloud native open source</size>" <<accent>> as cncf
+}
+rectangle "The ecosystem grows\n<size:11>Prometheus · Envoy · containerd</size>\n<size:11>Helm · Argo · etcd · CoreDNS ...</size>" <<muted>> as eco
+
+y2014 --> y2015
+y2015 --> cncf
+cncf --> eco
+@enduml

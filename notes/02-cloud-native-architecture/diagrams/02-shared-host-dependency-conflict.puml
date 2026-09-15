@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Many applications on one host — the shared-dependency problem
+
+rectangle "Linux host — one shared filesystem" <<group>> as host {
+  rectangle "nginx\n<size:11>/usr/*/nginx · /etc/*/nginx</size>" <<plain>> as nginx
+  rectangle "app1\n<size:11>/usr/*/app1 · /etc/*/app1</size>" <<plain>> as app1
+  rectangle "app2\n<size:11>/usr/*/app2 · /etc/*/app2</size>" as app2
+  rectangle "app3\n<size:11>/usr/*/app3 · /etc/*/app3</size>" as app3
+  rectangle "Library XYZ\n<size:11>one copy for the whole host</size>\n<size:11>installed: v1.0</size>" <<bad>> as lib
+
+  nginx -[hidden]right-> app1
+  app1 -[hidden]right-> app2
+  app2 -[hidden]right-> app3
+  app2 -[#16A34A]down-> lib : works with v1.0
+  app3 -[#DC2626]down-> lib : now requires v2.0
+}
+
+rectangle "Upgrade the library for app3 and app2 breaks. Leave it and app3 is blocked.\n<size:11>Neither application can change independently — the host couples them.</size>" <<bad>> as problem
+rectangle "Cloud native answer: package each application with its own dependencies (containers)\n<size:11>app2 ships v1.0, app3 ships v2.0, both run side by side on the same host.</size>" <<good>> as answer
+
+lib -[hidden]down-> problem
+problem -[hidden]down-> answer
+@enduml

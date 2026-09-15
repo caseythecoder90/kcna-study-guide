@@ -1,0 +1,16 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The four cloud native philosophies
+
+rectangle "Cloud Native" <<accent>> as core
+
+rectangle "Architecture\n<size:11>how applications are designed:</size>\n<size:11>microservices · resilience · autoscaling</size>\n<size:11>serverless · immutable infrastructure</size>" as a
+rectangle "Personas\n<size:11>the roles that make it work:</size>\n<size:11>DevOps · SRE · FinOps · platform</size>\n<size:11>security · data engineering</size>" as p
+rectangle "Community & Governance\n<size:11>how the CNCF and its projects run:</size>\n<size:11>TOC · SIGs · open governance</size>\n<size:11>Sandbox → Incubating → Graduated</size>" as g
+rectangle "Open Standards\n<size:11>what keeps the ecosystem interoperable:</size>\n<size:11>OCI · CRI · CNI · CSI</size>\n<size:11>OpenTelemetry · SMI</size>" as s
+
+core -down-> a
+core -down-> p
+core -down-> g
+core -down-> s
+@enduml

@@ -20,7 +20,7 @@ You do not need to read it front to back. Jump to a section, or drill the recall
 kcna-study-guide/
 ├── README.md
 ├── notes/                                   # the study notes, one folder per course section
-│   ├── 01-cloud-native-introduction/        #   each with its own diagrams/ subfolder
+│   ├── 01-cloud-native-introduction/        #   each with its own diagrams/ (PlantUML → SVG)
 │   ├── 02-cloud-native-architecture/
 │   ├── 03-containers-with-docker/
 │   ├── 04-kubernetes-fundamentals/
@@ -32,6 +32,7 @@ kcna-study-guide/
 │   ├── commands/                            # per-topic command references from the hands-on lectures
 │   ├── commands.md                          # global single-file command reference (Ctrl+F)
 │   └── NOTES-WORKFLOW.md                    # how these notes are authored
+├── tools/diagrams/                          # shared PlantUML theme + render script for every diagram
 └── examples/                                # runnable manifests / Dockerfiles from the labs (growing)
 ```
 
@@ -40,7 +41,7 @@ kcna-study-guide/
 | Section | Covers | Status |
 |---|---|---|
 | [01 · Cloud Native Introduction](notes/01-cloud-native-introduction/) | What cloud native is (and isn't), the CNCF, the four philosophies, how to tell if an app is cloud native | In progress |
-| [02 · Cloud Native Architecture](notes/02-cloud-native-architecture/) | Autoscaling, serverless, community/governance, personas, open standards (OCI, CRI, CNI, CSI, ...) | Not started |
+| [02 · Cloud Native Architecture](notes/02-cloud-native-architecture/) | Monolith vs microservices, autoscaling, serverless, community/governance, personas, open standards (OCI, CRI, CNI, CSI, ...) | In progress |
 | [03 · Containers with Docker](notes/03-containers-with-docker/) | Container history, images, layers, registries, Docker vs containerd, hands-on Docker | Not started |
 | [04 · Kubernetes Fundamentals](notes/04-kubernetes-fundamentals/) | Architecture, control plane and node components, Pods, kubectl, namespaces, labels | Not started |
 | [05 · Kubernetes Deep Dive](notes/05-kubernetes-deep-dive/) | Workloads, Services, networking, storage, scheduling, security/RBAC, Helm, operators, CRDs | Not started |
@@ -86,7 +87,7 @@ Always confirm the current version, duration, and passing score on the official 
 
 ## Attribution & license
 
-Notes were built while working through James Spurin's KCNA course and expanded with additional depth from the official CNCF and Kubernetes documentation. They are original write-ups intended for study and sharing; no course material is reproduced.
+Notes were built while working through James Spurin's KCNA course and expanded with additional depth from the official CNCF and Kubernetes documentation. They are original write-ups intended for study and sharing; no course material is reproduced. Every diagram is an original PlantUML drawing (source `.puml` committed next to the rendered `.svg`), not a course slide.
 
 This repository is dual-licensed (see [`LICENSE`](LICENSE)):
 

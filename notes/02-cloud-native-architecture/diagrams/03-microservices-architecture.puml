@@ -1,0 +1,36 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Microservices architecture — loosely coupled, independently owned and scaled
+
+rectangle "Ingress — traffic routing controlled by rules" <<accent>> as ingress
+
+rectangle "Team A owns" <<groupGood>> as teamA {
+  rectangle "Main website\n<size:11>microservice · Apache</size>" as ms1
+}
+rectangle "Catalogue\n<size:11>microservice · NGINX</size>" as ms2
+rectangle "Search\n<size:11>microservice</size>" as ms3
+rectangle "Accounts\n<size:11>microservice · PHP</size>" as ms4
+rectangle "Team B owns" <<groupGood>> as teamB {
+  rectangle "Store\n<size:11>microservice · Java</size>" as ms5
+  rectangle "Store\n<size:11>replica — scaled on demand</size>" <<muted>> as ms5b
+  ms5 -[hidden]down-> ms5b
+}
+
+ingress -[#16A34A]-> ms1 : /
+ingress -[#16A34A]-> ms2
+ingress -[#16A34A]-> ms3
+ingress -[#16A34A]-> ms4
+ingress -[#16A34A]-> ms5 : /store
+
+database "DB\n<size:11>primary</size>" as db1
+database "DB\n<size:11>replica / shard</size>" as db1b
+rectangle "etcd — distributed key/value store\n<size:11>consistency via Raft consensus</size>" <<muted>> as etcd
+
+ms1 --> db1
+db1 <-right-> db1b : replication\nand/or sharding
+ms2 --> etcd
+ms3 --> etcd
+ms4 --> etcd
+ms5 --> etcd
+ms5b --> etcd
+@enduml

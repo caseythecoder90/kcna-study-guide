@@ -9,6 +9,11 @@
 | **Kubernetes** | Orchestration | Graduated | Container orchestration platform. Open-sourced by Google in 2014, donated to the CNCF in 2015 as its first project | [01-01](01-cloud-native-introduction/01-what-is-cloud-native.md) |
 | **Terraform** | Infrastructure as code | Not CNCF (HashiCorp / IBM) | Declarative provisioning of cloud infrastructure through provider APIs | [01-01](01-cloud-native-introduction/01-what-is-cloud-native.md) |
 | **Ansible** | Configuration management / automation | Not CNCF (Red Hat) | Agentless automation of configuration and provisioning, also usable for cloud automation via provider APIs | [01-01](01-cloud-native-introduction/01-what-is-cloud-native.md) |
+| **etcd** | Key/value store / coordination | Graduated | Distributed, reliable key/value store using Raft consensus; the datastore behind the Kubernetes control plane | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| **NGINX** | Web server / reverse proxy | Not CNCF (F5) | High-performance web server and reverse proxy; basis of the widely used NGINX Ingress controller | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| **Apache HTTP Server** | Web server | Not CNCF (Apache Software Foundation) | The classic open source web server, typical front for PHP/Java monoliths | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| **ODBC** (standard) | Database connectivity API | Not CNCF (standard, not a project) | Open Database Connectivity — the driver interface a monolith's data layer is classically bound to | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| **Raft** (algorithm) | Consensus algorithm | Not CNCF (algorithm, not a project) | Leader-based consensus used by etcd to keep replicas consistent | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
 
 ## Organizations (not projects, but they appear in questions)
 
