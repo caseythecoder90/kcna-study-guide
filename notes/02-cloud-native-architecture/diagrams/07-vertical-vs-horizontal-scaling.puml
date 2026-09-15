@@ -1,0 +1,36 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Vertical scaling (up) vs horizontal scaling (across)
+
+rectangle "Vertical — make one machine bigger" <<group>> as v {
+  rectangle "Server A\n<size:11>4 vCPU · 16 GB</size>" <<muted>> as v1
+  rectangle "Server A\n<size:11>16 vCPU · 64 GB</size>" as v2
+  rectangle "Server A\n<size:11>64 vCPU · 256 GB</size>" as v3
+  rectangle "Ceiling\n<size:11>the biggest machine you can buy — or the</size>\n<size:11>spare capacity left on the hypervisor host</size>" <<bad>> as cap
+  v1 -down-> v2 : add CPU / RAM
+  v2 -down-> v3 : add more
+  v3 -[#DC2626]down-> cap
+  label "<i>Bare metal: open the case (downtime, hard limit, price climbs fast).</i>\n<i>Virtual: the hypervisor (e.g. VMware ESXi) grants the VM more of the host —</i>\n<i>but only what the physical host still has free.</i>" as vcap
+  cap -[hidden]down-> vcap
+}
+
+rectangle "Horizontal — add more machines" <<groupGood>> as h {
+  rectangle "Load balancer / service" <<accent>> as lb
+  rectangle "Server A" <<good>> as h1
+  rectangle "Server B" <<good>> as h2
+  rectangle "Server C" <<good>> as h3
+  rectangle "Server D\n<size:11>added</size>" <<good>> as h4
+  rectangle "Server E\n<size:11>added</size>" <<good>> as h5
+  rectangle "Server F\n<size:11>...</size>" <<muted>> as h6
+  lb -down-> h1
+  lb -down-> h2
+  lb -down-> h3
+  lb -[#16A34A]down-> h4
+  lb -[#16A34A]down-> h5
+  lb -[#94A3B8]down-> h6
+  label "<i>Commodity machines working together as a distributed system; add or remove</i>\n<i>resources relative to what is already there. No hard ceiling, but the application</i>\n<i>must be built to share work and data across many instances.</i>" as hcap
+  h3 -[hidden]down-> hcap
+}
+
+v -[hidden]right-> h
+@enduml

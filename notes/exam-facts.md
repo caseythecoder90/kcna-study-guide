@@ -68,6 +68,20 @@
 | Kubernetes Service DNS name | `<service>.<namespace>.svc.cluster.local`, served by CoreDNS | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 | Terraform vs Ansible | Terraform = **infrastructure as code**, declarative provisioning via provider APIs (HashiCorp). Ansible = **configuration management / automation**, procedural playbooks, agentless (Red Hat). Neither is CNCF | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 | Application automation checklist | Speed & agility ✓ · rapid infrastructure + application deployment ✓ · frequent updates ✓ · **manual steps ✗** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Autoscaling (definition) | A pattern for **automatic scaling of infrastructure or application components according to metrics or other requirements** | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Automatic vs automated | **Automatic** = works independently; **automated** = a process made independent of human intervention | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Three autoscaling triggers | **Reactive** (metric crosses a threshold) · **Scheduled** (known time, e.g. Black Friday) · **Predictive** (AI/ML forecast) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Vertical scaling | Add CPU/RAM/storage to **one machine** ("scaling up"); bare metal has a hard ceiling and steep cost; usually means a **hypervisor** (e.g. VMware ESXi) giving a VM more of its host — capped by what the host has free | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Horizontal scaling | **Commodity machines working together as a distributed system**; add/remove resources relative to existing ones ("scaling across"); the cloud native default | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Cost of horizontal scaling | Increased **complexity of data sharing** — more instances = more routes and **concurrency**; testing is critical | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Cluster Autoscaler | Adjusts the **size of the cluster (nodes)** when Pods **fail to run for insufficient resources** (add) or nodes are **underutilized** and their Pods fit elsewhere (remove) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HorizontalPodAutoscaler (HPA) | **Built in**; scales the **number of replicas** of a Deployment/StatefulSet from CPU/memory (metrics-server) or custom/external metrics | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| VerticalPodAutoscaler (VPA) | **Add-on** (not shipped with Kubernetes); scales a Pod's **resource requests and limits**; typically restarts the Pod to apply | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA + VPA together | Don't use both on the same CPU/memory metric for one workload — they conflict | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| KEDA | **Kubernetes Event-Driven Autoscaling**; CNCF **graduated Aug 2023** (sandbox Mar 2020, incubating Aug 2021); scales on external events via **ScaledObject** triggers; **can scale a Deployment to zero** | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| KEDA mechanics | Handles **0 → 1** itself; creates and feeds an **HPA** for **1 → n**; scale-to-zero impossible with CPU/memory triggers (nothing to measure) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| KEDA trigger examples | Kafka lag, RabbitMQ / AWS SQS / Azure Service Bus queue length, Prometheus query, `cron` (gives scheduled scaling) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Knative vs KEDA | Both reach zero. Knative = serverless **application platform** (request-driven, eventing). KEDA = an **autoscaler** attached to ordinary Deployments | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 
 ## 03 · Containers with Docker
 

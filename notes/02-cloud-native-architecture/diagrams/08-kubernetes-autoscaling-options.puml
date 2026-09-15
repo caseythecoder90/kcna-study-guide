@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Kubernetes autoscaling — which autoscaler changes what
+
+rectangle "Cluster Autoscaler\n<size:11>adds nodes when Pods can't be scheduled</size>\n<size:11>for lack of resources; removes nodes that are</size>\n<size:11>underutilized and whose Pods fit elsewhere</size>" <<accent>> as ca
+rectangle "KEDA — event-driven\n<size:11>CNCF graduated · ScaledObject names the</size>\n<size:11>workload and its triggers: queue length, Kafka</size>\n<size:11>lag, Prometheus query, cron ... Scales 0 → 1</size>\n<size:11>itself; can scale a Deployment to zero</size>" <<good>> as keda
+rectangle "HorizontalPodAutoscaler\n<size:11>built in · adjusts replicas from CPU /</size>\n<size:11>memory (via metrics-server) or custom</size>\n<size:11>and external metrics</size>" <<accent>> as hpa
+rectangle "VerticalPodAutoscaler\n<size:11>add-on, not built in · adjusts a Pod's</size>\n<size:11>resource requests and limits; typically</size>\n<size:11>restarts the Pod to apply them</size>" <<accent>> as vpa
+
+rectangle "Horizontal — more of them" <<groupGood>> as hz {
+  rectangle "Node count\n<size:11>the size of the cluster</size>" <<good>> as nodes
+  rectangle "Replica count\n<size:11>Pods of a Deployment / StatefulSet</size>" <<good>> as reps
+}
+rectangle "Vertical — bigger" <<group>> as vt {
+  rectangle "Pod resources\n<size:11>CPU / memory requests and limits</size>" as res
+}
+
+ca --> nodes : scale nodes
+keda -[#16A34A]-> hpa : creates and feeds the HPA\nwith external metrics for 1 → n
+hpa --> reps : scale replicas
+vpa --> res : resize
+
+caption <i>Horizontal = more Pods (HPA, KEDA) or more nodes (Cluster Autoscaler). Vertical = bigger Pods (VPA).</i>\n<i>Don't run HPA and VPA on the same CPU/memory metric for the same workload — they fight each other.</i>
+@enduml

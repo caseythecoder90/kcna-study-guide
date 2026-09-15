@@ -20,6 +20,11 @@
 | **Linkerd** | Service mesh | Graduated | Lightweight service mesh providing mTLS and observability with its own micro-proxy | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 | **SPIFFE / SPIRE** | Workload identity | Graduated | Standard (SPIFFE) and implementation (SPIRE) for issuing cryptographic workload identities — the identity foundation for zero trust / mTLS | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 | **Git** | Version control | Not CNCF | The commit that triggers every CI/CD pipeline; the source of truth in GitOps (Section 7) | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **KEDA** | Autoscaling (event-driven) | Graduated (Aug 2023) | Kubernetes Event-Driven Autoscaling: ScaledObject + external triggers (queues, Kafka, Prometheus, cron); scales 0 → 1 itself and drives an HPA for 1 → n; scale to zero | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| **Cluster Autoscaler** | Autoscaling (nodes) | Kubernetes SIG Autoscaling (kubernetes/autoscaler), not a separate CNCF project | Adds nodes when Pods can't be scheduled for lack of resources; removes underutilized nodes | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| **VerticalPodAutoscaler (VPA)** | Autoscaling (Pod resources) | Kubernetes SIG Autoscaling add-on | Adjusts Pod CPU/memory requests and limits from observed usage; not shipped with Kubernetes by default | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| **metrics-server** | Metrics | Kubernetes SIG Instrumentation add-on | Cluster-wide aggregator of CPU/memory usage that HPA and VPA read; also backs `kubectl top` | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| **VMware ESXi** | Hypervisor | Not CNCF (Broadcom) | Bare-metal hypervisor; the lecture's example of vertical scaling by granting a VM more of its host | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 
 ## Organizations (not projects, but they appear in questions)
 
