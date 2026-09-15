@@ -47,6 +47,27 @@
 | Ingress (one-liner) | API object managing external access to services in a cluster; **traffic routing is controlled by rules** (path- or host-based) | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
 | Data layer in microservices | Per-service data stores; relational scale-out via **replication** and/or **sharding**; shared consistent state via a distributed key/value store | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
 | etcd | Distributed, reliable **key/value store**; consistency via the **Raft** consensus algorithm; also the Kubernetes control-plane datastore | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| Four characteristics of cloud native applications | **Resilience, agility, operability, observability** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Four pillars of cloud native architecture (MCDC) | **Microservices, Containerisation, DevOps, Continuous Delivery** — "Morning Coffee Delivers Caffeine Delight" | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Self-healing chain | **Deployment** (declarative desired state + replica count) → **ReplicaSet** (managed by the Deployment; maintains the desired number of Pods) → **Pod** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Pod (one-liner) | **Smallest deployable unit** in Kubernetes; one or more containers with **shared networking and storage**; "think of a Pod as an isolated host" | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Which object directly maintains the Pod count? | The **ReplicaSet** (the Deployment manages the ReplicaSet) | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Continuous Integration | Every commit automatically **built, unit-tested, integration-tested** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Continuous Delivery | Changes automatically built, tested and made **deployable / released to an acceptance environment**; the production release is a **manual (human) decision** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Continuous Deployment | "Goes a step further" — every passing change goes to **production automatically, no human step**; needs strong automated testing and **rollback** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Bare "CD" / "CI/CD" on the exam | Read as Continuous **Delivery** unless the question says "deployment" or "automatically to production without manual intervention" | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Zero trust | "**Never trust, always verify**" — no trust from network location; verify every access, even inside the perimeter; always use **mTLS** between services | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| mTLS vs TLS | TLS validates **one** side (the server); **mutual** TLS validates **both** sides and encrypts the traffic | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Secure by default — the three practices | **Zero trust · secure channels · least privilege** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Secure channel vs zero trust | Secure channel = encryption/integrity of traffic **in transit** (TLS). Zero trust = a **trust model**: identity + authorization verified on every request regardless of location. mTLS is where they overlap | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Least privilege | Each identity gets only the permissions its job needs — RBAC, scoped ServiceAccounts, securityContext (non-root, dropped capabilities) | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Knative | Kubernetes **serverless** solution providing **scale to zero**; CNCF incubating Mar 2022 → **Graduated Sep 2025** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Serverless (course framing) | Run nothing when there are no requests; scale with demand in both directions; pay only for what is used | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Service discovery (definition) | Process of **finding the individual instances that make up a service**; automatic detection, minimal manual configuration | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Service discovery in Kubernetes | **Environment variables and DNS**; DNS is preferred; env vars only include Services that **existed before the Pod was created** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Kubernetes Service DNS name | `<service>.<namespace>.svc.cluster.local`, served by CoreDNS | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Terraform vs Ansible | Terraform = **infrastructure as code**, declarative provisioning via provider APIs (HashiCorp). Ansible = **configuration management / automation**, procedural playbooks, agentless (Red Hat). Neither is CNCF | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| Application automation checklist | Speed & agility ✓ · rapid infrastructure + application deployment ✓ · frequent updates ✓ · **manual steps ✗** | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 
 ## 03 · Containers with Docker
 

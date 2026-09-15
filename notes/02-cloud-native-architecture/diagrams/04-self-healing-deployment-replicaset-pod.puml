@@ -1,0 +1,22 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Self-healing — declare the desired state, Kubernetes keeps it true
+
+rectangle "Deployment\n<size:11>declarative desired state: which image, how it runs,</size>\n<size:11>how many replicas — e.g. replicas: 4</size>" <<accent>> as dep
+rectangle "ReplicaSet\n<size:11>created and managed by the Deployment;</size>\n<size:11>keeps exactly the desired number of Pods running</size>" as rs
+rectangle "Pods — desired: 4 · running: 4" <<group>> as pods {
+  rectangle "Pod" as p1
+  rectangle "Pod" as p2
+  rectangle "Pod" as p3
+  rectangle "Pod\n<size:11>failed</size>" <<bad>> as p4
+  rectangle "Pod\n<size:11>replacement</size>" <<good>> as p5
+  p1 -[hidden]right-> p2
+  p2 -[hidden]right-> p3
+  p3 -[hidden]right-> p4
+  p4 -[#DC2626]right-> p5 : detected,\nreplaced
+}
+dep -down-> rs : owns
+rs -down-> pods : reconciles actual state to desired state
+
+caption <i>Pod = the smallest deployable unit in Kubernetes: one or more containers sharing networking and storage — think of a Pod as an isolated host.</i>\n<i>Nobody restarts the failed Pod by hand; the ReplicaSet notices running < desired and creates a new one.</i>
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title CI/CD — continuous integration, then delivery or deployment
+
+rectangle "Code" <<plain>> as code
+rectangle "Commit\n<size:11>git push</size>" <<plain>> as commit
+
+rectangle "Continuous Integration — every commit is built and tested" <<group>> as ci {
+  rectangle "Build" as b
+  rectangle "Unit tests" as ut
+  rectangle "Integration tests" as it
+  b -right-> ut
+  ut -right-> it
+}
+
+rectangle "Continuous Delivery — deployable at any time" <<group>> as cdel {
+  rectangle "Release-ready artifact\n<size:11>deployed to staging /</size>\n<size:11>acceptance environment</size>" as art
+  rectangle "Review / approval\n<size:11>a person decides when</size>" <<muted>> as rev
+  rectangle "Release to\nproduction" as rel1
+  art -right-> rev
+  rev -right-> rel1
+}
+
+rectangle "Continuous Deployment — no human step" <<groupGood>> as cdep {
+  rectangle "Automated gates\n<size:11>tests, policy checks,</size>\n<size:11>canary analysis</size>" <<good>> as gate
+  rectangle "Release to production\n<size:11>automatic; automated</size>\n<size:11>rollback if it fails</size>" <<good>> as rel2
+  gate -right-> rel2
+}
+
+code -right-> commit
+commit -right-> b
+it -down-> art : passes
+it -down-> gate : passes
+
+caption <i>Both branches start from the same CI output. Delivery stops at "deployable, and a person approves the release"; deployment goes all the way to production</i>\n<i>on its own, which is why it demands stronger automated testing and rollback. On the exam, plain "CD" means continuous delivery unless the question says deployment.</i>
+@enduml

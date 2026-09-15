@@ -14,6 +14,12 @@
 | **Apache HTTP Server** | Web server | Not CNCF (Apache Software Foundation) | The classic open source web server, typical front for PHP/Java monoliths | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
 | **ODBC** (standard) | Database connectivity API | Not CNCF (standard, not a project) | Open Database Connectivity — the driver interface a monolith's data layer is classically bound to | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
 | **Raft** (algorithm) | Consensus algorithm | Not CNCF (algorithm, not a project) | Leader-based consensus used by etcd to keep replicas consistent | [02-01](02-cloud-native-architecture/01-monolithic-vs-microservices.md) |
+| **Knative** | Serverless / application layer | Graduated (Sep 2025; incubating Mar 2022) | Serverless application layer on Kubernetes: HTTP-triggered autoscaling containers that can **scale to zero**, plus eventing | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **CoreDNS** | Service discovery / DNS | Graduated | The cluster DNS server that gives every Service a `<svc>.<ns>.svc.cluster.local` name | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **Istio** | Service mesh | Graduated | Service mesh providing mTLS, traffic management and observability between services via Envoy sidecars/ambient mode | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **Linkerd** | Service mesh | Graduated | Lightweight service mesh providing mTLS and observability with its own micro-proxy | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **SPIFFE / SPIRE** | Workload identity | Graduated | Standard (SPIFFE) and implementation (SPIRE) for issuing cryptographic workload identities — the identity foundation for zero trust / mTLS | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
+| **Git** | Version control | Not CNCF | The commit that triggers every CI/CD pipeline; the source of truth in GitOps (Section 7) | [02-02](02-cloud-native-architecture/02-cloud-native-practices.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

@@ -1,0 +1,18 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Secure by default — three questions every request must pass
+
+rectangle "Service A\n<size:11>identity: frontend</size>" as a
+rectangle "Service B\n<size:11>identity: orders</size>" as b
+a -[#16A34A]right-> b : request
+
+rectangle "**1 · Secure channel**\n<i>Can anyone read or alter the traffic in transit?</i>\n<size:11>TLS encrypts the connection and protects its integrity. On its own it still trusts whoever reaches the endpoint.</size>" <<plain>> as l1
+rectangle "**2 · Zero trust — never trust, always verify**\n<i>Do we know who is calling — on every request, regardless of where on the network it comes from?</i>\n<size:11>Mutual TLS: both sides present a certificate, so identity is proven in both directions. Default-deny network policy.</size>\n<size:11>Being "inside the perimeter" grants nothing.</size>" <<plain>> as l2
+rectangle "**3 · Least privilege**\n<i>Once verified, what is this caller allowed to do?</i>\n<size:11>Only what its job needs: RBAC roles, minimal service accounts, non-root containers, dropped capabilities, read-only filesystems.</size>" <<plain>> as l3
+
+b -[hidden]down-> l1
+l1 -[hidden]down-> l2
+l2 -[hidden]down-> l3
+
+caption <i>mTLS is where 1 and 2 overlap: it both encrypts the channel and proves both identities. Secure channels answer "is the pipe safe?";</i>\n<i>zero trust answers "who is on the other end, every time?"; least privilege answers "and what may they do?".</i>
+@enduml
