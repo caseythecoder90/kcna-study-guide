@@ -1,0 +1,17 @@
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Editors ###
+.vscode/
+.idea/
+*.iml
+*.swp
+
+### Logs / archives ###
+*.log
+*.zip
+*.tar.gz
+
+### Claude Code (per-machine local settings) ###
+.claude/settings.local.json
