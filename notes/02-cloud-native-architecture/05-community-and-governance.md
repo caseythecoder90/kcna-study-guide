@@ -120,6 +120,19 @@ Expect the exam to test the expansions (TOC, SIG, TAG) and possibly a pre-2025 T
 
 ---
 
+## 7. Where the community meets
+
+Governance is the formal side; most participation happens at events and through community programs.
+
+| | What it is | How to take part |
+|---|---|---|
+| **KubeCon + CloudNativeCon** | The CNCF's flagship conference, run by the Linux Foundation several times a year (North America, Europe, China, India, Japan). Project maintainers, end users, and vendors in one place; where graduations and new projects are announced | Attend, or submit a talk through the **CFP** (call for proposals) months ahead; the CNCF also funds scholarships |
+| **Kubernetes Community Days (KCDs)** | Regional, **community-organised**, one- to two-day events supported by the CNCF — grown from 12 in 2021 to dozens a year. Since 2026 they are tiered (first-time up to 200 attendees, tier 1 at 350+, tier 2 up to 600) with CNCF funding and program support | Each KCD runs its own **CFP** through the CNCF CfP system — the most accessible first speaking slot in the ecosystem; organisers are local volunteers |
+| **CNCF Ambassadors** | Experienced practitioners recognised by the CNCF for community leadership: they advocate for cloud native, organise KCDs and meetups, speak, write, and mentor new contributors | Application-based cohorts; a track record of community work (meetups, KCD organising, content) is the qualification |
+| **Other channels** | CNCF Slack (`slack.cncf.io`) with a channel per project, project mailing lists, the **CNCF Glossary** (`glossary.cncf.io`), **CLOTributor** (`clotributor.dev`) for finding issues to work on, and the mentoring programs (LFX Mentorship, Google Summer of Code) | Every project's `CONTRIBUTING.md` links its own |
+
+---
+
 ## Exam angle
 
 - **TOC = Technical Oversight Committee**, the technical governing body; it **accepts projects and moves them between levels**. The Governing Board is the business/budget body — a common distractor for "who approves graduation".
@@ -129,6 +142,7 @@ Expect the exam to test the expansions (TOC, SIG, TAG) and possibly a pre-2025 T
 - **Level-move mechanics**: TOC sponsor, TAG recommendation, due diligence with **5–7 adopter interviews**, **two weeks** public comment, **two-thirds** TOC vote. Incubating needs **≥ 3 independent production adopters**.
 - Sustainability signals: adoption, healthy rate of changes, committers from multiple organizations, **Code of Conduct**, **OpenSSF (formerly CII) Best Practices Badge**; Graduated adds a **security audit**.
 - **SIG** = Special Interest Group (Kubernetes' own working structure; the CNCF's *former* name for TAGs). **TAG** = Technical Advisory Group — CNCF domain groups that guide sandbox onboarding and review level moves. Renamed in 2021 to stop the confusion with Kubernetes SIGs.
+- **KubeCon + CloudNativeCon** = the flagship conference; **KCD** = Kubernetes Community Day, a regional community-run event with its own **CFP** (call for proposals); **CNCF Ambassadors** = recognised community leaders who organise, speak, and mentor.
 - Firsts worth a question: Kubernetes was the **first project** (2015) and the **first to graduate** (March 2018); Prometheus was the **second project** (May 2016) and the **second to graduate** (August 2018); Envoy graduated third (November 2018).
 
 ## References
@@ -139,3 +153,5 @@ Expect the exam to test the expansions (TOC, SIG, TAG) and possibly a pre-2025 T
 - [CNCF Project Metrics](https://www.cncf.io/project-metrics/) — the Crossing the Chasm mapping and the sustainability criteria in the CNCF's own words; [CNCF Projects](https://www.cncf.io/projects/) lists every project by level
 - [10 Years in Cloud Native: TOC Restructures Technical Groups](https://www.cncf.io/blog/2025/05/07/10-years-in-cloud-native-toc-restructures-technical-groups/) — the 2019 SIG creation, 2021 rename, and the 2025 five-TAG structure
 - [Rename CNCF SIGs to avoid confusion with other types of SIG — cncf/toc #549](https://github.com/cncf/toc/issues/549) — the rename discussion
+- [Kubernetes Community Days — CNCF](https://www.cncf.io/kcds/) and [Announcing H2 2026 KCDs](https://www.cncf.io/blog/2026/02/25/announcing-h2-2026-kcds/) — the program, CFPs, and the 2026 tiers
+- [CNCF Ambassadors](https://www.cncf.io/people/ambassadors/) — the program and what ambassadors do
