@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Moving a project up a level — Sandbox → Incubating → Graduated
+
+rectangle "Application\n<size:11>project opens an issue against</size>\n<size:11>the level's criteria</size>" <<plain>> as app
+rectangle "TOC sponsor\n<size:11>a TOC member steps forward</size>\n<size:11>and drives the process</size>" <<accent>> as sponsor
+rectangle "TAG review\n<size:11>domain TAG presentation</size>\n<size:11>and recommendation</size>" as tag
+rectangle "Due diligence\n<size:11>technical + governance review</size>\n<size:11>5–7 adopter interviews</size>" as dd
+rectangle "Public comment\n<size:11>DD published; two weeks</size>\n<size:11>for the community to respond</size>" as rfc
+rectangle "TOC vote\n<size:11>2/3 supermajority</size>" <<accent>> as vote
+rectangle "New level" <<good>> as done
+
+app -right-> sponsor
+sponsor -right-> tag
+tag -right-> dd
+dd -right-> rfc
+rfc -right-> vote
+vote -right-> done
+
+rectangle "What due diligence checks" <<group>> as checks {
+  rectangle "Adoption\n<size:11>Incubating: production use by</size>\n<size:11>≥ 3 independent adopters</size>" <<plain>> as c1
+  rectangle "Health\n<size:11>healthy committers (commit bit),</size>\n<size:11>substantial flow of commits,</size>\n<size:11>committers from multiple orgs</size>" <<plain>> as c2
+  rectangle "Governance\n<size:11>CNCF Code of Conduct adopted,</size>\n<size:11>clear versioning, documented</size>\n<size:11>governance and maintainers</size>" <<plain>> as c3
+  rectangle "Security\n<size:11>OpenSSF Best Practices badge;</size>\n<size:11>Graduated: third-party audit</size>" <<plain>> as c4
+  c1 -[hidden]right-> c2
+  c2 -[hidden]right-> c3
+  c3 -[hidden]right-> c4
+}
+dd -[hidden]down-> checks
+
+caption <i>Sandbox entry is a lighter, streamlined application. Incubation is where the bar jumps and most due diligence happens; graduation adds a security audit and proven multi-organization maintainership.</i>
+@enduml
