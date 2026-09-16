@@ -31,6 +31,10 @@
 | **Kourier / Contour** | Ingress (Knative networking layers) | Contour: Incubating (Jul 2020) · Kourier: part of Knative | Envoy-based ingress layers Knative Serving can route through (Istio is the third option) | [02-04](02-cloud-native-architecture/04-serverless.md) |
 | **Prometheus** | Observability / monitoring | Graduated (Aug 2018; joined May 2016 — the 2nd CNCF project, 2nd to graduate) | Monitoring system and time-series database; pull-based metrics scraping, PromQL, alerting (Section 6) | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
 | **Envoy** | Service proxy | Graduated (Nov 2018; joined Sep 2017) | High-performance edge/middle/service proxy created at Lyft; the data plane under Istio and many ingress controllers | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| **OpenCost** | Cost management (FinOps) | Incubating (Oct 2024; joined Jun 2022) | Real-time Kubernetes cost allocation and monitoring — the FinOps engineer's view of the cluster | [02-06](02-cloud-native-architecture/06-cloud-native-personas.md) |
+| **Backstage** | Developer portal / platform engineering | Incubating (Mar 2022; joined Sep 2020) | Open framework for building internal developer portals, created at Spotify | [02-06](02-cloud-native-architecture/06-cloud-native-personas.md) |
+| **Kubeflow** | AI / ML platform | Graduated (Jul 2026; incubating Jul 2023) | Toolkit for building AI platforms on Kubernetes — pipelines, training, notebooks; the ML engineer's platform | [02-06](02-cloud-native-architecture/06-cloud-native-personas.md) |
+| **Terraform** | Infrastructure as code | Not CNCF (HashiCorp / IBM) — see [01-01](01-cloud-native-introduction/01-what-is-cloud-native.md) | Named again here as the CloudOps engineer's core tool for provisioning across clouds | [02-06](02-cloud-native-architecture/06-cloud-native-personas.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

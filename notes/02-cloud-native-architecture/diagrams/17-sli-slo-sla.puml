@@ -1,0 +1,19 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title SLI → SLO → SLA — measure, target, promise
+
+rectangle "SLI — Service Level Indicator\n<size:11>a quantitative **measurement** of the service</size>\n<size:11>e.g. measured availability = 97%</size>\n<size:11>measured response time = 300 ms</size>" <<muted>> as sli
+rectangle "SLO — Service Level Objective\n<size:11>the internal **target** for an SLI</size>\n<size:11>e.g. responses in under 200 ms</size>\n<size:11>99.9% of requests succeed</size>" as slo
+rectangle "SLA — Service Level Agreement\n<size:11>the **contract** with customers, with consequences</size>\n<size:11>e.g. 99.99% uptime, or service credits</size>" <<accent>> as sla
+
+sli -> slo : compared against
+slo -> sla : backs
+
+rectangle "The lecture's example" <<groupBad>> as ex {
+  rectangle "SLI says 97% uptime, 300 ms\n<size:11>SLO wanted < 200 ms · SLA promised 99.99%</size>\n<size:11>→ meeting **neither** the SLO nor the SLA</size>" <<bad>> as bad
+}
+sli -[hidden]down-> ex
+
+caption <i>SLOs are set tighter than SLAs so the internal alarm fires before the contract is breached. Error budget = 100% − SLO: the failure you are allowed before feature work stops.</i>
+@enduml
