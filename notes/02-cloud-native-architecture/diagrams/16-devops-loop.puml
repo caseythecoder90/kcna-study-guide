@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title The DevOps loop — eight phases, and where each persona leans
+
+rectangle "Plan\n<size:11>business requirements</size>\n<size:11>user feedback</size>" as plan
+rectangle "Code\n<size:11>source code</size>\n<size:11>version control</size>" as code
+rectangle "Build\n<size:11>automation</size>\n<size:11>development</size>" as build
+rectangle "Test\n<size:11>quality control</size>" as test
+rectangle "Release\n<size:11>continuous integration</size>\n<size:11>continuous delivery / deployment</size>" <<accent>> as release
+rectangle "Deploy\n<size:11>provisioning</size>\n<size:11>configuration management</size>" <<good>> as deploy
+rectangle "Operate\n<size:11>virtualisation</size>\n<size:11>containerisation</size>" <<good>> as operate
+rectangle "Monitor\n<size:11>visualisation</size>\n<size:11>logging</size>" <<good>> as monitor
+
+plan -> code
+code -> build
+build -> test
+test -> release
+release -> deploy
+deploy -> operate
+operate -> monitor
+monitor -[norank,#475569]-> plan : feedback closes the loop
+
+caption <i>Blue = Dev half (build it), green = Ops half (run it), Release is the hand-off.  DevOps Engineer: the whole loop.  CloudOps Engineer: leans to the green half on cloud resources (Terraform, provider tooling).</i>\n<i>SRE: lives in operate/monitor and measures it (SLIs, SLOs).  DevSecOps: security gates in every phase.  Full Stack Developer: plan → test.</i>
+@enduml
