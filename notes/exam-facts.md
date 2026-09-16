@@ -124,6 +124,10 @@
 | TAGs 2021–2025 (the course's list) | App Delivery · Contributor Strategy · Environmental Sustainability · Network · Observability · Runtime · Security · Storage | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
 | TAGs since May 2025 | **Developer Experience · Infrastructure · Operational Resilience · Security and Compliance · Workloads Foundation** + TOC SubProjects: Contributor Strategy & Advocacy, Mentoring, Project Reviews | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
 | First CNCF projects | **Kubernetes** first (2015; first to **graduate** Mar 2018) · **Prometheus** second (May 2016; second to graduate Aug 2018) · **Envoy** graduated third (Nov 2018; created at Lyft) | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| KubeCon + CloudNativeCon | The CNCF's **flagship conference** (Linux Foundation), several editions a year; talks selected via **CFP** — call for proposals | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| KCD | **Kubernetes Community Day** — regional, **community-organised**, CNCF-supported 1–2 day event; each runs its own CFP; tiered since 2026 (first-time ≤ 200, tier 1 ≥ 350, tier 2 ≤ 600 attendees) | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| CNCF Ambassadors | Recognised **community leaders** who advocate, organise KCDs/meetups, speak, write and mentor; selected by application | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| CNCF community channels | CNCF Slack (`slack.cncf.io`), project mailing lists, `glossary.cncf.io`, **CLOTributor** (`clotributor.dev`) for contribution issues, LFX Mentorship | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
 
 ## 03 · Containers with Docker
 
