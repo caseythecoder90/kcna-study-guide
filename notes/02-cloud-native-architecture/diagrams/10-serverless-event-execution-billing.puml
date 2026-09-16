@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Serverless — event-driven execution, billed by what it used
+
+rectangle "Event\n<size:11>HTTP request · queue message · file upload</size>\n<size:11>schedule · database change</size>" <<accent>> as ev
+rectangle "Execution\n<size:11>the provider starts an execution environment,</size>\n<size:11>runs your function, and tears it down when idle</size>" as ex
+rectangle "Billing\n<size:11>duration (per ms) × memory size,</size>\n<size:11>plus request count — nothing while idle</size>" <<good>> as bill
+
+ev -> ex : triggers
+ex -> bill : metered
+
+rectangle "You bring" <<groupGood>> as you {
+  rectangle "Code as a .zip\n<size:11>handler + dependencies</size>" <<good>> as zip
+  rectangle "or a container image\n<size:11>OCI image with your runtime</size>" <<good>> as img
+  zip -[hidden]down-> img
+}
+rectangle "The provider brings (someone else's servers)" <<group>> as prov {
+  rectangle "Servers, OS, patching" <<muted>> as p1
+  rectangle "Runtime, cores, memory, network" <<muted>> as p2
+  rectangle "Scaling from zero, availability" <<muted>> as p3
+  p1 -[hidden]down-> p2
+  p2 -[hidden]down-> p3
+}
+you -[hidden]down-> prov
+ex -[hidden]down-> you
+
+caption <i>"Serverless" does not mean no servers — it means the servers are not yours to choose, size, patch, or depreciate.</i>
+@enduml
