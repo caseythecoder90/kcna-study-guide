@@ -107,6 +107,95 @@ Knative (chapter 02) and KEDA both reach zero; the difference is that Knative is
 
 ---
 
+## 5. HPA in practice — scaling a Deployment on CPU and memory
+
+The exam only needs the pairing "HPA scales replicas of a Deployment/StatefulSet", but the mechanics are worth one pass because they explain every HPA surprise you will meet later.
+
+### 5.1 The control loop
+
+The HPA is a controller inside the kube-controller-manager that runs a reconciliation loop, by default **every 15 seconds** (`--horizontal-pod-autoscaler-sync-period`):
+
+1. The **kubelets** report container CPU and memory usage.
+2. The **metrics-server** aggregates that usage cluster-wide and serves it through the Metrics API (`metrics.k8s.io`). It is an add-on — not installed by default on kind or kubeadm clusters — and without it the HPA has nothing to read.
+3. The HPA controller reads each HorizontalPodAutoscaler object, fetches the current metric for the target's Pods, and computes
+
+   `desiredReplicas = ceil( currentReplicas × currentMetricValue / targetMetricValue )`
+
+4. With **several metrics**, it computes a desired count for each and uses the **largest**.
+5. It writes the result into the target's `spec.replicas`; the Deployment's ReplicaSet does the actual adding or removing of Pods.
+
+![The HPA control loop: kubelets feed the metrics-server, the HPA controller compares usage to the target and sets the Deployment's replica count, which the ReplicaSet reconciles](./diagrams/09-hpa-control-loop.svg)
+
+Two guard rails are built in: readings within a **10% tolerance** of the target don't trigger a change, and scale-**down** waits out a **stabilization window** (default **300 s**) so a brief dip doesn't remove Pods that will be needed again a minute later. Scale-up has no such delay.
+
+### 5.2 Example: 60% CPU, 70% memory, 2–10 replicas
+
+Runnable copy: [`examples/autoscaling/hpa-cpu-memory.yaml`](../../examples/autoscaling/hpa-cpu-memory.yaml). The important parts:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: web
+          image: registry.k8s.io/hpa-example
+          resources:
+            requests:            # REQUIRED for Utilization targets — usage is
+              cpu: 200m          # measured as a percentage of these values
+              memory: 64Mi
+---
+apiVersion: autoscaling/v2       # v2 for memory and for more than one metric
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60   # keep average CPU at 60% of the 200m request = 120m
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70   # keep average memory at 70% of 64Mi ≈ 45Mi
+```
+
+What happens under load, with 2 replicas averaging 180m CPU (90% of request) and 40Mi memory (62%):
+
+| Metric | current / target | desired = ceil(2 × ratio) |
+|---|---|---|
+| CPU | 90% / 60% = 1.5 | ceil(3.0) = **3** |
+| Memory | 62% / 70% = 0.89 | ceil(1.77) = 2 |
+
+The HPA takes the larger, scales to 3, and re-evaluates 15 s later. When load stops, CPU falls, the desired count drops to 2, and after 300 s of consistently low readings the ReplicaSet removes one Pod.
+
+### 5.3 Things that bite
+
+- **No requests, no scaling.** `Utilization` is a percentage *of the request*. If a container has no CPU request, CPU utilization is undefined and the HPA silently ignores that metric (`kubectl describe hpa` shows `FailedGetResourceMetric`). Use `AverageValue` targets (absolute quantities) if you genuinely can't set requests.
+- **Memory is a poor scaling signal for JVM workloads.** A JVM grabs heap up to `-Xmx` and rarely gives it back, so memory utilization climbs and stays there: the HPA scales *up* on memory readily and almost never scales *down*. For Java services prefer CPU, request rate, or queue length (via KEDA), and use memory as an upper guard rather than the primary signal.
+- **`kubectl autoscale` is CPU only.** The imperative command generates an `autoscaling/v1` object; memory and multiple metrics need `autoscaling/v2` YAML.
+- **Don't pair with VPA on the same resource** — VPA resizing requests changes the denominator the HPA is measuring against.
+- **HPA needs the target to be scalable.** It works with Deployments, StatefulSets, and ReplicaSets (anything with a `scale` subresource); it can't scale a bare Pod or a DaemonSet.
+
+Commands to try it on kind — including the metrics-server install and a load generator — are in [`../commands/autoscaling.md`](../commands/autoscaling.md).
+
+---
+
 ## Exam angle
 
 - **Vertical = bigger machine** (add CPU/RAM to one host; today usually a hypervisor giving a VM more of the host). **Horizontal = more machines** ("scaling across", commodity hardware, distributed system). Cloud native favours horizontal.
@@ -114,6 +203,7 @@ Knative (chapter 02) and KEDA both reach zero; the difference is that Knative is
 - **Reactive** = metric crosses a threshold; **scheduled** = known time (Black Friday); **predictive** = AI/ML forecast. A question describing "scale before the sale starts" is scheduled, not reactive.
 - **Cluster Autoscaler** — memorise both halves of its definition: adds nodes when Pods can't be scheduled for **insufficient resources**; removes **underutilized** nodes whose Pods fit elsewhere. It scales *nodes*, never Pods.
 - **HPA scales replicas; VPA scales requests and limits.** HPA is built in; VPA is an add-on. Both rely on the metrics-server for resource metrics.
+- HPA mechanics, if asked: loop every **15 s**, `desired = ceil(current × currentMetric / targetMetric)`, several metrics → the **largest** wins, `Utilization` targets need **resource requests** on the containers, scale-down waits a **300 s** stabilization window, `autoscaling/v2` for memory or multiple metrics.
 - **KEDA**: event-driven, **ScaledObject**, external triggers, **scale to zero**, CNCF graduated. If a question asks how to scale on queue length or to zero, the answer is KEDA, not HPA.
 - HPA works with Deployments and StatefulSets; the exam only needs that high-level pairing (chapter-level detail on those objects comes in Section 5).
 - **Automatic** = works independently; **automated** = a process made independent of human intervention.
@@ -121,6 +211,7 @@ Knative (chapter 02) and KEDA both reach zero; the difference is that Knative is
 ## References
 
 - [Autoscaling Workloads — Kubernetes docs](https://kubernetes.io/docs/concepts/workloads/autoscaling/) — horizontal vs vertical definitions, HPA, VPA (add-on; restarts Pods), event-driven (KEDA), scheduled, and cluster autoscaling in one page
+- [Horizontal Pod Autoscaling — Kubernetes docs](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) — the algorithm, 15 s sync period, tolerance, multiple metrics, stabilization window, and the resource-requests requirement
 - [Cluster Autoscaler README — kubernetes/autoscaler](https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/README.md) — the two conditions under which it resizes the cluster
 - [KEDA Concepts](https://keda.sh/docs/concepts/) — ScaledObject/ScaledJob, scalers, 0 → 1 vs 1 → n, scale to zero
 - [KEDA — CNCF project page](https://www.cncf.io/projects/keda/) — sandbox Mar 2020, incubating Aug 2021, graduated Aug 2023
