@@ -2,7 +2,7 @@
 
 > One row per project, tool, or specification the course mentions. Category and maturity are what the exam asks about most ("which of these is a CNCF graduated project?", "which project provides X?"). Updated in the same PR as every chapter; the course's own *Product Summary Cheat Sheet* (section 9) is folded in here at the end.
 >
-> Maturity levels, lowest to highest: **Sandbox → Incubating → Graduated**. "Not CNCF" marks tools that are widely used in the ecosystem but are not CNCF projects (Docker, Terraform, Ansible, ...). Check current status at https://landscape.cncf.io/ before the exam — projects move.
+> Maturity levels, lowest to highest: **Sandbox → Incubating → Graduated** (plus **Archived**); the TOC moves projects between them by 2/3 vote — see [02-05](02-cloud-native-architecture/05-community-and-governance.md). "Not CNCF" marks tools that are widely used in the ecosystem but are not CNCF projects (Docker, Terraform, Ansible, ...). Check current status at https://landscape.cncf.io/ before the exam — projects move.
 
 | Project / standard | Category | CNCF maturity | What it does | Introduced in |
 |---|---|---|---|---|
@@ -29,6 +29,8 @@
 | **OpenFaaS** | Serverless / FaaS on Kubernetes | Not CNCF (OpenFaaS Ltd; on the landscape) | Deploy functions as OCI images to any Kubernetes cluster; scales to zero; Community Edition and Pro | [02-04](02-cloud-native-architecture/04-serverless.md) |
 | **AWS Lambda** | FaaS (public cloud) | Not CNCF (AWS) | The reference Function-as-a-Service: upload a .zip or container image, per-event execution, per-ms billing, provisioned concurrency for cold starts | [02-04](02-cloud-native-architecture/04-serverless.md) |
 | **Kourier / Contour** | Ingress (Knative networking layers) | Contour: Incubating (Jul 2020) · Kourier: part of Knative | Envoy-based ingress layers Knative Serving can route through (Istio is the third option) | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| **Prometheus** | Observability / monitoring | Graduated (Aug 2018; joined May 2016 — the 2nd CNCF project, 2nd to graduate) | Monitoring system and time-series database; pull-based metrics scraping, PromQL, alerting (Section 6) | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
+| **Envoy** | Service proxy | Graduated (Nov 2018; joined Sep 2017) | High-performance edge/middle/service proxy created at Lyft; the data plane under Istio and many ingress controllers | [02-05](02-cloud-native-architecture/05-community-and-governance.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

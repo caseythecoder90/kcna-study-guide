@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title CNCF maturity levels mapped to the technology adoption curve (“Crossing the Chasm”)
+
+rectangle "Adoption tier (Geoffrey Moore)" <<group>> as tiers {
+  rectangle "Innovators\n<size:11>“techies”</size>" <<plain>> as t1
+  rectangle "Early adopters\n<size:11>“visionaries”</size>" <<plain>> as t2
+  rectangle "THE CHASM\n<size:11>where most technologies stall</size>" <<bad>> as chasm
+  rectangle "Early majority\n<size:11>“pragmatists”</size>" <<plain>> as t3
+  rectangle "Late majority\n<size:11>“conservatives”</size>" <<muted>> as t4
+  rectangle "Laggards\n<size:11>“skeptics”</size>" <<muted>> as t5
+  t1 -right-> t2
+  t2 -right-> chasm
+  chasm -right-> t3
+  t3 -right-> t4
+  t4 -right-> t5
+}
+
+rectangle "CNCF maturity level — the signal to adopters" <<groupGood>> as levels {
+  rectangle "Sandbox\n<size:11>experiments, early work</size>\n<size:11>low barrier · not compulsory</size>" <<muted>> as l1
+  rectangle "Incubating\n<size:11>used in production by a few; the</size>\n<size:11>significant barrier — most due diligence</size>" as l2
+  rectangle "Graduated\n<size:11>stable, widely adopted, production-ready;</size>\n<size:11>the “obvious path” from incubating</size>" <<good>> as l3
+  l1 -right-> l2
+  l2 -right-> l3
+}
+
+t1 -[hidden]down-> l1
+t2 -[hidden]down-> l2
+t3 -[hidden]down-> l3
+
+caption <i>Sandbox ↔ innovators · Incubating ↔ early adopters · Graduated ↔ early majority. A graduated project has crossed the chasm: it is safe for mainstream enterprises.</i>\n<i>Archived is the fourth state — inactive projects the TOC no longer supports. Late majority and laggards have no CNCF level; they adopt long after graduation.</i>
+@enduml

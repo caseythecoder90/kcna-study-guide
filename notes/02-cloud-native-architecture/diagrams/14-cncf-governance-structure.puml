@@ -1,0 +1,23 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title How the CNCF is governed
+
+rectangle "Linux Foundation\n<size:11>nonprofit parent</size>" <<muted>> as lf
+rectangle "CNCF" <<group>> as cncf {
+  rectangle "Governing Board (GB)\n<size:11>business: budget, marketing, trademarks</size>\n<size:11>member companies</size>" <<accent>> as gb
+  rectangle "Technical Oversight Committee (TOC)\n<size:11>the technical governing body · 11 members, 2-year staggered terms</size>\n<size:11>technical vision · accepts and promotes projects · aligns interfaces</size>" <<accent>> as toc
+  rectangle "End User TAB\n<size:11>voice of end users;</size>\n<size:11>advisory to the TOC</size>" <<plain>> as tab
+  rectangle "Technical Advisory Groups (TAGs)\n<size:11>domain experts who review projects and advise the TOC</size>\n<size:11>since 2025: Developer Experience · Infrastructure · Operational Resilience</size>\n<size:11>Security & Compliance · Workloads Foundation</size>" as tags
+  rectangle "Projects\n<size:11>Sandbox · Incubating · Graduated</size>\n<size:11>Kubernetes, Prometheus, Envoy, etcd, Helm ...</size>" <<good>> as projects
+
+  gb -down-> toc : elects 6 seats
+  tab -right-> toc : elects 2 seats\nadvises
+  projects -up-> toc : maintainers elect 1 seat
+  toc -down-> tags : charters
+  tags -down-> projects : review, guide,\nrecommend
+  toc -down-> projects : accepts, promotes,\narchives (2/3 vote)
+}
+lf -down-> cncf
+
+caption <i>Open governance: no single vendor decides. The TOC's 11 seats come from four constituencies (6 Governing Board, 2 end users, 1 project maintainers, 2 chosen by the TOC itself),</i>\n<i>and every project decision is a recorded vote after public comment.</i>
+@enduml
