@@ -19,3 +19,9 @@ Files are created as the course reaches each topic. Planned layout:
 | `security.md` | RBAC, ServiceAccounts, `auth can-i` | 5 |
 | `helm.md` | Repos, install/upgrade/rollback | 5, 7 |
 | `observability.md` | `kubectl top`, Prometheus/Grafana access | 6 |
+
+## Written so far
+
+| File | What's in it | Chapter |
+|---|---|---|
+| [`autoscaling.md`](autoscaling.md) | metrics-server install on kind, `kubectl autoscale`, inspecting an HPA, generating load, VPA install, where the Cluster Autoscaler lives | [02-03](../02-cloud-native-architecture/03-autoscaling.md) |

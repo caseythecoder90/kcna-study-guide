@@ -1,0 +1,85 @@
+# HorizontalPodAutoscaler scaling a Deployment on CPU and memory utilization.
+# Companion to notes/02-cloud-native-architecture/03-autoscaling.md.
+#
+# Prerequisite: the metrics-server must be running (see notes/commands/autoscaling.md).
+#
+#   kubectl apply -f examples/autoscaling/hpa-cpu-memory.yaml
+#   kubectl get hpa web -w
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: registry.k8s.io/hpa-example   # tiny PHP page that burns CPU per request
+          ports:
+            - containerPort: 80
+          # Requests are mandatory for Utilization targets: the HPA measures
+          # usage as a percentage OF THESE VALUES. Without them the metric is
+          # undefined and the HPA ignores it.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: autoscaling/v2          # v2 is required for memory and for multiple metrics
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web
+spec:
+  scaleTargetRef:                   # what the HPA scales — it writes this object's spec.replicas
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    # Target: average CPU usage across the Pods = 60% of each container's CPU request (120m).
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    # Target: average memory usage = 70% of the memory request (~45Mi).
+    # Note: memory rarely drops when load drops (JVMs especially), so on its
+    # own this metric scales up readily and down reluctantly.
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  # With several metrics the HPA computes a desired count for each and uses the LARGEST.
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300   # default; wait 5 min of low readings before removing Pods
+    scaleUp:
+      stabilizationWindowSeconds: 0     # default; scale up as soon as a reading is high

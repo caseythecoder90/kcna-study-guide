@@ -1,0 +1,22 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title HorizontalPodAutoscaler — the control loop, every 15 seconds
+
+rectangle "kubelets\n<size:11>report container CPU / memory usage</size>" <<muted>> as kubelet
+rectangle "metrics-server\n<size:11>aggregates usage cluster-wide and exposes it</size>\n<size:11>through the Metrics API (metrics.k8s.io)</size>" <<muted>> as ms
+rectangle "HPA controller\n<size:11>in kube-controller-manager · reads the HPA object,</size>\n<size:11>compares current utilization to the target and computes:</size>\n<size:11>desired = ceil( current × currentMetric / targetMetric )</size>\n<size:11>several metrics → takes the largest result</size>" <<accent>> as hpa
+rectangle "HorizontalPodAutoscaler\n<size:11>scaleTargetRef: Deployment web</size>\n<size:11>min 2 · max 10 · cpu 60% · memory 70%</size>" as obj
+rectangle "Deployment web\n<size:11>spec.replicas is written by the HPA</size>" as dep
+rectangle "ReplicaSet\n<size:11>reconciles the Pod count to match</size>" as rs
+rectangle "Pods\n<size:11>each container declares CPU / memory requests —</size>\n<size:11>utilization % is measured against those requests</size>" <<good>> as pods
+
+kubelet -right-> ms : usage
+ms -right-> hpa : metrics
+obj -down-> hpa : target
+hpa -down-> dep : sets replicas
+dep -down-> rs
+rs -down-> pods
+pods .up.> kubelet : usage
+
+caption <i>No resource requests on the containers means no utilization figure, and the HPA takes no action on that metric.</i>\n<i>Scale-up is immediate; scale-down waits out a 300 s stabilization window by default so brief dips don't flap the replica count.</i>
+@enduml

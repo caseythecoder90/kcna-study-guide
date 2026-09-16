@@ -82,6 +82,14 @@
 | KEDA mechanics | Handles **0 → 1** itself; creates and feeds an **HPA** for **1 → n**; scale-to-zero impossible with CPU/memory triggers (nothing to measure) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | KEDA trigger examples | Kafka lag, RabbitMQ / AWS SQS / Azure Service Bus queue length, Prometheus query, `cron` (gives scheduled scaling) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | Knative vs KEDA | Both reach zero. Knative = serverless **application platform** (request-driven, eventing). KEDA = an **autoscaler** attached to ordinary Deployments | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA control loop period | Every **15 s** by default (`--horizontal-pod-autoscaler-sync-period` on kube-controller-manager) | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA formula | `desiredReplicas = ceil(currentReplicas × currentMetricValue / targetMetricValue)`; readings within **10%** of target are ignored | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA with several metrics | Computes a desired count per metric and uses the **largest** | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA `Utilization` targets | Usage is a **percentage of the container's resource request** — no request, no metric, no scaling on it | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA scale-down stabilization | Default **300 s** window before removing Pods; scale-up is immediate | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| HPA API versions | `autoscaling/v1` = CPU only (what `kubectl autoscale` creates); **`autoscaling/v2`** = memory, multiple metrics, custom/external metrics, `behavior` | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| What the HPA can target | Anything with a `scale` subresource: Deployment, StatefulSet, ReplicaSet — not a bare Pod or DaemonSet | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| metrics-server | Add-on that serves the **Metrics API (`metrics.k8s.io`)** from kubelet data; needed by HPA, VPA and `kubectl top`; not installed by default | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 
 ## 03 · Containers with Docker
 

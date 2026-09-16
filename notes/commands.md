@@ -25,6 +25,27 @@ _Section 4._
 
 _Section 5._
 
+### 4a. Autoscaling (from Section 2, chapter 03)
+
+Full walkthrough: [`commands/autoscaling.md`](commands/autoscaling.md). Example manifest: `examples/autoscaling/hpa-cpu-memory.yaml`.
+
+```bash
+# metrics-server (prerequisite for HPA/VPA and kubectl top) — kind needs the insecure-tls flag
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl -n kube-system patch deployment metrics-server --type=json   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl top nodes
+kubectl top pods
+
+# HPA
+kubectl autoscale deployment web --cpu-percent=60 --min=2 --max=10   # CPU only; memory needs v2 YAML
+kubectl get hpa
+kubectl get hpa web -w
+kubectl describe hpa web                                             # Events show each scaling decision
+
+# Load generator
+kubectl run -it load --rm --restart=Never --image=busybox:1.36 -- /bin/sh -c "while true; do wget -q -O- http://web; done"
+```
+
 ## 5. Observability tooling
 
 _Section 6._

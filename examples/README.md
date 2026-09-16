@@ -1,9 +1,13 @@
 # Examples
 
-Runnable Dockerfiles and Kubernetes manifests from the course's hands-on lectures, so each concept in [`../notes/`](../notes/) can be reproduced against a local cluster (kind, minikube, or Docker Desktop).
+Runnable Dockerfiles and Kubernetes manifests that accompany [`../notes/`](../notes/), so each concept can be reproduced against a local cluster (kind, minikube, or Docker Desktop).
 
 ```bash
 kubectl apply -f <file>.yaml
 ```
 
-Nothing here yet — files are added as the labs in Sections 3 through 7 are worked through, cross-linked from the relevant chapter.
+## Contents
+
+| Path | Chapter | What it shows |
+|---|---|---|
+| [`autoscaling/hpa-cpu-memory.yaml`](autoscaling/hpa-cpu-memory.yaml) | [02-03 Autoscaling](../notes/02-cloud-native-architecture/03-autoscaling.md) | A Deployment with resource requests plus an `autoscaling/v2` HorizontalPodAutoscaler targeting 60% CPU and 70% memory utilization, min 2 / max 10. Needs the metrics-server — see [`../notes/commands/autoscaling.md`](../notes/commands/autoscaling.md) |
