@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Serverless on Kubernetes — Knative Serving and Eventing
+
+rectangle "Knative Serving — request-driven" <<group>> as serving {
+  rectangle "Request\n<size:11>https://hello.default.example.com</size>" <<plain>> as req
+  rectangle "Ingress / load balancer\n<size:11>routes by Knative Route; can split</size>\n<size:11>traffic between revisions (e.g. 90/10)</size>" <<accent>> as ing
+  rectangle "Autoscaler + activator\n<size:11>counts in-flight requests per revision; at zero</size>\n<size:11>the activator holds the request while a Pod starts</size>" as as
+  rectangle "Revision Pods 0 … n" <<groupGood>> as pods {
+    rectangle "Pod" <<good>> as p1
+    rectangle "Pod" <<good>> as p2
+    rectangle "Pod\n<size:11>next</size>" <<muted>> as p3
+    p1 -[hidden]right-> p2
+    p2 -[hidden]right-> p3
+  }
+  req -down-> ing
+  ing -down-> as
+  as -down-> pods : scale 0 → n → 0
+}
+
+rectangle "Knative Eventing — event-driven" <<group>> as eventing {
+  rectangle "Event sources\n<size:11>Kafka · GitHub · cron · cloud services</size>" <<plain>> as src
+  rectangle "Broker + Trigger\n<size:11>filters events by type / attributes</size>" as broker
+  rectangle "Knative Service (sink)\n<size:11>scales from zero like any other</size>" <<good>> as sink
+  src -right-> broker : CloudEvents
+  broker -right-> sink : CloudEvents
+}
+
+serving -[hidden]right-> eventing
+
+caption <i>Both halves are ordinary Kubernetes objects (CRDs) on an ordinary cluster. A Knative Service is a Deployment-like resource that gets a URL, revisions,</i>\n<i>traffic splitting and scale-to-zero for free. OpenFaaS is the other common option: functions packaged as OCI images, deployed on Kubernetes, also scaling to zero.</i>
+@enduml

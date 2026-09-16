@@ -90,6 +90,23 @@
 | HPA API versions | `autoscaling/v1` = CPU only (what `kubectl autoscale` creates); **`autoscaling/v2`** = memory, multiple metrics, custom/external metrics, `behavior` | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | What the HPA can target | Anything with a `scale` subresource: Deployment, StatefulSet, ReplicaSet — not a bare Pod or DaemonSet | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | metrics-server | Add-on that serves the **Metrics API (`metrics.k8s.io`)** from kubelet data; needed by HPA, VPA and `kubectl top`; not installed by default | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| Serverless (meaning) | **Not** "no servers" — the servers belong to and are managed by the provider; you never choose cores, memory, networking, or patch hardware; you interact via **code or container images** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Serverless model | **Event → Execution → Billing**; billed for duration (per ms) × memory plus requests; **idle costs nothing** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| FaaS | **Function as a Service** — AWS Lambda is the reference example (also Azure Functions, Google Cloud Functions) | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Lambda deployment packages | Code as a **.zip file** or as a **container image** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Lambda's four promises | No infrastructure to manage · auto-scales from a dozen events/day to hundreds of thousands/s · pay per ms of compute · tune memory size, **provisioned concurrency** for double-digit ms latency | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Lambda free tier | **1 million requests** free per month | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Cold start | First request to a function with no warm environment: create environment → load runtime + code → run init → handle; hundreds of ms to seconds (JVMs slowest) | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Provisioned concurrency | Execution environments **pre-initialized and kept warm** → no cold start, **double-digit ms**; **billed continuously** even when idle; for latency-sensitive interactive workloads | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Reserved concurrency | A **cap and guarantee** on a function's concurrent executions (protects downstream systems); **free** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Serverless scaling limits | Native autoscaling from **zero**, bounded by the **account concurrency quota** (Lambda classic default 1,000/Region, soft), function **timeout**, reserved concurrency, and your **budget** — runaway bills are the serverless failure mode | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Kubernetes serverless options (course) | **Knative** and **OpenFaaS** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Knative Serving | Knative **Service** → URL, immutable **revisions**, **traffic splitting**; autoscaler + **activator** scale revision Pods **0 → n → 0** on in-flight requests | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| Knative Eventing | Sources → **Broker + Trigger** → sink, carried as **CloudEvents** | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| OpenFaaS | Functions packaged as **OCI images** deployed on Kubernetes; scales to zero; **not a CNCF project** (OpenFaaS Ltd; Community Edition + Pro) | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| CloudEvents | CNCF **specification for describing event data in a common way**; **Graduated Jan 2024** (accepted May 2018, incubating Oct 2019); CNCF Serverless Working Group | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| CloudEvents required attributes | `id`, `source`, `specversion`, `type` (optional: `time`, `subject`, `datacontenttype`, `dataschema`) | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| CloudEvents SDKs / bindings / formats | SDKs: Go, Java, JavaScript, Python, Ruby, Rust, C#, PHP, PowerShell · bindings: **AMQP, HTTP, Kafka, MQTT, NATS, WebSockets** · formats: JSON, Avro, Protobuf, XML | [02-04](02-cloud-native-architecture/04-serverless.md) |
 
 ## 03 · Containers with Docker
 

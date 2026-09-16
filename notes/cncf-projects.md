@@ -25,6 +25,10 @@
 | **VerticalPodAutoscaler (VPA)** | Autoscaling (Pod resources) | Kubernetes SIG Autoscaling add-on | Adjusts Pod CPU/memory requests and limits from observed usage; not shipped with Kubernetes by default | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | **metrics-server** | Metrics | Kubernetes SIG Instrumentation add-on | Cluster-wide aggregator of CPU/memory usage that HPA and VPA read; also backs `kubectl top` | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
 | **VMware ESXi** | Hypervisor | Not CNCF (Broadcom) | Bare-metal hypervisor; the lecture's example of vertical scaling by granting a VM more of its host | [02-03](02-cloud-native-architecture/03-autoscaling.md) |
+| **CloudEvents** | Serverless / eventing specification | Graduated (Jan 2024) | Specification for describing event data in a common way; SDKs in many languages; bindings for AMQP, HTTP, Kafka, MQTT, NATS, WebSockets; used by Knative Eventing | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| **OpenFaaS** | Serverless / FaaS on Kubernetes | Not CNCF (OpenFaaS Ltd; on the landscape) | Deploy functions as OCI images to any Kubernetes cluster; scales to zero; Community Edition and Pro | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| **AWS Lambda** | FaaS (public cloud) | Not CNCF (AWS) | The reference Function-as-a-Service: upload a .zip or container image, per-event execution, per-ms billing, provisioned concurrency for cold starts | [02-04](02-cloud-native-architecture/04-serverless.md) |
+| **Kourier / Contour** | Ingress (Knative networking layers) | Contour: Incubating (Jul 2020) · Kourier: part of Knative | Envoy-based ingress layers Knative Serving can route through (Istio is the third option) | [02-04](02-cloud-native-architecture/04-serverless.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

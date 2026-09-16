@@ -1,0 +1,33 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Serverless autoscaling — from zero, but not to infinity
+
+rectangle "0\n<size:11>idle: nothing running,</size>\n<size:11>nothing billed</size>" <<muted>> as zero
+rectangle "n\n<size:11>one execution environment per</size>\n<size:11>concurrent request, added on demand</size>" <<good>> as n
+rectangle "The ceiling\n<size:11>account concurrency quota (soft limit, e.g. 1,000 per Region)</size>\n<size:11>per-function reserved concurrency · function timeout</size>\n<size:11>budget alarms — set them, or the bill is the limit</size>" <<bad>> as cap
+zero -[#16A34A]right-> n : scale on demand
+n -[#DC2626]right-> cap : throttled at
+
+rectangle "First request to a cold function" <<group>> as cold {
+  rectangle "Create environment" <<plain>> as c1
+  rectangle "Load runtime + code" <<plain>> as c2
+  rectangle "Run init code" <<plain>> as c3
+  rectangle "Handle request" <<plain>> as c4
+  c1 -right-> c2
+  c2 -right-> c3
+  c3 -right-> c4
+  label "<i>cold start: hundreds of ms to seconds, paid on every new environment</i>" as ccap
+  c4 -[hidden]down-> ccap
+}
+rectangle "With provisioned concurrency" <<groupGood>> as warm {
+  rectangle "N environments kept initialized\n<size:11>created and initialized ahead of traffic</size>" <<good>> as w1
+  rectangle "Handle request\n<size:11>double-digit milliseconds</size>" <<good>> as w2
+  w1 -right-> w2
+  label "<i>no cold start — but billed continuously, used or not</i>" as wcap
+  w2 -[hidden]down-> wcap
+}
+zero -[hidden]down-> cold
+cold -[hidden]right-> warm
+
+caption <i>Reserved concurrency = a cap (and guarantee) on how many environments a function may use, free. Provisioned concurrency = environments kept warm, paid.</i>
+@enduml
