@@ -33,7 +33,8 @@ kcna-study-guide/
 │   ├── commands.md                          # global single-file command reference (Ctrl+F)
 │   └── NOTES-WORKFLOW.md                    # how these notes are authored
 ├── tools/diagrams/                          # shared PlantUML theme + render script for every diagram
-└── examples/                                # runnable manifests / Dockerfiles from the labs (growing)
+├── examples/                                # runnable manifests / Dockerfiles from the labs (growing)
+└── extras/                                  # beyond the exam: e.g. a Keycloak contributor starter guide
 ```
 
 ## Contents
@@ -84,6 +85,10 @@ Always confirm the current version, duration, and passing score on the official 
 - **`exam-facts.md` and `cncf-projects.md`** kept in sync with every chapter so they are complete by the time the course is.
 - **`examples/`** — every manifest and Dockerfile from the hands-on lectures, runnable against a local cluster.
 - **Practice-question review** — after finishing the course quizzes (section 8), a pass over the recall sheets to close any gaps.
+
+## Extras
+
+Not exam material, but grown out of it: [`extras/keycloak-starter-guide.md`](extras/keycloak-starter-guide.md) is a step-by-step path into contributing to Keycloak (CNCF incubating, Java/Quarkus) — run it, learn the architecture, build from source, trace requests with a debugger, write a test the project's way, land a first PR.
 
 ## Attribution & license
 

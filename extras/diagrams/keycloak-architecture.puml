@@ -1,0 +1,33 @@
+@startuml
+!include ../../tools/diagrams/kcna-theme.puml
+title Keycloak — how the pieces fit (server side)
+
+rectangle "Clients" <<group>> as clients {
+  rectangle "Browser\n<size:11>login, account console, admin console</size>" <<plain>> as browser
+  rectangle "Your application\n<size:11>Spring Security OIDC client / resource server</size>" <<plain>> as app
+  rectangle "Admin automation\n<size:11>Admin REST API · kcadm · Terraform provider</size>" <<plain>> as adm
+  browser -[hidden]right-> app
+  app -[hidden]right-> adm
+}
+
+rectangle "Keycloak server (Quarkus runtime)" <<group>> as kc {
+  rectangle "REST layer — org.keycloak.services.resources\n<size:11>RealmsResource · OIDC + SAML protocol endpoints · admin/AdminRoot</size>" <<accent>> as rest
+  rectangle "Services & authentication\n<size:11>AuthenticationProcessor · flows · authenticators · required actions</size>\n<size:11>protocol mappers · token issuance · events</size>" as svc
+  rectangle "SPI / provider model — server-spi, server-spi-private\n<size:11>Spi → ProviderFactory (singleton) → Provider (per request, via KeycloakSession)</size>\n<size:11>registered in META-INF/services; custom JARs in providers/</size>" <<good>> as spi
+  rectangle "Model — RealmModel, ClientModel, UserModel ...\n<size:11>model/jpa (Hibernate) · Infinispan caches and sessions</size>" as model
+  rectangle "UI — js/ and themes/\n<size:11>admin-ui and account-ui (React, PatternFly) · login themes (FreeMarker .ftl)</size>" <<muted>> as ui
+  rest -down-> svc
+  svc -down-> spi
+  spi -down-> model
+  rest -right-> ui
+}
+
+database "Relational DB\n<size:11>PostgreSQL · MySQL · MariaDB</size>\n<size:11>Oracle · MSSQL (H2 in dev)</size>" as db
+rectangle "External identity\n<size:11>LDAP / AD (user federation)</size>\n<size:11>OIDC / SAML / social (identity brokering)</size>" <<muted>> as ext
+
+clients -down-> rest : HTTPS
+model -down-> db
+spi -right-> ext : via providers
+
+caption <i>Almost everything a contributor touches is either a REST resource, a service in the authentication path, a provider behind an SPI, or a model class over JPA.</i>\n<i>The Kubernetes Operator (operator/) is a separate Java (Quarkus Operator SDK) program that deploys and manages this server from a Keycloak custom resource.</i>
+@enduml
