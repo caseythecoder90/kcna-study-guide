@@ -1,0 +1,33 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Container Runtime Interface — from kubelet to a running container
+
+rectangle "kubelet\n<size:11>node agent; gRPC client</size>\n<size:11>--container-runtime-endpoint=unix:///run/containerd/containerd.sock</size>" <<accent>> as kubelet
+rectangle "CRI — Container Runtime Interface\n<size:11>gRPC API: RuntimeService (pod sandboxes, containers, exec, logs)</size>\n<size:11>+ ImageService (pull, list, remove) · v1 API required since Kubernetes 1.26</size>" <<good>> as cri
+rectangle "High-level runtime (CRI implementation)" <<group>> as hl {
+  rectangle "containerd\n<size:11>with its built-in CRI plugin;</size>\n<size:11>the common default (kind, EKS, GKE, AKS)</size>" as containerd
+  rectangle "CRI-O\n<size:11>built only to serve CRI;</size>\n<size:11>Red Hat / OpenShift</size>" as crio
+  rectangle "Docker Engine\n<size:11>not CRI-native — needs cri-dockerd;</size>\n<size:11>dockershim removed in 1.24</size>" <<muted>> as docker
+  containerd -[hidden]right-> crio
+  crio -[hidden]right-> docker
+}
+rectangle "OCI runtime-spec\n<size:11>the high-level runtime hands each container's bundle to a low-level runtime</size>" <<good>> as oci
+rectangle "Low-level (OCI) runtime — chosen per Pod with RuntimeClass" <<group>> as ll {
+  rectangle "runc\n<size:11>default: namespaces + cgroups</size>" <<good>> as runc
+  rectangle "crun" <<plain>> as crun
+  rectangle "gVisor / runsc\n<size:11>sandboxed user-space kernel</size>" <<plain>> as gvisor
+  rectangle "Kata Containers\n<size:11>micro-VM per pod via</size>\n<size:11>QEMU or Firecracker</size>" <<plain>> as kata
+  runc -[hidden]right-> crun
+  crun -[hidden]right-> gvisor
+  gvisor -[hidden]right-> kata
+}
+rectangle "Pod\n<size:11>pause (sandbox) container + app containers</size>\n<size:11>sharing network and IPC namespaces</size>" <<good>> as pod
+
+kubelet -down-> cri
+cri -down-> hl
+hl -down-> oci
+oci -down-> ll
+ll -down-> pod
+
+caption <i>Two interfaces at two levels: CRI is how the kubelet talks to a runtime; the OCI runtime-spec is how that runtime talks to the thing that actually creates the container.</i>\n<i>Firecracker is a micro-VM monitor (AWS), not a CRI or OCI runtime itself — it is reached through Kata or firecracker-containerd.</i>
+@enduml

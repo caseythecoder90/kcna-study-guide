@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Container Network Interface — what happens when a Pod gets its network
+
+rectangle "1 · kubelet asks the CRI runtime to create the Pod sandbox" <<plain>> as s1
+rectangle "2 · runtime creates the pause container and its empty network namespace" <<plain>> as s2
+rectangle "3 · runtime executes the CNI plugin binary\n<size:11>from /opt/cni/bin, config from /etc/cni/net.d, JSON on stdin,</size>\n<size:11>env: CNI_COMMAND=ADD · CNI_CONTAINERID · CNI_NETNS · CNI_IFNAME</size>" <<accent>> as s3
+rectangle "4 · plugin wires the namespace\n<size:11>creates a veth pair, moves one end into the Pod's netns,</size>\n<size:11>asks IPAM for an address, sets routes, connects the host end</size>" <<good>> as s4
+rectangle "5 · plugin returns JSON: interfaces, ips, routes, dns\n<size:11>that IP is the Pod IP kubectl shows with -o wide</size>" <<good>> as s5
+rectangle "on delete · CNI_COMMAND=DEL undoes it all" <<muted>> as s6
+s1 -down-> s2
+s2 -down-> s3
+s3 -down-> s4
+s4 -down-> s5
+s5 -down-> s6
+
+rectangle "Where Calico fits — a CNI plugin plus a running dataplane" <<groupGood>> as calico {
+  rectangle "calico + calico-ipam binaries\n<size:11>the CNI plugin invoked in step 3;</size>\n<size:11>IPs from Calico IP pools</size>" <<good>> as c1
+  rectangle "calico-node DaemonSet — Felix\n<size:11>runs continuously on every node: programs</size>\n<size:11>routes and iptables / eBPF rules, enforces policy</size>" <<good>> as c2
+  rectangle "BIRD (BGP) or VXLAN / IPIP\n<size:11>tells every node how to reach every Pod IP —</size>\n<size:11>routed with no overlay, or an overlay where needed</size>" <<good>> as c3
+  rectangle "NetworkPolicy enforcement\n<size:11>Kubernetes NetworkPolicy has no built-in implementation;</size>\n<size:11>Felix turns those objects (and Calico's own</size>\n<size:11>GlobalNetworkPolicy) into kernel rules</size>" <<good>> as c4
+  c1 -[hidden]down-> c2
+  c2 -[hidden]down-> c3
+  c3 -[hidden]down-> c4
+}
+s3 -right-> c1
+s1 -[hidden]right-> calico
+
+caption <i>CNI itself runs only at Pod create and delete — it is a contract between the runtime and a plugin executable. The provider's agent (Felix for Calico, the Cilium agent, kube-flannel) is what keeps working afterwards.</i>\n<i>A node stays NotReady until a CNI plugin is installed; Docker Desktop and minikube hide this, kubeadm makes you do it.</i>
+@enduml

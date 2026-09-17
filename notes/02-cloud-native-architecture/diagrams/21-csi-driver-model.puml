@@ -1,0 +1,34 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Container Storage Interface — one driver per storage system, any orchestrator
+
+rectangle "Kubernetes" <<group>> as k8s {
+  rectangle "PersistentVolumeClaim\n<size:11>the app asks for 10Gi, ReadWriteOnce</size>" <<plain>> as pvc
+  rectangle "StorageClass\n<size:11>provisioner: rook-ceph.rbd.csi.ceph.com</size>" <<plain>> as sc
+  rectangle "kubelet\n<size:11>on the node running the Pod</size>" <<accent>> as kubelet
+  pvc -right-> sc
+  sc -[hidden]right-> kubelet
+}
+
+rectangle "CSI driver (gRPC over a Unix socket)" <<groupGood>> as csi {
+  rectangle "Identity service\n<size:11>who am I, what can I do, am I healthy</size>" <<good>> as id
+  rectangle "Controller service\n<size:11>create / delete volumes, attach / detach,</size>\n<size:11>snapshots, expand — runs anywhere</size>" <<good>> as ctrl
+  rectangle "Node service\n<size:11>stage, publish (mount) and unpublish the</size>\n<size:11>volume on this node — runs on every node</size>" <<good>> as node
+  id -[hidden]right-> ctrl
+  ctrl -[hidden]right-> node
+}
+
+rectangle "Storage systems" <<group>> as storage {
+  rectangle "Rook (Ceph)\n<size:11>open source · CNCF Graduated Oct 2020</size>\n<size:11>storage orchestration for Kubernetes</size>" <<plain>> as rook
+  rectangle "Portworx\n<size:11>commercial · Pure Storage</size>" <<plain>> as pwx
+  rectangle "Cloud disks\n<size:11>EBS · Azure Disk · GCE PD</size>" <<plain>> as cloud
+  rook -[hidden]right-> pwx
+  pwx -[hidden]right-> cloud
+}
+
+sc -down-> ctrl : provision
+kubelet -down-> node : mount into the Pod
+csi -down-> storage : vendor API
+
+caption <i>Before CSI, every storage backend was code inside the Kubernetes tree ("in-tree" plugins). CSI moved that out: vendors ship one driver that works with Kubernetes, Mesos, Cloud Foundry and Docker alike.</i>
+@enduml
