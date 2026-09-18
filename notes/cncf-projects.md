@@ -63,6 +63,10 @@
 | **Docker Desktop** | Developer tooling | Not CNCF (Docker, Inc.; subscription for larger companies) | GUI bundle of Engine, CLI, Compose, BuildKit, Extensions and an optional Kubernetes cluster, running Docker inside a hidden Linux VM on Windows/macOS/Linux | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
 | **WSL 2 / Hyper-V / Apple Virtualization framework / KVM** | Virtualisation backends | Not CNCF (Microsoft / Apple / Linux kernel) | What Docker Desktop uses to run its hidden Linux VM on each host OS | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
 | **kind** | Local Kubernetes | Kubernetes SIG Testing (not a separate CNCF project) | Kubernetes-in-Docker: nodes are containers; one of Docker Desktop's two cluster provisioners and the usual choice for multi-node local labs | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| **Docker Hub** | Container registry | Not CNCF (Docker, Inc.) | The default public registry (`docker.io`); official images under `library/`; implements the OCI distribution-spec | [03-03](03-containers-with-docker/03-container-images.md) |
+| **OverlayFS** | Union filesystem (Linux kernel) | Not CNCF (Linux kernel) | The union filesystem behind Docker's `overlay2` and containerd's overlayfs snapshotter: lowerdir + upperdir → merged | [03-03](03-containers-with-docker/03-container-images.md) |
+| **OCI Image Layout** | Image on-disk format (OCI image-spec) | OCI (Linux Foundation) | `oci-layout` + `index.json` + `blobs/<alg>/<digest>`; what `docker save` emits with the containerd store | [03-03](03-containers-with-docker/03-container-images.md) |
+| **jq** | CLI tool | Not CNCF | Command-line JSON processor used throughout the labs to read manifests and configs | [03-03](03-containers-with-docker/03-container-images.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One image, many containers — read-only layers shared, one thin writable layer each
+
+rectangle "Image spurin/funbox:latest — read-only, content-addressed" <<group>> as img {
+  rectangle "Layer 5 · ADD menu.sh /\n<size:11>1.08 KB · sha256:16e40fe…</size>" <<plain>> as l5
+  rectangle "Layer 4 · ADD examples /examples\n<size:11>824 KB · sha256:4ab2772…</size>" <<plain>> as l4
+  rectangle "Layer 3 · ADD youtube /usr/local/bin\n<size:11>251 B · sha256:5001ce9…</size>" <<plain>> as l3
+  rectangle "Layer 2 · RUN apt-get update …\n<size:11>429 MB · sha256:816f929…</size>" <<plain>> as l2
+  rectangle "Layer 1 · debian base rootfs\n<size:11>46 MB · sha256:82312fc…</size>" <<plain>> as l1
+  rectangle "Config · sha256:e4475d4…\n<size:11>ENV, USER, CMD, MAINTAINER — metadata only, 0 B layers</size>" <<muted>> as cfg
+  l5 -[hidden]down-> l4
+  l4 -[hidden]down-> l3
+  l3 -[hidden]down-> l2
+  l2 -[hidden]down-> l1
+  l1 -[hidden]down-> cfg
+}
+
+rectangle "Container A\n<size:11>writable layer: /tmp/out.txt</size>\n<size:11>+ modified /etc/motd</size>" <<good>> as ca
+rectangle "Container B\n<size:11>writable layer: empty</size>" <<good>> as cb
+rectangle "Container C\n<size:11>writable layer: whiteout for</size>\n<size:11>/examples (deleted)</size>" <<good>> as cc
+
+ca -down-> img : reads through
+cb -down-> img : reads through
+cc -down-> img : reads through
+ca -[hidden]right-> cb
+cb -[hidden]right-> cc
+
+caption <i>Image = bundle of software; container = a running instance of it. Every container gets its own thin writable layer on top of the same shared image layers,</i>\n<i>so 100 containers from one 500 MB image cost ~500 MB once, plus only what each one writes. The writable layer is deleted with the container — hence volumes (next chapter).</i>
+@enduml
