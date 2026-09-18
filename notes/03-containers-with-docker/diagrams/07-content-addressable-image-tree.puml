@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What a digest points at — the content-addressable tree behind spurin/funbox:latest
+
+rectangle "Tag: spurin/funbox:latest\n<size:11>a mutable label in the registry — can be moved to new content tomorrow</size>" <<muted>> as tag
+
+rectangle "Image index (manifest list)\n<size:11>sha256:8a01842… — THE digest docker pull prints</size>\n<size:11>application/vnd.oci.image.index.v1+json</size>\n<size:11>lists one manifest per platform + attestations</size>" <<accent>> as index
+
+rectangle "Manifest linux/arm64\n<size:11>sha256:e5ca9f9…</size>" <<good>> as m_arm
+rectangle "Manifest linux/amd64\n<size:11>sha256:ad1c719…</size>" <<plain>> as m_amd
+rectangle "Manifest linux/386, arm/v6, arm/v7,\nppc64le, s390x …\n<size:11>one per platform</size>" <<plain>> as m_other
+rectangle "Attestation manifests\n<size:11>SBOM / provenance per platform</size>\n<size:11>os: unknown, arch: unknown</size>" <<muted>> as att
+
+rectangle "Config blob\n<size:11>sha256:e4475d4… — the IMAGE ID</size>\n<size:11>(classic store): ENV, CMD, USER,</size>\n<size:11>history, ordered layer digests</size>" <<good>> as cfg
+rectangle "Layer blobs (tar+gzip)\n<size:11>sha256:82312fc… debian rootfs</size>\n<size:11>sha256:816f929… apt-get update</size>\n<size:11>sha256:5001ce9… youtube</size>\n<size:11>sha256:4ab2772… examples</size>\n<size:11>sha256:16e40fe… menu.sh</size>" <<good>> as layers
+
+tag -down-> index : resolves to (today)
+index -down-> m_arm : your platform
+index -down-> m_amd
+index -down-> m_other
+index -down-> att
+m_arm -down-> cfg
+m_arm -down-> layers
+
+caption <i>Every arrow is a digest = sha256 of the exact bytes of the thing it points to. Hash the raw index JSON and you get 8a01842… back; hash a layer file and you get its own filename.</i>\n<i>docker save (containerd store) writes exactly this tree as an OCI Image Layout: index.json → blobs/sha256/DIGEST for the index, the platform manifest, the config, and each layer.</i>
+@enduml

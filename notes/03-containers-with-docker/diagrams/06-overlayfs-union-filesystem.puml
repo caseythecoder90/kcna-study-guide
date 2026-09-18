@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title OverlayFS — how the layers become one filesystem the process can write to
+
+rectangle "merged — what the container sees as /\n<size:11>the union view: every file from every layer, top layer wins on conflicts</size>" <<accent>> as merged
+
+rectangle "upperdir — the container's writable layer" <<groupGood>> as upper {
+  rectangle "/tmp/out.txt\n<size:11>new file: lives only here</size>" <<good>> as u1
+  rectangle "/etc/motd\n<size:11>copied up from a lower layer on first</size>\n<size:11>write, then modified here (copy-on-write)</size>" <<good>> as u2
+  rectangle ".wh.examples\n<size:11>whiteout: hides /examples from the view;</size>\n<size:11>the image's copy is untouched</size>" <<bad>> as u3
+  u1 -[hidden]right-> u2
+  u2 -[hidden]right-> u3
+}
+
+rectangle "lowerdir — the image layers, read-only (overlay2 stacks up to 128)" <<group>> as lower {
+  rectangle "layer 5 · /menu.sh" <<plain>> as d5
+  rectangle "layer 4 · /examples/*" <<plain>> as d4
+  rectangle "layer 3 · /usr/local/bin/youtube" <<plain>> as d3
+  rectangle "layer 2 · apt-get update output, /var/lib/apt/*" <<plain>> as d2
+  rectangle "layer 1 · debian: /bin /etc /lib /usr … (/etc/motd original)" <<plain>> as d1
+  d5 -[hidden]down-> d4
+  d4 -[hidden]down-> d3
+  d3 -[hidden]down-> d2
+  d2 -[hidden]down-> d1
+}
+
+merged -down-> upper : writes and deletes go here
+upper -down-> lower : reads fall through when the upper layer has no copy
+
+caption <i>Read: check upperdir, else the highest lower layer that has the file. Write to an existing file: copy_up into upperdir, then modify — the image never changes. Delete: write a whiteout.</i>\n<i>A union filesystem merges directories into a single view; OverlayFS is the one in the Linux kernel that Docker (overlay2) and containerd use.</i>
+@enduml

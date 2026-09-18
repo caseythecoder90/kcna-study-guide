@@ -43,6 +43,21 @@ docker run -d --memory=256m --cpus=0.5 nginx    # limits become cgroup settings
 docker stats --no-stream                        # cgroup accounting
 ```
 
+### 2b. Images (chapter 03-03) — `docker image <verb>` = the traditional `docker <verb>`
+
+```bash
+docker image pull ubuntu:22.04                  # docker pull; no tag → :latest (a default, not "newest")
+docker image pull IMAGE@sha256:<digest>         # immutable pull by content hash
+docker image ls [--digests]                     # docker images
+docker image inspect IMAGE                      # JSON: Config, RootFS.Layers, RepoDigests
+docker image history IMAGE                      # instructions → layers (0 B = metadata only)
+docker image tag SRC DST && docker image push DST
+docker image rm IMAGE                           # docker rmi
+docker image save IMAGE -o f.tar / docker image load -i f.tar
+docker buildx imagetools inspect IMAGE [--raw]  # index/manifests per platform; --raw | sha256sum == the digest
+docker container diff ID                        # the writable layer's A/C/D changes
+```
+
 ## 3. kubectl basics
 
 _Section 4._
