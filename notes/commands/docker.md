@@ -16,6 +16,19 @@ docker run ubuntu cat /etc/os-release
 docker run amazonlinux cat /etc/os-release
 ```
 
+## Chapter 02 — first interactive container
+
+```bash
+docker run -it ubuntu bash        # -i keep STDIN open, -t allocate a pseudo-TTY; bash becomes PID 1
+apt update && apt install -y htop # inside: root, no sudo needed
+htop                              # bash = PID 1 (main process), htop = its child; CPU/mem shown are the VM's
+exit                              # PID 1 exits → the container stops
+docker ps -a                      # ... Exited (0) ...
+docker rm <id>                    # or use --rm on the run to auto-remove
+docker run -d --name web nginx    # -d detach: run in the background, print the container ID
+docker stop web && docker rm web
+```
+
 ## Namespaces and cgroups — looking under the hood (Linux host)
 
 ```bash

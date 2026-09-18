@@ -10,7 +10,6 @@ Files are created as the course reaches each topic. Planned layout:
 
 | File | What will be in it | Course section |
 |---|---|---|
-| `setup.md` | Local lab: Docker Desktop / kind / minikube install, kubectl config, aliases | 3, 4 |
 | `docker.md` | `docker run/ps/images/build/exec/logs`, image layers, registries | 3 |
 | `kubectl-basics.md` | `get/describe/apply/delete/logs/exec`, namespaces, contexts | 4 |
 | `workloads.md` | Pods, Deployments, ReplicaSets, DaemonSets, StatefulSets, Jobs | 5 |
@@ -25,4 +24,5 @@ Files are created as the course reaches each topic. Planned layout:
 | File | What's in it | Chapter |
 |---|---|---|
 | [`autoscaling.md`](autoscaling.md) | metrics-server install on kind, `kubectl autoscale`, inspecting an HPA, generating load, VPA install, where the Cluster Autoscaler lives | [02-03](../02-cloud-native-architecture/03-autoscaling.md) |
+| [`setup.md`](setup.md) | Docker Desktop install checks, enabling its Kubernetes and querying the node, Docker Engine on Linux | [03-02](../03-containers-with-docker/02-docker-setup-and-install.md) |
 | [`docker.md`](docker.md) | The shared-kernel demo (`uname -a` across images), inspecting namespaces (`lsns`, `unshare`, `nsenter`, `/proc/<pid>/ns`) and cgroups (`docker stats`, `--memory`/`--cpus`, cgroup v2 files) | [03-01](../03-containers-with-docker/01-introduction-to-containers.md) |

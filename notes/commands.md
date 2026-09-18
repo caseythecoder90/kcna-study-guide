@@ -11,7 +11,13 @@
 
 ## 1. Local lab setup
 
-_Added when Section 3 (Docker) and Section 4 (Kubernetes) labs begin._
+Per-topic detail: [`commands/setup.md`](commands/setup.md).
+
+```bash
+docker version && docker info                 # engine inside the Docker Desktop VM: runtime, cgroups, kernel
+kubectl config use-context docker-desktop     # after Settings → Kubernetes → Enable
+kubectl get nodes                             # docker-desktop  Ready  control-plane
+```
 
 ## 2. Docker
 
@@ -24,6 +30,8 @@ docker run ubuntu uname -a          # every image reports the SAME kernel versio
 docker run amazonlinux uname -a     # there is only one kernel, the host's
 docker run centos uname -a
 docker run ubuntu cat /etc/os-release   # what differs is userspace
+docker run -it ubuntu bash              # -i keep STDIN open, -t pseudo-TTY; bash is PID 1, exit stops the container
+docker run -d --name web nginx          # -d detached
 
 # Namespaces and cgroups on a Linux host
 lsns
