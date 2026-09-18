@@ -42,8 +42,8 @@ kcna-study-guide/
 | Section | Covers | Status |
 |---|---|---|
 | [01 · Cloud Native Introduction](notes/01-cloud-native-introduction/) | What cloud native is (and isn't), the CNCF, the four philosophies, how to tell if an app is cloud native | In progress |
-| [02 · Cloud Native Architecture](notes/02-cloud-native-architecture/) | Monolith vs microservices; characteristics and pillars; self-healing, automation, CI/CD, secure by default, serverless, service discovery; autoscaling, personas, community/governance, open standards | In progress |
-| [03 · Containers with Docker](notes/03-containers-with-docker/) | Container history, images, layers, registries, Docker vs containerd, hands-on Docker | Not started |
+| [02 · Cloud Native Architecture](notes/02-cloud-native-architecture/) | Monolith vs microservices; characteristics and pillars; self-healing, automation, CI/CD, secure by default, serverless, service discovery; autoscaling; serverless; community and governance; personas; open standards (OCI, CRI, CNI, CSI, SMI) | Complete |
+| [03 · Containers with Docker](notes/03-containers-with-docker/) | Container history (CP/CMS to Docker), namespaces, cgroups, shared kernel vs VMs; images, layers, registries, hands-on Docker | In progress |
 | [04 · Kubernetes Fundamentals](notes/04-kubernetes-fundamentals/) | Architecture, control plane and node components, Pods, kubectl, namespaces, labels | Not started |
 | [05 · Kubernetes Deep Dive](notes/05-kubernetes-deep-dive/) | Workloads, Services, networking, storage, scheduling, security/RBAC, Helm, operators, CRDs | Not started |
 | [06 · Telemetry and Observability](notes/06-telemetry-and-observability/) | Logs, metrics, traces, Prometheus, Grafana, OpenTelemetry, cost management | Not started |

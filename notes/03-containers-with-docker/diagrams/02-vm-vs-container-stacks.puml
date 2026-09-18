@@ -1,0 +1,37 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Traditional, virtual machine, and container deployments — what sits between the app and the hardware
+
+rectangle "Traditional" <<group>> as trad {
+  rectangle "App · App · App · App\n<size:11>share one OS, one set of libraries —</size>\n<size:11>the dependency-conflict problem</size>" <<plain>> as t1
+  rectangle "Operating system" <<plain>> as t2
+  rectangle "Hardware" <<muted>> as t3
+  t1 -[hidden]down-> t2
+  t2 -[hidden]down-> t3
+}
+
+rectangle "Virtual machines" <<group>> as vm {
+  rectangle "VM 1: App · App\n<size:11>guest OS + full kernel</size>" <<plain>> as v1
+  rectangle "VM 2: App · App\n<size:11>guest OS + full kernel</size>" <<plain>> as v2
+  rectangle "Hypervisor (+ host OS)\n<size:11>ESXi, KVM, Hyper-V — emulates hardware</size>\n<size:11>for each guest; strong isolation</size>" <<accent>> as v3
+  rectangle "Hardware" <<muted>> as v4
+  v1 -[hidden]right-> v2
+  v1 -[hidden]down-> v3
+  v3 -[hidden]down-> v4
+}
+
+rectangle "Containers" <<groupGood>> as ctr {
+  rectangle "App · App · App · App\n<size:11>each in its own namespaces and cgroup,</size>\n<size:11>with its own libraries from its image</size>" <<good>> as c1
+  rectangle "Container runtime\n<size:11>Docker / containerd → runc</size>" <<good>> as c2
+  rectangle "Operating system — ONE shared Linux kernel" <<accent>> as c3
+  rectangle "Hardware" <<muted>> as c4
+  c1 -[hidden]down-> c2
+  c2 -[hidden]down-> c3
+  c3 -[hidden]down-> c4
+}
+
+trad -[hidden]right-> vm
+vm -[hidden]right-> ctr
+
+caption <i>A VM boots a whole operating system per workload (gigabytes, minutes, its own kernel to patch). A container is a process on the host kernel that has been told it is alone</i>\n<i>(megabytes, milliseconds, one kernel). The price: every container must run the host kernel's OS family — Linux containers on a Linux kernel.</i>
+@enduml

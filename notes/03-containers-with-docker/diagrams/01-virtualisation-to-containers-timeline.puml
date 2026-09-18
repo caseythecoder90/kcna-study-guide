@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Sixty years of isolating workloads — from the mainframe to Docker
+
+rectangle "1960s–70s · CP/CMS\n<size:11>IBM mainframe OS: time sharing plus a</size>\n<size:11>virtual machine per user — one of the</size>\n<size:11>earliest uses of virtual machines</size>" <<muted>> as cpcms
+rectangle "1979 · chroot\n<size:11>Version 7 Unix: change a process's</size>\n<size:11>root directory — filesystem-only isolation</size>" <<muted>> as chroot
+rectangle "2000 · FreeBSD Jails\n<size:11>FreeBSD 4.0: own users, processes, files</size>\n<size:11>and network per jail; powerful but hard</size>\n<size:11>to use — never went mainstream</size>" <<plain>> as jails
+rectangle "2001–05 · Hypervisors and OS partitions\n<size:11>VMware ESX (2001): VMs on x86</size>\n<size:11>HP-UX vPars · Solaris Zones (2005)</size>" <<plain>> as vms
+rectangle "2002 · Linux namespaces\n<size:11>kernel 2.4.19 starts the series:</size>\n<size:11>mount, then UTS, IPC, PID, net, user</size>" <<accent>> as ns
+rectangle "2006–08 · cgroups\n<size:11>Google's “process containers” (2006),</size>\n<size:11>released 2007, merged in kernel 2.6.24 (2008)</size>" <<accent>> as cg
+rectangle "2013 · Docker\n<size:11>dotCloud (2010) open-sources its tooling as</size>\n<size:11>Docker: namespaces + cgroups + images +</size>\n<size:11>a simple CLI — containers go mainstream</size>" <<good>> as docker
+rectangle "2014–15 · Kubernetes and the OCI\n<size:11>orchestration open-sourced by Google;</size>\n<size:11>runc and the specs donated to the OCI</size>" <<good>> as k8s
+
+cpcms -right-> chroot
+chroot -right-> jails
+jails -right-> vms
+vms -down-> ns
+ns -right-> cg
+cg -right-> docker
+docker -right-> k8s
+cpcms -[hidden]down-> ns
+
+caption <i>The ingredients existed long before Docker. What Docker added was not isolation — the kernel already had it — but packaging (images) and ease of use.</i>
+@enduml

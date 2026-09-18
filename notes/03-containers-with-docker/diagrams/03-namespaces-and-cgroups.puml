@@ -1,0 +1,38 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One kernel, two containers — namespaces decide what each process can SEE, cgroups decide how much it can USE
+
+rectangle "Container A — process nginx" <<groupGood>> as a {
+  rectangle "pid: sees itself as PID 1\n<size:11>cannot see the host's or B's processes</size>" <<good>> as a1
+  rectangle "net: eth0 10.244.1.5, own ports\n<size:11>its port 80 is not the host's port 80</size>" <<good>> as a2
+  rectangle "mnt: / is the image's rootfs\n<size:11>own /usr, /etc, /lib from the image layers</size>" <<good>> as a3
+  rectangle "uts: hostname = a3f9c2\n<size:11>ipc: own message queues and shm</size>\n<size:11>user: UID 0 inside ≠ root outside (optional)</size>" <<good>> as a4
+  rectangle "cgroup: cpu 500m · memory 256Mi" <<accent>> as a5
+  a1 -[hidden]down-> a2
+  a2 -[hidden]down-> a3
+  a3 -[hidden]down-> a4
+  a4 -[hidden]down-> a5
+}
+
+rectangle "Container B — process java" <<groupGood>> as b {
+  rectangle "pid: also PID 1\n<size:11>same number, different namespace — no conflict</size>" <<good>> as b1
+  rectangle "net: eth0 10.244.1.6, own ports\n<size:11>can also listen on 80</size>" <<good>> as b2
+  rectangle "mnt: / is a different image's rootfs\n<size:11>a different glibc, JDK, libraries</size>" <<good>> as b3
+  rectangle "uts: hostname = 7be1d0\n<size:11>ipc, user: likewise isolated</size>" <<good>> as b4
+  rectangle "cgroup: cpu 2 · memory 2Gi" <<accent>> as b5
+  b1 -[hidden]down-> b2
+  b2 -[hidden]down-> b3
+  b3 -[hidden]down-> b4
+  b4 -[hidden]down-> b5
+}
+a -[hidden]right-> b
+
+rectangle "The ONE shared Linux kernel on the host\n<size:11>schedules both processes, owns the real hardware, enforces the namespaces and the cgroup limits.</size>\n<size:11>Both containers report the same kernel: uname -r → 5.15.49-linuxkit</size>" <<accent>> as kernel
+rectangle "Host view: ps shows nginx as PID 41230 and java as PID 41305 — ordinary processes with extra labels" <<muted>> as host
+
+a -down-> kernel
+b -down-> kernel
+kernel -down-> host
+
+caption <i>Namespaces = isolation of visibility (each process gets its own copy of a global resource: PIDs, network stack, mounts, hostname, IPC, users).</i>\n<i>cgroups = limits, prioritisation, accounting and control of resources (CPU, memory, I/O, PIDs). Together they are a container.</i>
+@enduml
