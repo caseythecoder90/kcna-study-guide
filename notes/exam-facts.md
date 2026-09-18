@@ -203,6 +203,23 @@
 | Docker (history) | Founded **2010 as dotCloud** (a PaaS); tooling **open-sourced and renamed Docker in 2013**; written in Go | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 | Docker's two key ingredients | **Linux kernel isolation** (namespaces + cgroups, shared kernel) + **ease of use** (images, simple CLI). Success attributed to **simplicity** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 | Why containers over VMs (exam phrasing) | Lightweight, fast to start, portable, dense, efficient — because they **share the host kernel** instead of booting a guest OS | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Traditional Docker (Linux) stack | Hardware → Linux (host kernel) → **containerd + runc** (the runtime Docker uses) → containers via the Docker CLI | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker minimum kernel | Course slide: **3.1, released 2011**. Docker's docs: **3.10 or higher** (June 2013). Use the course figure if the options match it | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker on a VM | Hardware is rarely a concern; in virtual environments **check virtualisation is enabled** | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker Desktop — what runs Docker | A **hidden, isolated Linux virtual machine**; containers run inside it on a LinuxKit kernel | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker Desktop VM backends | **Windows:** WSL 2 (default) or Hyper-V · **macOS:** Apple Virtualization framework / Docker VMM (course: HyperKit, QEMU) · **Linux:** KVM + QEMU | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker Desktop's main advantage | Runs Docker on **Windows and macOS** with a **GUI**, plus **bundled Kubernetes** and **Extensions** — convenience, not performance | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Resource management on a Mac | Done in Docker Desktop **Settings → Resources** (CPU, memory default 50% of host, swap, disk) because limits apply to the **VM**; Linux Engine containers use the host directly; Windows WSL 2 uses `.wslconfig` | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Docker Extensions | Marketplace of **third-party tools that plug into the Docker Desktop UI** (log viewers, disk usage, DB GUIs, scanners) | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Kubernetes in Docker Desktop | Settings → Kubernetes → Enable; single node named **docker-desktop**, role control-plane, context `docker-desktop`; provisioner kubeadm (single node) or kind (multi-node) | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| `docker run <image>` | **Creates and starts a container** from an image, pulling it first if needed | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| `-i` flag | `--interactive` — **keep STDIN open** so you can type into the process | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| `-t` flag | `--tty` — **allocate a pseudo-terminal** (a real shell prompt); `-it` together for an interactive shell | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| `-d` and `--rm` | `-d` detach (run in background, print the ID); `--rm` remove the container automatically when it exits | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Main container process | The command given to `docker run` becomes **PID 1** in the container; **when it exits the container stops** | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| What htop sees inside a container | All of the kernel's (VM's) CPUs and memory — `/proc/cpuinfo` and `/proc/meminfo` are **not namespaced**; cgroups limit usage without changing what is visible | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Windows containers | Docker Desktop on Windows can switch to **Windows containers** mode (needs a Windows kernel); Linux containers are the default | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| Apple silicon | Images default to **arm64** (`aarch64` in uname); x86 images run under emulation | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
 
 ## 04 · Kubernetes Fundamentals
 

@@ -60,6 +60,9 @@
 | **Docker** | Container platform / engine | Not CNCF (Docker, Inc.; engine open-sourced as Moby) | The tool that made containers mainstream in 2013: images, a daemon, a simple CLI; runs on containerd + runc; originally dotCloud (2010) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 | **VMware ESXi / vCenter** | Hypervisor | Not CNCF (Broadcom) | Market-leading bare-metal hypervisor and its management plane — the virtual machine era's reference point | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 | **LinuxKit** | Minimal Linux toolkit | Not CNCF (Linux Foundation / Docker) | Builds the small Linux VM Docker Desktop runs containers in — why uname shows a linuxkit kernel on macOS/Windows | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| **Docker Desktop** | Developer tooling | Not CNCF (Docker, Inc.; subscription for larger companies) | GUI bundle of Engine, CLI, Compose, BuildKit, Extensions and an optional Kubernetes cluster, running Docker inside a hidden Linux VM on Windows/macOS/Linux | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| **WSL 2 / Hyper-V / Apple Virtualization framework / KVM** | Virtualisation backends | Not CNCF (Microsoft / Apple / Linux kernel) | What Docker Desktop uses to run its hidden Linux VM on each host OS | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
+| **kind** | Local Kubernetes | Kubernetes SIG Testing (not a separate CNCF project) | Kubernetes-in-Docker: nodes are containers; one of Docker Desktop's two cluster provisioners and the usual choice for multi-node local labs | [03-02](03-containers-with-docker/02-docker-setup-and-install.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

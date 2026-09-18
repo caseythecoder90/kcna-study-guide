@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Traditional Docker on Linux vs Docker Desktop — where the Linux kernel comes from
+
+rectangle "Traditional Docker (Docker Engine on Linux)" <<group>> as eng {
+  rectangle "Containers\n<size:11>App · App · App · App</size>" <<good>> as e1
+  rectangle "Docker Engine → containerd → runc\n<size:11>the Docker CLI talks to dockerd over a socket</size>" <<accent>> as e2
+  rectangle "Linux — the host's own kernel\n<size:11>Docker's docs: kernel 3.10+ (the course slide says 3.1, 2011)</size>" <<plain>> as e3
+  rectangle "Hardware\n<size:11>rarely a concern; on a VM, make sure</size>\n<size:11>virtualisation is enabled</size>" <<muted>> as e4
+  e1 -[hidden]down-> e2
+  e2 -[hidden]down-> e3
+  e3 -[hidden]down-> e4
+}
+
+rectangle "Docker Desktop (Windows / macOS / Linux desktop)" <<groupGood>> as dd {
+  rectangle "Docker Desktop app\n<size:11>GUI · Settings → Resources (CPU, memory, swap, disk)</size>\n<size:11>· Kubernetes (enable a local cluster) · Extensions</size>" <<accent>> as d0
+  rectangle "Hidden Linux VM — the isolated instance Docker runs in\n<size:11>Windows: WSL 2 (default) or Hyper-V</size>\n<size:11>macOS: Apple Virtualization framework or Docker VMM (HyperKit / QEMU historically)</size>\n<size:11>Linux: KVM + QEMU</size>" <<plain>> as d1
+  rectangle "Inside the VM: Linux kernel (LinuxKit) → containerd → runc → containers\n<size:11>+ optional single-node Kubernetes (node name: docker-desktop)</size>" <<good>> as d2
+  rectangle "Host OS: Windows, macOS, or Linux" <<muted>> as d3
+  d0 -[hidden]down-> d1
+  d1 -[hidden]down-> d2
+  d2 -[hidden]down-> d3
+}
+eng -[hidden]right-> dd
+
+caption <i>On Linux, containers use the host kernel directly. Everywhere else Docker Desktop supplies a Linux kernel by running a small VM — which is why resource limits are VM settings,</i>\n<i>why uname inside a container shows a linuxkit kernel, and why Docker Desktop is the easy path on a laptop: one install gives you Docker, a GUI, and Kubernetes.</i>
+@enduml
