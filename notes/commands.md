@@ -15,7 +15,25 @@ _Added when Section 3 (Docker) and Section 4 (Kubernetes) labs begin._
 
 ## 2. Docker
 
-_Section 3._
+Per-chapter detail: [`commands/docker.md`](commands/docker.md).
+
+### 2a. The shared kernel (chapter 03-01)
+
+```bash
+docker run ubuntu uname -a          # every image reports the SAME kernel version —
+docker run amazonlinux uname -a     # there is only one kernel, the host's
+docker run centos uname -a
+docker run ubuntu cat /etc/os-release   # what differs is userspace
+
+# Namespaces and cgroups on a Linux host
+lsns
+ls -l /proc/$$/ns/
+sudo unshare --pid --fork --mount-proc bash     # you are PID 1 in a new PID namespace
+docker inspect -f '{{.State.Pid}}' <container>  # host PID of the container's process
+sudo nsenter -t <pid> -n ip addr                # enter its network namespace
+docker run -d --memory=256m --cpus=0.5 nginx    # limits become cgroup settings
+docker stats --no-stream                        # cgroup accounting
+```
 
 ## 3. kubectl basics
 

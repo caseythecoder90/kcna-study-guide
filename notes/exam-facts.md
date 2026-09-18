@@ -174,7 +174,35 @@
 
 ## 03 · Containers with Docker
 
-_Not started._
+| Fact | Value | Chapter |
+|---|---|---|
+| Mainframe | Large centralised computer built for **throughput and reliability** (IBM System/360 1964 → IBM Z / z/OS today); shared by many users via **time sharing** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| CP/CMS | IBM mainframe OS, **late 1960s–early 1970s**: unlike pure time sharing, the Control Program gave **each user their own virtual machine** running CMS — one of the **earliest uses of virtual machines** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Time sharing | A method of sharing a large computer among **multiple users simultaneously** — shared processor and storage, one OS | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| chroot | **Version 7 Unix, 1979**; **changes the root directory for a process and its children** — they see only files under the new root. Limited: hostname/IPs still visible, root can escape, dirs must be root:root. Uses: confined SSH shells, Apache, user isolation | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| FreeBSD Jails | **FreeBSD 4.0, 2000**; partitions FreeBSD into isolated environments with **own users, processes, filesystem, and networking stack**; popular with ISPs early 2000s; held back by **complexity** — ease of use decides adoption | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| BSD | **Berkeley Software Distribution** — the Unix flavour FreeBSD is based on | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Solaris Zones / HP-UX vPars | Sun **Zones**: Solaris divided into isolated environments (2005). HP-UX **Virtual Partitions**: logical partitions of an HP-UX system | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Virtual machine | **Software emulation of a physical computer**; each VM runs a full guest OS with its own kernel | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Hypervisor | Lets multiple VMs run across physical compute — an **abstraction layer between physical resources and guests**; over time merged with the OS (ESXi, KVM, Hyper-V); supports live migration, GPUs, cloud, **VDI** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| VMware | Market leader in virtualisation; hypervisor **ESXi**, management **vCenter** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Linux namespaces (origin) | Introduced **2002, kernel 2.4.19**; **originally 6**: **user, pid, network, mount, uts, ipc** (exam answer: 6). Later: cgroup (4.6, 2016), time (5.6, 2020) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Namespace (definition) | Wraps a **global system resource** so processes inside appear to have **their own isolated instance** of it; created with `clone`/`unshare`, joined with `setns`; visible in `/proc/<pid>/ns/` | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| user namespace | Isolates **user and group IDs** — UID 0 inside can map to an unprivileged UID outside (rootless containers) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| pid namespace | Own **process ID** tree; the container's first process is **PID 1**; cannot see host or other containers' processes | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| network namespace | Own **networking stack**: interfaces, IPs, routes, **port space**; Pod containers share one | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| mount namespace | Own **filesystem hierarchy / mount points**; the container's / is its image rootfs | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| uts namespace | Isolates **hostname and domain name** (UTS = Unix Time-Sharing) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| ipc namespace | Own **inter-process communication** objects — POSIX/System V message queues, shared memory | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| cgroups (control groups) | Kernel feature to **group processes hierarchically and limit/monitor their resource usage**. Started at **Google 2006** as "process containers", renamed, **released 2007, merged 2008** (kernel 2.6.24); v2 unified hierarchy official in 4.5 (2016). The course's "7th namespace" | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| cgroups' four capabilities | **Resource limits** (how much CPU/memory) · **Prioritisation** (shares when contended) · **Accounting** (measure and report) · **Control** (start/stop/freeze/restart the group) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Namespaces vs cgroups | Namespaces limit what a process can **see** (visibility); cgroups limit what it can **use** (resources) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Container (definition) | An ordinary host process isolated by **namespaces**, budgeted by **cgroups**, with a filesystem from an **image**, running on the **host's shared kernel** — no guest OS, no hypervisor | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Shared kernel — the benefit over VMs | No guest OS per workload → **MB not GB, milliseconds not minutes, hundreds per host, near-zero overhead, one kernel to patch**. Cost: **weaker isolation** than a VM and containers must match the host kernel's OS family | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| uname demo | `docker run ubuntu|amazonlinux|centos uname -a` all print the **same kernel** (e.g. 5.15.49-linuxkit on Docker Desktop) — the shared kernel made visible; only userspace differs | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Docker (history) | Founded **2010 as dotCloud** (a PaaS); tooling **open-sourced and renamed Docker in 2013**; written in Go | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Docker's two key ingredients | **Linux kernel isolation** (namespaces + cgroups, shared kernel) + **ease of use** (images, simple CLI). Success attributed to **simplicity** | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| Why containers over VMs (exam phrasing) | Lightweight, fast to start, portable, dense, efficient — because they **share the host kernel** instead of booting a guest OS | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 
 ## 04 · Kubernetes Fundamentals
 

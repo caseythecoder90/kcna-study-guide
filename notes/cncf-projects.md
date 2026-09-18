@@ -57,6 +57,9 @@
 | **Gateway API** | Traffic routing standard | Kubernetes SIG Network (not a separate CNCF project) | Successor to Ingress and, via GAMMA, to SMI for mesh traffic | [02-07](02-cloud-native-architecture/07-open-standards.md) |
 | **OpenMetrics** | Metrics format standard | **Archived** (Jul 2024), merged into Prometheus | Prometheus exposition format as a standard; OpenMetrics 2.0 continues inside Prometheus | [02-07](02-cloud-native-architecture/07-open-standards.md) |
 | **OpenTelemetry** | Observability standard + SDKs | Graduated (May 2026; incubating Aug 2021) | Vendor-neutral traces, metrics and logs — APIs, SDKs, collector; merger of OpenTracing and OpenCensus | [02-07](02-cloud-native-architecture/07-open-standards.md) |
+| **Docker** | Container platform / engine | Not CNCF (Docker, Inc.; engine open-sourced as Moby) | The tool that made containers mainstream in 2013: images, a daemon, a simple CLI; runs on containerd + runc; originally dotCloud (2010) | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| **VMware ESXi / vCenter** | Hypervisor | Not CNCF (Broadcom) | Market-leading bare-metal hypervisor and its management plane — the virtual machine era's reference point | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
+| **LinuxKit** | Minimal Linux toolkit | Not CNCF (Linux Foundation / Docker) | Builds the small Linux VM Docker Desktop runs containers in — why uname shows a linuxkit kernel on macOS/Windows | [03-01](03-containers-with-docker/01-introduction-to-containers.md) |
 
 ## Organizations (not projects, but they appear in questions)
 
