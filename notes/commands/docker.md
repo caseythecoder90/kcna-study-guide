@@ -1,129 +1,189 @@
-# Docker — commands
+# Docker — command reference
 
-Companion to [`../03-containers-with-docker/`](../03-containers-with-docker/). Grows chapter by chapter through Section 3. Docker Desktop (macOS/Windows) or Docker Engine (Linux) both work; on macOS/Windows remember the containers run inside a hidden Linux VM.
+The Docker commands to know for daily use and for the certification labs (KCNA questions, the CKA/CKS runtime tasks), organised by the noun they act on. Every entry shows the management form `docker <noun> <verb>` (Docker 1.13+) with the traditional alias where one exists; they are the same command. Placeholders: `C` = container name or ID (a unique prefix of the ID is enough), `IMG` = image reference.
 
-## Chapter 01 — the shared kernel
+Chapter-specific lab blocks from Section 3 are at the end.
+
+## Getting oriented
 
 ```bash
-# Three distributions, one kernel: every container reports the host kernel's version
-docker run ubuntu uname -a
-docker run amazonlinux uname -a
-docker run centos uname -a
-# → all three print the same "5.15.49-linuxkit ..." (or your host's kernel on Linux)
-
-# What differs is userspace — compare the OS release inside each image
-docker run ubuntu cat /etc/os-release
-docker run amazonlinux cat /etc/os-release
+docker version                     # client + server versions; the server is the daemon (inside the Desktop VM on Win/Mac)
+docker info                        # runtime (containerd/runc), storage driver, cgroup driver/version, kernel, resources
+docker --help ; docker image --help ; docker container run --help   # the CLI documents itself; --help works at every level
+docker system df                   # disk used by images, containers, volumes, build cache
+docker system prune                # remove stopped containers, unused networks, dangling images, build cache (-a: all unused images; --volumes too)
+docker events                      # live stream of daemon events (create, start, die, ...)
+docker context ls                  # which daemon the CLI is talking to (desktop-linux, default, remote hosts)
 ```
 
-## Chapter 02 — first interactive container
+## Images — `docker image …`
 
 ```bash
-docker run -it ubuntu bash        # -i keep STDIN open, -t allocate a pseudo-TTY; bash becomes PID 1
-apt update && apt install -y htop # inside: root, no sudo needed
-htop                              # bash = PID 1 (main process), htop = its child; CPU/mem shown are the VM's
-exit                              # PID 1 exits → the container stops
-docker ps -a                      # ... Exited (0) ...
-docker rm <id>                    # or use --rm on the run to auto-remove
-docker run -d --name web nginx    # -d detach: run in the background, print the container ID
-docker stop web && docker rm web
+docker image pull IMG                     # docker pull   — defaults: registry docker.io, namespace library/, tag :latest
+docker image pull IMG@sha256:<digest>     #                 immutable pull by content hash
+docker image ls [--digests] [-a] [-q]     # docker images — list; -a includes intermediate layers; -q IDs only
+docker image inspect IMG                  # JSON: Config (Env, Cmd, Entrypoint, ExposedPorts), RootFS.Layers, RepoDigests
+docker image history IMG                  # instruction per row; which created layers vs 0 B metadata
+docker image tag SRC DST                  # docker tag    — another name for the same image
+docker image push IMG                     # docker push   — to the registry in the name; prints the digest
+docker image rm IMG                       # docker rmi    — -f if containers still reference it
+docker image prune [-a]                   # dangling images / all unused images
+docker image save IMG -o f.tar            # docker save   — export (OCI layout with the containerd store)
+docker image load -i f.tar                # docker load   — import
+docker image build -t NAME:TAG .          # docker build  — from ./Dockerfile; -f other.Dockerfile; --no-cache; --platform linux/amd64
+docker buildx imagetools inspect IMG      # registry-side index: digest + one manifest per platform (--raw for the JSON)
+docker login [REGISTRY] ; docker logout   # credentials in the credential store, never in images
+docker search TERM                        # Docker Hub search
 ```
 
-## Chapter 03 — images, tags, layers, digests
+## Containers — `docker container …`
 
-Both CLI forms are shown: the management form `docker <noun> <verb>` (Docker 1.13+, self-documenting via `docker image --help`) and the traditional alias.
-
-### Pull, list, inspect, remove
+### Create and run
 
 ```bash
-docker image pull spurin/funbox                 # = docker pull; default registry docker.io, default tag :latest
-docker image pull docker.io/spurin/funbox:latest # the same reference, fully qualified
-docker image pull ubuntu:22.04                  # explicit tag — prefer this over :latest everywhere that matters
-docker image pull ghcr.io/org/app:1.2           # another registry: put the host in the name
-docker image pull spurin/funbox@sha256:8a01842539972507846c938e120ecc1f5b9f921da77f4d0e81cae17f42f10b90   # by digest: immutable
-
-docker image ls                                 # = docker images; REPOSITORY TAG IMAGE ID CREATED SIZE
-docker image ls --digests                       # add the registry digest column
-docker image ls -q                              # IDs only (handy for scripting: docker image rm $(docker image ls -q))
-docker image inspect spurin/funbox              # full JSON: Config (Env, Cmd, User), RootFS.Layers (diff_ids), RepoDigests
-docker image inspect --format '{{index .RepoDigests 0}}' spurin/funbox   # name@sha256:… — what to pin in a manifest
-docker image history spurin/funbox              # one row per instruction: which created layers (size) vs 0 B metadata
-docker image rm spurin/funbox                   # = docker rmi; fails if a container still uses it (-f to force)
-docker image prune                              # delete dangling (untagged) images; -a for all unused
-docker system df                                # disk used by images, containers (writable layers), volumes, build cache
+docker container run IMG [CMD]            # docker run = create + start; CMD after the image replaces the image's CMD
+docker container run -d IMG               # detached (background), prints the ID
+docker container run -it IMG sh           # interactive shell: -i keep STDIN open, -t allocate a TTY
+docker container run --rm IMG             # delete the container when it exits
+docker container run --name web IMG       # a name you choose (also the DNS name on user-defined networks)
+docker container run -p 8080:80 IMG       # publish host 8080 → container 80  (-p 127.0.0.1:8080:80 to bind locally; /udp)
+docker container run -P IMG               # publish every EXPOSEd port to a random high host port
+docker container run -e KEY=VAL --env-file .env IMG   # environment variables
+docker container run -v NAME:/path IMG    # named volume (created if missing)
+docker container run -v /host/dir:/path[:ro] IMG      # bind mount (absolute host path)
+docker container run --mount type=volume,src=NAME,dst=/path IMG   # the explicit form; type=bind|volume|tmpfs
+docker container run -w /app -u 1000:1000 IMG         # working dir, non-root user
+docker container run --network NET IMG    # attach to a network (bridge default; host, none, or a user-defined one)
+docker container run --memory 256m --cpus 0.5 IMG     # cgroup limits
+docker container run --restart unless-stopped IMG     # no | on-failure[:N] | always | unless-stopped
+docker container run --entrypoint sh IMG  # override ENTRYPOINT
+docker container create IMG               # docker create — everything run does except starting it
 ```
 
-### Tags
+### Lifecycle
 
 ```bash
-docker image tag spurin/funbox:latest myreg.local:5000/funbox:1.0.0   # = docker tag; a second name for the SAME image (same ID)
-docker image ls | grep funbox                                          # two rows, one IMAGE ID
-docker image push myreg.local:5000/funbox:1.0.0                        # = docker push; prints the digest at the end
-docker login myreg.local:5000                                          # registry credentials (never in Dockerfiles)
+docker container ls                       # docker ps     — running only
+docker container ls -a                    # docker ps -a  — all states: created restarting running removing paused exited dead
+docker container ls -q ; -l ; --filter status=exited ; --format '{{.Names}} {{.Status}}'
+docker container start C                  # docker start  — a created or exited container (-a attach, -i interactive)
+docker container stop C                   # docker stop   — SIGTERM, 10 s grace (-t N), then SIGKILL
+docker container kill C                   # docker kill   — SIGKILL now (-s SIGHUP to send another signal)
+docker container restart C                # docker restart
+docker container pause C / unpause C      # freeze / thaw via the cgroup freezer
+docker container rm C                     # docker rm     — a stopped container; -f to stop-and-remove; -v also its anonymous volumes
+docker container prune                    # remove all stopped containers
+docker container rename C NEW
+docker container update --memory 512m C   # change cgroup limits and restart policy on a live container
+docker container wait C                   # block until it exits, print the exit code
 ```
 
-### Digests — reproduce what the registry computed
+### Inspect and interact
 
 ```bash
-docker buildx imagetools inspect spurin/funbox                 # Name / MediaType / Digest, then one manifest per platform
-docker buildx imagetools inspect spurin/funbox --raw           # the index JSON exactly as stored
-docker buildx imagetools inspect spurin/funbox --raw | sha256sum      # Linux: prints 8a01842… — the digest IS the hash
-docker buildx imagetools inspect spurin/funbox --raw | shasum -a 256  # macOS
-# Windows PowerShell: pipes re-encode text, so write the bytes via cmd and hash the file
-#   cmd /c "docker buildx imagetools inspect spurin/funbox --raw > index.json"
-#   Get-FileHash index.json -Algorithm SHA256
+docker container exec -it C sh            # docker exec   — run an extra process inside (the way to get a shell)
+docker container exec C cat /etc/hostname #                 one-off command, no shell
+docker container exec -u root -w /tmp C ls
+docker container attach C                 # attach the terminal to PID 1 (detach with Ctrl-P Ctrl-Q; Ctrl-C may stop it)
+docker container logs C                   # docker logs   — PID 1's stdout/stderr; -f follow, --tail 100, --since 10m, -t timestamps
+docker container inspect C                # JSON: State, Config, Mounts, NetworkSettings.IPAddress, HostConfig
+docker container inspect -f '{{.State.Status}} {{.NetworkSettings.IPAddress}}' C
+docker container top C                    # processes inside, as the host sees them
+docker container stats [C]                # live cgroup usage; --no-stream for one sample
+docker container port C                   # published port mappings
+docker container diff C                   # files Added/Changed/Deleted in the writable layer
+docker container cp C:/path/in ./out ; docker container cp ./in C:/path   # copy files out / in (works on stopped containers)
+docker container commit C NEWIMG          # snapshot the writable layer into a new image — demo use only; build from a Dockerfile instead
+docker container export C -o rootfs.tar   # flatten the filesystem to a tar (no layers, no metadata; contrast: image save)
 ```
 
-### The image on disk — OCI Image Layout
+## Networks — `docker network …`
 
 ```bash
-mkdir /tmp/funbox && cd /tmp/funbox
-docker image save spurin/funbox -o funbox.tar      # = docker save; with the containerd store this is an OCI layout
-tar xvf funbox.tar                                 # blobs/sha256/<digest>…  index.json  manifest.json  oci-layout
-cat index.json | jq                                # → the index digest (8a01842…) + name annotations
-cat manifest.json | jq                             # Docker's legacy list: Config blob + Layers for the saved platform
-cat blobs/sha256/8a01842… | jq                     # the index: one manifest digest per platform (+ attestations)
-cat blobs/sha256/e5ca9f9… | jq                     # the arm64 manifest: config digest + 5 layer digests in order
-cat blobs/sha256/e4475d4… | jq                     # the config: Env, Cmd, User, history, rootfs.diff_ids
-file blobs/sha256/82312fc…                         # gzip compressed data — a layer tarball
-sha256sum blobs/sha256/8a01842…                    # equals the filename: content-addressed
-docker image load -i funbox.tar                    # = docker load; the reverse of save (air-gapped transfer)
+docker network ls                         # bridge (default), host, none, plus user-defined networks
+docker network create NET                 # user-defined bridge: containers on it resolve each other by name
+docker network create -d overlay NET      # multi-host (Swarm); other drivers: macvlan, ipvlan
+docker network inspect NET                # subnet, gateway, attached containers and their IPs
+docker network connect NET C / disconnect NET C   # attach/detach a running container
+docker network rm NET ; docker network prune
+docker container run --network host IMG   # share the host's network namespace (no port mapping needed; Linux only)
+docker container run --network none IMG   # loopback only
 ```
 
-### Layers in action — the writable layer
+## Volumes — `docker volume …`
 
 ```bash
+docker volume create NAME
+docker volume ls
+docker volume inspect NAME                # Mountpoint: /var/lib/docker/volumes/NAME/_data (inside the VM on Win/Mac)
+docker volume rm NAME
+docker volume prune                       # unused volumes (data is lost)
+docker container run -v NAME:/data IMG    # attach; an empty new volume is pre-populated with the image's /data contents
+```
+
+## Build — Dockerfile essentials
+
+```bash
+docker image build -t app:1.0 .           # context = current dir; .dockerignore trims it
+docker image build --target builder .     # stop at a stage of a multi-stage build
+docker image build --platform linux/amd64,linux/arm64 -t app:1.0 --push .   # multi-arch via buildx
+```
+
+Instructions that create layers: `FROM`, `RUN`, `COPY`, `ADD`. Metadata only: `ENV`, `CMD`, `ENTRYPOINT`, `USER`, `WORKDIR`, `EXPOSE`, `LABEL`, `ARG`, `STOPSIGNAL`, `HEALTHCHECK`, `VOLUME`. `EXPOSE` documents a port and is what `-P` publishes; it does not open anything by itself.
+
+## Compose — `docker compose …`
+
+```bash
+docker compose up -d                      # from compose.yaml in the current dir; builds if needed
+docker compose ps ; logs -f ; exec svc sh
+docker compose down [-v]                  # stop and remove containers, networks (-v: volumes too)
+```
+
+## Cross-platform notes (this repo is developed on Windows)
+
+- Paths in `-v` must be absolute. PowerShell: `-v "${PWD}\dir:/path"`; cmd: `-v %cd%\dir:/path`; WSL/Git Bash: `-v /mnt/c/Users/…:/path` or `$(pwd)`. Quote the argument in PowerShell.
+- Git Bash rewrites `/path` arguments into Windows paths; prefix with `MSYS_NO_PATHCONV=1` or use `//path`.
+- PowerShell 5.1 pipes to native commands re-encode bytes: for `| sha256sum`-style checks, redirect via `cmd /c` and hash the file, or use WSL.
+- On Docker Desktop, `/var/lib/docker` and volume mountpoints are inside the hidden VM; reach them with `docker run --rm -it --privileged --pid=host alpine nsenter -t 1 -m -u -n -i sh`.
+
+---
+
+## Section 3 lab blocks
+
+### 03-01 — the shared kernel
+
+```bash
+docker run ubuntu uname -a ; docker run amazonlinux uname -a ; docker run centos uname -a   # same kernel every time
+docker run ubuntu cat /etc/os-release                                                       # userspace differs
+```
+
+### 03-02 — first interactive container
+
+```bash
+docker run -it ubuntu bash        # bash becomes PID 1
+apt update && apt install -y htop ; htop     # bash = PID 1, htop its child; CPU/mem shown are the VM's
+exit                              # PID 1 exits → container stops; docker ps -a shows Exited
+```
+
+### 03-03 — images, digests, the writable layer
+
+```bash
+docker image pull docker.io/spurin/funbox:latest          # five "Pull complete" lines = five layers, 3 concurrent by default
+docker buildx imagetools inspect spurin/funbox --raw | sha256sum   # == the Digest from the pull (Linux; macOS: shasum -a 256)
+mkdir /tmp/funbox && cd /tmp/funbox && docker image save spurin/funbox -o funbox.tar && tar xvf funbox.tar
+cat index.json | jq ; cat manifest.json | jq ; cat blobs/sha256/<index-digest> | jq ; sha256sum blobs/sha256/<index-digest>
 docker container run -d --name fb spurin/funbox sleep 3600
-docker container exec fb sh -c 'echo hi > /tmp/out.txt; echo changed >> /etc/motd; rm -rf /examples'
-docker container diff fb                           # A /tmp/out.txt   C /etc/motd   D /examples — the upperdir, listed
-docker container inspect --format '{{json .GraphDriver.Data}}' fb | jq   # LowerDir / UpperDir / MergedDir (classic store, Linux)
-docker container rm -f fb                          # the writable layer is gone with it — hence volumes
-docker container run --rm spurin/funbox cat /etc/motd   # a fresh container sees the image's original: layers are immutable
+docker container exec fb sh -c 'echo hi > /tmp/out.txt; rm -rf /examples' && docker container diff fb   # A /tmp/out.txt  D /examples
+docker container rm -f fb                                 # writable layer gone; the image is untouched
 ```
 
-## Namespaces and cgroups — looking under the hood (Linux host)
+### Namespaces and cgroups under the hood (Linux host)
 
 ```bash
-# Namespaces
-lsns                                                  # all namespaces on the host and the PID owning each
-ls -l /proc/$$/ns/                                    # your shell's: cgroup ipc mnt net pid user uts time
-sudo unshare --pid --fork --mount-proc bash           # new PID namespace: inside, ps shows you as PID 1
-docker run -d --name web nginx
-docker inspect --format '{{.State.Pid}}' web          # the container's PID as the HOST sees it
-sudo ls -l /proc/$(docker inspect -f '{{.State.Pid}}' web)/ns/   # its namespaces (different inode numbers from yours)
-sudo nsenter -t $(docker inspect -f '{{.State.Pid}}' web) -n ip addr   # step into its network namespace
-docker exec web hostname                              # UTS namespace: hostname == container ID
-docker exec web ps aux                                # PID namespace: nginx is PID 1
-
-# cgroups
-cat /proc/self/cgroup                                 # which cgroup your shell belongs to
-cat /sys/fs/cgroup/cgroup.controllers                 # controllers available (cgroups v2)
-docker run -d --name limited --memory=256m --cpus=0.5 nginx   # Docker writes these into a cgroup
-docker stats --no-stream limited                      # cgroup accounting: CPU %, memory usage / limit
-cat /sys/fs/cgroup/system.slice/docker-$(docker inspect -f '{{.Id}}' limited).scope/memory.max   # 268435456
-
-# Clean up
-docker rm -f web limited
+lsns ; ls -l /proc/$$/ns/
+sudo unshare --pid --fork --mount-proc bash               # new PID namespace: you are PID 1
+docker inspect -f '{{.State.Pid}}' C                      # the container's PID on the host
+sudo nsenter -t <pid> -n ip addr                          # enter its network namespace
+docker run -d --memory=256m --cpus=0.5 nginx && docker stats --no-stream   # cgroup limits and accounting
+cat /sys/fs/cgroup/cgroup.controllers                     # cgroups v2 controllers
 ```
-
-On Docker Desktop the namespace/cgroup files live inside the VM; use `docker run --rm -it --privileged --pid=host alpine nsenter -t 1 -m -u -n -i sh` to get a shell in that VM first.

@@ -21,7 +21,7 @@ kubectl get nodes                             # docker-desktop  Ready  control-p
 
 ## 2. Docker
 
-Per-chapter detail: [`commands/docker.md`](commands/docker.md).
+Full reference by noun (images, containers, networks, volumes, build, compose): [`commands/docker.md`](commands/docker.md). The blocks below are the exam-critical subset.
 
 ### 2a. The shared kernel (chapter 03-01)
 
@@ -56,6 +56,21 @@ docker image rm IMAGE                           # docker rmi
 docker image save IMAGE -o f.tar / docker image load -i f.tar
 docker buildx imagetools inspect IMAGE [--raw]  # index/manifests per platform; --raw | sha256sum == the digest
 docker container diff ID                        # the writable layer's A/C/D changes
+```
+
+### 2c. Container lifecycle (chapter 03-04)
+
+```bash
+docker container run  = create + start      # flags fixed at creation; CMD after the image replaces the image's CMD
+docker container ls / ls -a                 # running / all states (created restarting running removing paused exited dead)
+docker container stop C                     # SIGTERM → 10 s grace → SIGKILL
+docker container kill C                     # SIGKILL now
+docker container start C / restart C / pause C / unpause C
+docker container rm C / rm -f C / prune     # remove stopped / running / all stopped
+docker container exec -it C sh              # a new process inside (the way to get a shell)
+docker container logs -f C                  # PID 1's stdout/stderr
+docker container inspect / top / stats / port / diff / cp
+--restart no | on-failure[:N] | always | unless-stopped
 ```
 
 ## 3. kubectl basics

@@ -243,6 +243,19 @@
 | `docker save` / OCI Image Layout | Exports an image as a tar; with the containerd store it is an **OCI Image Layout**: `oci-layout`, `index.json`, `blobs/sha256/<digest>` — each blob's **content hashes to its filename** | [03-03](03-containers-with-docker/03-container-images.md) |
 | containerd image store | Docker's newer image backend, **default in Docker Desktop 4.34+**; multi-platform images and attestations; `docker save` writes OCI layouts | [03-03](03-containers-with-docker/03-container-images.md) |
 | Commit-SHA tags | `app:<git sha>` is a **tag** (unique per build, traceable) — still mutable; for immutability deploy `app:<sha>@sha256:<digest>` | [03-03](03-containers-with-docker/03-container-images.md) |
+| `docker run` | = **`docker create` + `docker start`**; name, ports, mounts, env and command are fixed at creation | [03-04](03-containers-with-docker/04-running-containers.md) |
+| Container states | **created, restarting, running, removing, paused, exited, dead** (`docker ps --filter status=`); `docker ps` shows running only, **`-a`** shows all | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker stop` | Sends **SIGTERM** to PID 1, waits a **10 s grace period** (`-t`; 30 s on Windows), then **SIGKILL**; first signal overridable via `STOPSIGNAL` / `--stop-signal` | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker kill` | Sends **SIGKILL immediately** (or another signal with `-s`) | [03-04](03-containers-with-docker/04-running-containers.md) |
+| Stopped containers | Still exist — writable layer, logs, name and config kept until **`docker rm`**; `rm -f` for a running one; `--rm` auto-removes on exit; `container prune` removes all stopped | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker exec` vs `docker attach` | **exec** starts an **additional process** in the container (the normal way to get a shell); **attach** connects to **PID 1**'s stdio (detach `Ctrl-P Ctrl-Q`) | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker logs` | Reads **PID 1's stdout/stderr** captured by the runtime (`-f`, `--tail`, `--since`, `-t`); the same stream `kubectl logs` reads — log to stdout, not files | [03-04](03-containers-with-docker/04-running-containers.md) |
+| Restart policies | `--restart` **no** (default) · **on-failure[:N]** · **always** · **unless-stopped** (like always but a manual stop sticks across daemon restarts) | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker pause` | Freezes all processes with the **cgroup freezer**; memory kept; `unpause` resumes | [03-04](03-containers-with-docker/04-running-containers.md) |
+| Command override | `docker run IMG CMD` replaces the image's **`CMD`**; `--entrypoint` replaces **`ENTRYPOINT`**; whatever runs is PID 1 and the container lives as long as it does | [03-04](03-containers-with-docker/04-running-containers.md) |
+| Signal handling and Java | An app that ignores SIGTERM is SIGKILLed after the grace period (Docker 10 s, Kubernetes `terminationGracePeriodSeconds` 30 s); shutdown hooks only run if the JVM receives the signal (`exec java …` in entrypoint scripts) | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `docker cp`, `commit`, `export` | `cp` copies files in/out (works on stopped containers); `commit` snapshots a container's writable layer into an image (demo only — use a Dockerfile); `export` flattens a container filesystem to tar (no layers), unlike `image save` | [03-04](03-containers-with-docker/04-running-containers.md) |
+| `EXPOSE` | Dockerfile metadata documenting a port; **opens nothing** by itself; it is what **`-P`** publishes to random host ports | [03-04](03-containers-with-docker/04-running-containers.md) |
 
 ## 04 · Kubernetes Fundamentals
 

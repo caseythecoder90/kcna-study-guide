@@ -67,6 +67,7 @@
 | **OverlayFS** | Union filesystem (Linux kernel) | Not CNCF (Linux kernel) | The union filesystem behind Docker's `overlay2` and containerd's overlayfs snapshotter: lowerdir + upperdir → merged | [03-03](03-containers-with-docker/03-container-images.md) |
 | **OCI Image Layout** | Image on-disk format (OCI image-spec) | OCI (Linux Foundation) | `oci-layout` + `index.json` + `blobs/<alg>/<digest>`; what `docker save` emits with the containerd store | [03-03](03-containers-with-docker/03-container-images.md) |
 | **jq** | CLI tool | Not CNCF | Command-line JSON processor used throughout the labs to read manifests and configs | [03-03](03-containers-with-docker/03-container-images.md) |
+| **Docker Compose** | Multi-container tooling | Not CNCF (Docker, Inc.) | Defines and runs multi-container applications from a `compose.yaml`; the local-dev sibling of a Kubernetes manifest | [03-04](03-containers-with-docker/04-running-containers.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

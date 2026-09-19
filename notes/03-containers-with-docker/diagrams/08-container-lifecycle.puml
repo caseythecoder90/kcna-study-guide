@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Container lifecycle — the states docker ps reports and the commands that move between them
+
+rectangle "(image)" <<muted>> as img
+rectangle "created\n<size:11>writable layer and config exist, no process yet</size>" <<plain>> as created
+rectangle "running\n<size:11>PID 1 alive</size>" <<good>> as running
+rectangle "paused\n<size:11>processes frozen by the cgroup freezer;</size>\n<size:11>memory kept</size>" <<plain>> as paused
+rectangle "exited\n<size:11>PID 1 ended; writable layer, logs and config</size>\n<size:11>still on disk — docker ps -a shows it</size>" <<accent>> as exited
+rectangle "(removed)\n<size:11>writable layer deleted; named volumes survive</size>" <<muted>> as gone
+
+img -down-> created : docker create
+created -down-> running : docker start
+img -down-> running : docker run = create + start
+running -right-> paused : docker pause
+paused -left-> running : docker unpause
+running -down-> exited : docker stop — SIGTERM, 10 s grace, then SIGKILL\ndocker kill — SIGKILL immediately\nor PID 1 exits by itself
+exited -up-> running : docker start / docker restart\n(or --restart policy: always, unless-stopped, on-failure[:n])
+exited -down-> gone : docker rm
+running -down-> gone : docker rm -f
+created -down-> gone : docker rm
+
+caption <i>docker ps shows running containers only; docker ps -a shows every state. --rm on docker run deletes the container the moment it exits.</i>\n<i>Stopping is graceful by default so the process can flush and close; kill is for when it will not. Neither touches the image.</i>
+@enduml
