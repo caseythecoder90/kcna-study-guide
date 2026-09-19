@@ -73,6 +73,19 @@ docker container inspect / top / stats / port / diff / cp
 --restart no | on-failure[:N] | always | unless-stopped
 ```
 
+### 2d. Ports, networks, mounts (chapter 03-05)
+
+```bash
+docker run -p 12345:80 IMG                      # publish host:container (127.0.0.1:12345:80 to keep local; /udp)
+docker run -P IMG ; docker container port C     # publish all EXPOSEd ports to random host ports; show mappings
+docker network ls | create NET | inspect NET    # bridge (default, no DNS) · host · none · overlay; user-defined bridges have DNS by name
+docker run --network NET --name db IMG          # "db" resolves for others on NET
+docker run -v /abs/host/path:/ctr/path[:ro] IMG # bind mount (absolute; PowerShell "${PWD}\x", WSL /mnt/c/…)
+docker run -v NAME:/ctr/path IMG                # named volume, created if missing, pre-populated from the image dir
+docker run --mount type=bind|volume|tmpfs,src=…,dst=…[,readonly] IMG   # explicit form; --mount errors on a missing host path, -v creates a dir
+docker volume create | ls | inspect | rm | prune
+```
+
 ## 3. kubectl basics
 
 _Section 4._

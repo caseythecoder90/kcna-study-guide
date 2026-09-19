@@ -11,3 +11,4 @@ kubectl apply -f <file>.yaml
 | Path | Chapter | What it shows |
 |---|---|---|
 | [`autoscaling/hpa-cpu-memory.yaml`](autoscaling/hpa-cpu-memory.yaml) | [02-03 Autoscaling](../notes/02-cloud-native-architecture/03-autoscaling.md) | A Deployment with resource requests plus an `autoscaling/v2` HorizontalPodAutoscaler targeting 60% CPU and 70% memory utilization, min 2 / max 10. Needs the metrics-server — see [`../notes/commands/autoscaling.md`](../notes/commands/autoscaling.md) |
+| [`docker/nginx-bind-mount/`](docker/nginx-bind-mount/) | [03-05 Networking and Volumes](../notes/03-containers-with-docker/05-networking-and-volumes.md) | Stock `nginx` serving a bind-mounted `index.html` read-only on published port 12345; run commands for bash, PowerShell and cmd, plus volume and `-P` variants |

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Hour</title>
+<style>
+  :root{
+    --sky-top:#160c37;
+    --sky-2:#3d1a52;
+    --sky-3:#8b3462;
+    --sky-4:#e0605b;
+    --sky-horizon:#ffb24a;
+    --sun:#fff6c2;
+    --sea-far:#ffb765;
+    --sea-near:#14425c;
+    --sand:#e9cb9d;
+    --sand-2:#c69a6a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#0b0620;
+    overflow:hidden;
+    color:#fff;
+  }
+  .scene{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden}
+
+  /* ---------- sky ---------- */
+  .sky{
+    position:absolute;inset:0;
+    background:linear-gradient(to bottom,
+      #160c37 0%,
+      #3d1a52 18%,
+      #8b3462 34%,
+      #e0605b 45%,
+      #ff9a4d 50%,
+      #ffc56a 53%);
+  }
+  .stars{
+    position:absolute;inset:0 0 55% 0;
+    background-image:
+      radial-gradient(1.6px 1.6px at 12% 22%, #fff, transparent),
+      radial-gradient(1.3px 1.3px at 27% 10%, #ffe9c9, transparent),
+      radial-gradient(1.8px 1.8px at 41% 31%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 58% 14%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 72% 26%, #ffe9c9, transparent),
+      radial-gradient(1.2px 1.2px at 85% 8%, #fff, transparent),
+      radial-gradient(1.6px 1.6px at 93% 34%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 6% 41%, #fff, transparent),
+      radial-gradient(1.4px 1.4px at 34% 46%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 64% 42%, #fff, transparent);
+    animation:twinkle 5s ease-in-out infinite alternate;
+  }
+  @keyframes twinkle{from{opacity:.35}to{opacity:.9}}
+
+  /* ---------- sun ---------- */
+  .sun-glow{
+    position:absolute;left:50%;top:52%;
+    width:min(120vw,1100px);height:min(120vw,1100px);
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle,
+      rgba(255,214,120,.55) 0%,
+      rgba(255,150,90,.28) 28%,
+      rgba(255,120,90,.10) 45%,
+      transparent 65%);
+    animation:breathe 7s ease-in-out infinite alternate;
+  }
+  @keyframes breathe{from{opacity:.75;transform:translate(-50%,-50%) scale(.96)}
+                     to{opacity:1;transform:translate(-50%,-50%) scale(1.05)}}
+  .sun{
+    position:absolute;left:50%;top:52%;
+    width:clamp(90px,16vmin,170px);aspect-ratio:1;
+    transform:translate(-50%,-62%);
+    border-radius:50%;
+    background:radial-gradient(circle at 50% 42%, #fffdf0 0%, #fff0a8 42%, #ffcf6b 72%, #ff9f4d 100%);
+    box-shadow:0 0 70px 18px rgba(255,190,110,.55),
+               0 0 160px 60px rgba(255,140,90,.3);
+    animation:sink 9s ease-in-out infinite alternate;
+  }
+  @keyframes sink{from{transform:translate(-50%,-62%)}to{transform:translate(-50%,-55%)}}
+
+  /* ---------- clouds ---------- */
+  .cloud{
+    position:absolute;
+    height:auto;
+    opacity:.75;
+    filter:drop-shadow(0 6px 18px rgba(80,20,60,.35));
+  }
+  .cloud path{fill:rgba(255,205,190,.55)}
+  .c1{top:12%;width:clamp(180px,26vw,380px);animation:drift-r 70s linear infinite}
+  .c2{top:24%;width:clamp(120px,18vw,260px);opacity:.5;animation:drift-r 105s linear infinite;animation-delay:-30s}
+  .c3{top:6%; width:clamp(150px,22vw,320px);opacity:.4;animation:drift-r 130s linear infinite;animation-delay:-70s}
+  @keyframes drift-r{from{transform:translateX(-40vw)}to{transform:translateX(115vw)}}
+
+  /* ---------- birds ---------- */
+  .bird{position:absolute;width:clamp(18px,2.4vw,34px)}
+  .bird svg{width:100%;height:auto;display:block;animation:flap 1.05s ease-in-out infinite}
+  .b1{top:20%;animation:fly 26s linear infinite}
+  .b2{top:25%;animation:fly 26s linear infinite;animation-delay:-3.2s;transform:scale(.78)}
+  .b3{top:16%;animation:fly 26s linear infinite;animation-delay:-6.5s;transform:scale(.62);opacity:.85}
+  .b2 svg{animation-delay:-.35s}
+  .b3 svg{animation-delay:-.7s}
+  @keyframes fly{from{left:-12%}to{left:112%}}
+  @keyframes flap{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.35)}}
+
+  /* ---------- ocean ---------- */
+  .ocean{
+    position:absolute;left:0;right:0;top:53%;bottom:21%;
+    background:linear-gradient(to bottom,
+      #ffb765 0%,
+      #e08a63 8%,
+      #8a6a85 22%,
+      #3f6f8a 48%,
+      #1d5570 76%,
+      #14425c 100%);
+    overflow:hidden;
+  }
+  .reflection{
+    position:absolute;left:50%;top:0;bottom:0;
+    width:clamp(90px,17vmin,190px);
+    transform:translateX(-50%);
+    background:linear-gradient(to bottom,
+      rgba(255,240,180,.85),
+      rgba(255,200,120,.45) 40%,
+      rgba(255,180,110,.12) 75%,
+      transparent);
+    filter:blur(6px);
+    animation:shimmer 3.4s ease-in-out infinite alternate;
+  }
+  @keyframes shimmer{from{opacity:.6;transform:translateX(-50%) scaleX(.85)}
+                     to{opacity:1;transform:translateX(-50%) scaleX(1.25)}}
+  .glints{
+    position:absolute;left:0;right:0;top:0;height:60%;
+    background:repeating-linear-gradient(to bottom,
+      rgba(255,255,255,.16) 0 1px, transparent 1px 7px);
+    mask-image:radial-gradient(60% 100% at 50% 0%, #000 0%, transparent 72%);
+    -webkit-mask-image:radial-gradient(60% 100% at 50% 0%, #000 0%, transparent 72%);
+    animation:glint 5s ease-in-out infinite alternate;
+  }
+  @keyframes glint{from{opacity:.35}to{opacity:.8}}
+
+  .wave{position:absolute;left:0;width:200%;display:block}
+  .wave path{fill:currentColor}
+  .w1{bottom:38%;height:clamp(26px,5vh,54px);color:rgba(255,255,255,.13);
+      animation:drift 17s linear infinite}
+  .w2{bottom:20%;height:clamp(32px,7vh,72px);color:rgba(20,70,95,.55);
+      animation:drift 12s linear infinite reverse}
+  .w3{bottom:0;   height:clamp(40px,9vh,92px);color:#0f3b53;
+      animation:drift 9s linear infinite}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* ---------- sand + foam ---------- */
+  .sand{
+    position:absolute;left:0;right:0;bottom:0;height:21%;
+    background:
+      radial-gradient(1.5px 1.5px at 20% 30%, rgba(120,85,50,.25), transparent),
+      radial-gradient(1.5px 1.5px at 62% 55%, rgba(120,85,50,.2), transparent),
+      radial-gradient(1.5px 1.5px at 85% 25%, rgba(120,85,50,.22), transparent),
+      linear-gradient(to bottom,#e7c795 0%, #d9b27f 45%, #c69a6a 100%);
+  }
+  .foam{
+    position:absolute;left:-5%;right:-5%;top:-2px;height:clamp(18px,4vh,42px);
+    background:radial-gradient(60% 120% at 50% 100%, rgba(255,255,255,.9), rgba(255,255,255,.35) 45%, transparent 70%);
+    filter:blur(3px);
+    transform-origin:bottom;
+    animation:tide 6.5s ease-in-out infinite alternate;
+  }
+  @keyframes tide{from{transform:translateY(6px) scaleY(.7);opacity:.55}
+                  to{transform:translateY(-8px) scaleY(1.25);opacity:.95}}
+
+  /* ---------- palms ---------- */
+  .palm{position:absolute;bottom:6%;transform-origin:50% 100%}
+  .palm svg{display:block;height:100%;width:auto;filter:drop-shadow(0 18px 26px rgba(60,25,55,.45))}
+  .palm-l{left:2%;height:clamp(240px,54vh,560px);animation:sway 6s ease-in-out infinite alternate}
+  .palm-r{right:4%;bottom:12%;height:clamp(150px,34vh,340px);opacity:.92;
+          animation:sway 7.8s ease-in-out infinite alternate;animation-delay:-2s}
+  @keyframes sway{from{transform:rotate(-1.6deg)}to{transform:rotate(1.9deg)}}
+  .fronds{transform-origin:0 0;animation:rustle 4.2s ease-in-out infinite alternate}
+  @keyframes rustle{from{transform:rotate(-2.2deg)}to{transform:rotate(2.2deg)}}
+
+  /* ---------- sparkles ---------- */
+  .motes span{
+    position:absolute;bottom:-10px;
+    width:4px;height:4px;border-radius:50%;
+    background:rgba(255,235,190,.9);
+    box-shadow:0 0 8px 2px rgba(255,210,140,.6);
+    animation:rise linear infinite;
+  }
+  @keyframes rise{
+    from{transform:translateY(0) translateX(0);opacity:0}
+    12%{opacity:.9}
+    88%{opacity:.7}
+    to{transform:translateY(-80vh) translateX(6vw);opacity:0}
+  }
+
+  /* ---------- quote ---------- */
+  .quote{
+    position:absolute;left:50%;top:29%;
+    transform:translate(-50%,-50%);
+    width:min(90vw,940px);
+    text-align:center;
+    animation:fade-up 2.4s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes fade-up{
+    from{opacity:0;transform:translate(-50%,-38%)}
+    to{opacity:1;transform:translate(-50%,-50%)}
+  }
+  .quote p{
+    font-family:'Gabriola','Snell Roundhand','Apple Chancery','Segoe Script',
+                'Brush Script MT','Didot','Bodoni 72',Georgia,'Times New Roman',serif;
+    font-style:italic;
+    font-weight:400;
+    font-size:clamp(2.1rem,6.6vw,5.2rem);
+    line-height:1.14;
+    letter-spacing:.012em;
+    background:linear-gradient(100deg,
+      #fffaf0 12%, #ffe6b0 32%, #fffef8 48%, #ffdcc6 66%, #fffaf0 86%);
+    background-size:260% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 18px rgba(55,14,48,.6)) drop-shadow(0 1px 2px rgba(55,14,48,.45));
+    animation:sheen 11s linear infinite;
+  }
+  @keyframes sheen{from{background-position:190% 0}to{background-position:-90% 0}}
+  .rule{
+    display:flex;align-items:center;justify-content:center;
+    gap:14px;margin-top:clamp(18px,3vh,34px);opacity:.7;
+    animation:fade-up 2.4s cubic-bezier(.2,.8,.2,1) .35s both;
+  }
+  .rule i{
+    display:block;height:1px;width:clamp(44px,11vw,130px);
+    background:linear-gradient(to right,transparent,rgba(255,236,208,.95),transparent);
+  }
+  .rule b{
+    width:6px;height:6px;transform:rotate(45deg);
+    background:rgba(255,236,208,.95);
+    box-shadow:0 0 10px 2px rgba(255,210,150,.5);
+  }
+  .corner{
+    position:absolute;right:clamp(14px,2.4vw,30px);bottom:clamp(12px,2vh,24px);
+    font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;
+    font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;
+    color:rgba(72,44,26,.5);
+  }
+  .vignette{
+    position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(20,6,30,.55) 100%);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001s !important;animation-iteration-count:1 !important}
+  }
+</style>
+</head>
+<body>
+<div class="scene">
+
+  <div class="sky"></div>
+  <div class="stars"></div>
+  <div class="sun-glow"></div>
+  <div class="sun"></div>
+
+  <svg class="cloud c1" viewBox="0 0 220 60"><path d="M22 52c-12 0-22-8-22-18s10-18 22-18c3-10 13-16 24-16 13 0 24 8 27 19 4-3 9-5 15-5 13 0 24 9 24 20 6-2 12-1 17 2 7 4 11 11 10 16H22z"/></svg>
+  <svg class="cloud c2" viewBox="0 0 220 60"><path d="M30 52c-14 0-26-7-26-17s12-17 26-17c5-11 16-18 29-18 15 0 28 10 31 23 5-4 11-6 18-6 14 0 25 10 25 22 0 5-1 9-4 13H30z"/></svg>
+  <svg class="cloud c3" viewBox="0 0 220 60"><path d="M18 52c-10 0-18-7-18-15s8-15 18-15c4-12 15-20 28-20 14 0 26 9 30 21 4-2 8-3 13-3 13 0 23 9 23 20 0 4-1 8-3 12H18z"/></svg>
+
+  <div class="bird b1"><svg viewBox="0 0 44 16"><path d="M3 12C8 3 14 3 21 10c7-7 13-7 20 2" fill="none" stroke="#2b1636" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+  <div class="bird b2"><svg viewBox="0 0 44 16"><path d="M3 12C8 3 14 3 21 10c7-7 13-7 20 2" fill="none" stroke="#2b1636" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+  <div class="bird b3"><svg viewBox="0 0 44 16"><path d="M3 12C8 3 14 3 21 10c7-7 13-7 20 2" fill="none" stroke="#2b1636" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+
+  <div class="ocean">
+    <div class="reflection"></div>
+    <div class="glints"></div>
+    <svg class="wave w1" viewBox="0 0 2880 140" preserveAspectRatio="none"><path d="M0,70 C180,30 360,110 720,70 C1080,30 1260,110 1440,70 C1620,30 1800,110 2160,70 C2520,30 2700,110 2880,70 L2880,140 L0,140 Z"/></svg>
+    <svg class="wave w2" viewBox="0 0 2880 140" preserveAspectRatio="none"><path d="M0,70 C180,30 360,110 720,70 C1080,30 1260,110 1440,70 C1620,30 1800,110 2160,70 C2520,30 2700,110 2880,70 L2880,140 L0,140 Z"/></svg>
+    <svg class="wave w3" viewBox="0 0 2880 140" preserveAspectRatio="none"><path d="M0,70 C180,30 360,110 720,70 C1080,30 1260,110 1440,70 C1620,30 1800,110 2160,70 C2520,30 2700,110 2880,70 L2880,140 L0,140 Z"/></svg>
+  </div>
+
+  <div class="sand"><div class="foam"></div></div>
+
+  <div class="palm palm-l">
+    <svg viewBox="-150 -140 320 380">
+      <defs>
+        <linearGradient id="trunk" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#4a2f22"/><stop offset=".5" stop-color="#7d5334"/><stop offset="1" stop-color="#3d2519"/>
+        </linearGradient>
+        <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#1d5136"/><stop offset="1" stop-color="#3f8a4e"/>
+        </linearGradient>
+        <path id="frond" d="M0,0 C42,-30 98,-32 134,-8 C96,-20 46,-10 6,8 Z"/>
+      </defs>
+      <path d="M-6,0 C2,70 12,150 20,228 L46,228 C34,150 20,70 10,2 Z" fill="url(#trunk)"/>
+      <g class="fronds" fill="url(#leaf)">
+        <use href="#frond" transform="rotate(-38)"/>
+        <use href="#frond" transform="rotate(-8)"/>
+        <use href="#frond" transform="rotate(22)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(-32)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(-4)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(26)"/>
+        <use href="#frond" transform="rotate(-68) scale(.85)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(-64) scale(.85)"/>
+      </g>
+      <g fill="#6b4423"><circle cx="4" cy="14" r="7"/><circle cx="18" cy="10" r="6"/><circle cx="11" cy="24" r="6"/></g>
+    </svg>
+  </div>
+
+  <div class="palm palm-r">
+    <svg viewBox="-150 -140 320 380">
+      <path d="M8,0 C2,70 -10,150 -20,228 L4,228 C12,150 20,70 22,2 Z" fill="url(#trunk)"/>
+      <g class="fronds" fill="url(#leaf)" style="animation-delay:-1.4s">
+        <use href="#frond" transform="rotate(-42)"/>
+        <use href="#frond" transform="rotate(-10)"/>
+        <use href="#frond" transform="rotate(20)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(-36)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(-2)"/>
+        <use href="#frond" transform="scale(-1,1) rotate(28)"/>
+      </g>
+      <g fill="#6b4423"><circle cx="6" cy="16" r="6"/><circle cx="19" cy="11" r="5"/></g>
+    </svg>
+  </div>
+
+  <div class="motes"></div>
+
+  <div class="quote">
+    <p>Paradise is a day at the beach with my love</p>
+    <div class="rule"><i></i><b></b><i></i></div>
+  </div>
+
+  <div class="corner">golden hour</div>
+
+  <div class="vignette"></div>
+</div>
+
+<script>
+  // drifting motes of light off the water
+  const motes = document.querySelector('.motes');
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement('span');
+    s.style.left = (Math.random() * 100) + '%';
+    s.style.bottom = (10 + Math.random() * 35) + '%';
+    s.style.animationDuration = (11 + Math.random() * 16) + 's';
+    s.style.animationDelay = (-Math.random() * 20) + 's';
+    const scale = 0.5 + Math.random() * 1.3;
+    s.style.width = s.style.height = (4 * scale).toFixed(1) + 'px';
+    s.style.opacity = 0.35 + Math.random() * 0.5;
+    motes.appendChild(s);
+  }
+</script>
+</body>
+</html>

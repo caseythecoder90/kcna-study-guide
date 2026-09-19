@@ -177,6 +177,29 @@ docker container exec fb sh -c 'echo hi > /tmp/out.txt; rm -rf /examples' && doc
 docker container rm -f fb                                 # writable layer gone; the image is untouched
 ```
 
+### 03-05 — ports, networks, mounts
+
+```bash
+docker run -d --name web nginx && docker container port web        # nothing published: unreachable from the host
+docker run -d --rm -P -p 12345:80 nginx                            # -p host:container; -P every EXPOSEd port to a random host port
+docker container port <C> ; docker ps                              # see the mappings
+docker network ls ; docker network inspect bridge                  # default bridge: docker0, 172.17.0.0/16, no DNS
+docker network create app-net && docker run -d --name db --network app-net redis && docker run --rm --network app-net redis redis-cli -h db ping   # name resolves
+
+# the wrong way: edit inside the container (writable layer only)
+docker exec -it <C> sh -c 'echo hello > /usr/share/nginx/html/index.html' ; docker container diff <C>
+
+# the right way: bind mount (from examples/docker/nginx-bind-mount)
+docker run -d --rm -p 12345:80 -v "$(pwd)/index.html:/usr/share/nginx/html/index.html:ro" nginx          # bash/WSL
+docker run -d --rm -p 12345:80 -v "${PWD}\index.html:/usr/share/nginx/html/index.html:ro" nginx           # PowerShell
+docker run -d --rm -p 12345:80 --mount type=bind,src="$(pwd)",dst=/usr/share/nginx/html,readonly nginx   # --mount form, whole directory
+
+# named volumes: lifecycle independent of containers
+docker volume create pgdata && docker run -d --name db -v pgdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=x postgres:16
+docker rm -f db && docker volume ls                                # the volume is still there
+docker volume inspect pgdata                                       # Mountpoint under /var/lib/docker/volumes/
+```
+
 ### Namespaces and cgroups under the hood (Linux host)
 
 ```bash
