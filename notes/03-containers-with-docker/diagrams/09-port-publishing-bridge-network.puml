@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title docker run -p 12345:80 nginx — how a request reaches a container's port
+
+rectangle "Your browser\n<size:11>http://localhost:12345</size>" <<plain>> as browser
+
+rectangle "Docker host (the Desktop VM on Windows/macOS)" <<group>> as host {
+  rectangle "Host network namespace\n<size:11>eth0 · port 12345 listening on 0.0.0.0</size>\n<size:11>iptables DNAT: :12345 → 172.17.0.2:80 (docker-proxy as fallback)</size>" <<accent>> as hostns
+  rectangle "docker0 bridge — the default bridge network\n<size:11>172.17.0.0/16 · gateway 172.17.0.1 · NAT out to the world</size>\n<size:11>no DNS by container name (user-defined bridges have it)</size>" as bridge
+  rectangle "Container nginx — own network namespace" <<groupGood>> as ctr {
+    rectangle "eth0 172.17.0.2\n<size:11>veth pair to the bridge</size>" <<good>> as veth
+    rectangle "nginx listening on :80\n<size:11>EXPOSE 80 in the image;</size>\n<size:11>reachable from the bridge, invisible</size>\n<size:11>from outside until published</size>" <<good>> as nginx
+    veth -[hidden]right-> nginx
+  }
+  rectangle "Container app — 172.17.0.3\n<size:11>can reach 172.17.0.2:80 directly,</size>\n<size:11>no publishing needed</size>" <<plain>> as other
+  hostns -down-> bridge
+  bridge -down-> veth
+  bridge -down-> other
+}
+
+browser -down-> hostns : TCP to host:12345
+veth -right-> nginx : :80
+
+caption <i>-p HOST:CONTAINER publishes one port (add 127.0.0.1: to keep it local; /udp for UDP). -P publishes every EXPOSEd port to a random high host port — docker port C shows which.</i>\n<i>Container-to-container traffic on the same network never needs -p. The host driver drops the namespace entirely (Linux only); the none driver gives loopback only.</i>
+@enduml

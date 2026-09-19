@@ -68,6 +68,8 @@
 | **OCI Image Layout** | Image on-disk format (OCI image-spec) | OCI (Linux Foundation) | `oci-layout` + `index.json` + `blobs/<alg>/<digest>`; what `docker save` emits with the containerd store | [03-03](03-containers-with-docker/03-container-images.md) |
 | **jq** | CLI tool | Not CNCF | Command-line JSON processor used throughout the labs to read manifests and configs | [03-03](03-containers-with-docker/03-container-images.md) |
 | **Docker Compose** | Multi-container tooling | Not CNCF (Docker, Inc.) | Defines and runs multi-container applications from a `compose.yaml`; the local-dev sibling of a Kubernetes manifest | [03-04](03-containers-with-docker/04-running-containers.md) |
+| **NGINX (image)** | Web server | Not CNCF (F5) | The course's port-80 demo workload: `nginx` official image serving `/usr/share/nginx/html`; also the base of the NGINX Ingress controller | [03-05](03-containers-with-docker/05-networking-and-volumes.md) |
+| **iptables / docker-proxy** | Host networking mechanism | Not CNCF (Linux) | How `-p` works: DNAT rules in the DOCKER chain, with docker-proxy as the userspace fallback | [03-05](03-containers-with-docker/05-networking-and-volumes.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

@@ -1,0 +1,40 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Where a container's files can live — and which survive the container
+
+rectangle "Container process view of /" <<groupGood>> as view {
+  rectangle "/usr/share/nginx/html/index.html\n<size:11>← bind mount: the file from your laptop</size>" <<good>> as bm
+  rectangle "/var/lib/data\n<size:11>← named volume: Docker-managed directory</size>" <<good>> as vol
+  rectangle "/run/secrets-scratch\n<size:11>← tmpfs: RAM only</size>" <<plain>> as tmp
+  rectangle "everything else — /bin /etc /usr …\n<size:11>← image layers + this container's writable layer</size>" <<muted>> as rest
+  bm -[hidden]right-> vol
+  vol -[hidden]right-> tmp
+  tmp -[hidden]right-> rest
+}
+
+rectangle "Bind mount\n<size:11>-v /abs/host/path:/ctr/path[:ro]</size>\n<size:11>--mount type=bind,src=…,dst=…</size>\n<size:11>Any host path; host and container both edit it;</size>\n<size:11>depends on the host's directory layout</size>" <<accent>> as bind
+rectangle "Volume\n<size:11>-v NAME:/ctr/path · --mount type=volume,src=NAME,dst=…</size>\n<size:11>Created and managed by Docker under</size>\n<size:11>/var/lib/docker/volumes/NAME/_data; portable, backed up,</size>\n<size:11>driver-pluggable — the preferred way to persist data</size>" <<accent>> as volume
+rectangle "tmpfs\n<size:11>--mount type=tmpfs,dst=…</size>\n<size:11>Memory only, gone at stop;</size>\n<size:11>for secrets and scratch</size>" <<plain>> as tmpfs
+rectangle "Writable layer\n<size:11>the OverlayFS upperdir</size>\n<size:11>deleted with the container</size>" <<muted>> as upper
+
+bm -down-> bind
+vol -down-> volume
+tmp -down-> tmpfs
+rest -down-> upper
+
+rectangle "Survives docker rm?" <<group>> as surv {
+  rectangle "bind mount: yes — it's the host's file" <<good>> as s1
+  rectangle "volume: yes — until docker volume rm" <<good>> as s2
+  rectangle "tmpfs: no" <<bad>> as s3
+  rectangle "writable layer: no" <<bad>> as s4
+  s1 -[hidden]right-> s2
+  s2 -[hidden]right-> s3
+  s3 -[hidden]right-> s4
+}
+bind -down-> s1
+volume -down-> s2
+tmpfs -down-> s3
+upper -down-> s4
+
+caption <i>A mount overlays a path in the merged view: the container sees the mounted content instead of whatever the image had there. An empty new volume is first filled with the image's</i>\n<i>files at that path; a bind mount just hides them. Kubernetes equivalents: hostPath (bind), PersistentVolumeClaim (volume), emptyDir with medium: Memory (tmpfs).</i>
+@enduml
