@@ -114,6 +114,15 @@ kubectl get events --sort-by=.metadata.creationTimestamp    # Scheduled · Pulli
 kubectl get pods -v=8                                       # the REST calls behind the command
 ```
 
+### 3b. Find vs reach — DNS and the CNI (chapter 04-01 further study)
+
+```bash
+kubectl exec <pod> -- cat /etc/resolv.conf                  # nameserver = kube-dns ClusterIP; search list makes short Service names work
+kubectl exec <pod> -- nslookup my-svc                        # CoreDNS: name → ClusterIP
+kubectl get pods -A -o wide ; kubectl get nodes -o jsonpath='{.items[*].spec.podCIDR}'   # unique Pod IPs, per-node subnets
+kubectl get pods -n kube-system -o wide | grep -Ei 'flannel|calico|cilium'   # the CNI agent DaemonSet
+```
+
 ## 4. Workloads and services
 
 _Section 5._

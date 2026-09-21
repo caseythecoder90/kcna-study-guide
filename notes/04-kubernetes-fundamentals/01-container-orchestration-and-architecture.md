@@ -216,6 +216,80 @@ The stacked topology is simpler (three machines) but losing one node loses both 
 
 ---
 
+## 9. Further study — the elevator pitches, and the lines between the Pods
+
+The course's further-study page zooms in on two things the architecture diagram draws as plain lines: how packets actually move between Pods, and how a Pod learns the address to send them to. It also gives one-sentence "elevator pitches" for the components that show up most in questions. Both are worth having in exactly that compressed form.
+
+### 9.1 Elevator pitches
+
+If you can say these from memory, most architecture questions become reasoning rather than recall:
+
+| Component | Elevator pitch |
+|---|---|
+| **kubelet** (node agent) | Runs on **every node**. Talks to the **API server** and makes sure the Pods that *should* be running on its node are **running and healthy**. Starts, stops and monitors containers through the **container runtime** (containerd) |
+| **Controller Manager** (the control-loop brain) | Runs in the **control plane**. Watches the cluster's **desired state** (what's in etcd, via the API server) and compares it with the **current state**. Runs controllers — Deployment, Node, and the rest — that **make changes** (create Pods, replace failed ones, mark nodes NotReady) to move reality toward the desired state |
+| **etcd** (cluster database) | A **key-value store** holding **all cluster state** — Pods, Deployments, ConfigMaps, Nodes, everything. The **API server is the main component that talks to it**; scheduler, controllers and kubelets read and write **via the API server**, not directly. Because it holds the **source of truth**, it is what **backup, restore and high availability** are about |
+| **CoreDNS** (cluster DNS / service discovery) | Runs as **Pods inside the cluster**, usually a **Deployment in `kube-system`**. Answers queries like `my-service.default.svc.cluster.local` with a **ClusterIP**, so Pods talk to Services **by name instead of IP**. Works with the Service implementation and CNI: **CoreDNS gives the IP, networking gets the packets there** |
+
+The page's point about CoreDNS: it is usually labelled an "addon", but every cluster depends on it for name resolution, so treat it as part of the core architecture.
+
+### 9.2 The network model Kubernetes promises
+
+Before the mechanism, the contract. Kubernetes requires that whatever networking is installed satisfies three rules:
+
+1. **Every Pod gets its own cluster-wide unique IP address.**
+2. **All Pods can communicate with all other Pods, on the same node or different nodes, directly — without NAT** and without proxies.
+3. **Agents on a node** (the kubelet, system daemons) **can reach every Pod on that node.**
+
+That is why Kubernetes never needed Docker's `-p` port mapping: a Pod is a first-class host on a flat network, reachable at its IP from anywhere in the cluster. Four problems fall out of it, and the model answers each: **container-to-container** inside a Pod (they share a network namespace, so `localhost`); **Pod-to-Pod** (the pod network — this section); **Pod-to-Service** (Services, next chapters); **external-to-Service** (Ingress / Gateway API).
+
+### 9.3 Pods talking on a single node
+
+On **one Linux host**, two Pods can talk to each other with nothing fancy at all. Each Pod's network namespace has a veth pair whose host end sits on a **Linux bridge** — a tiny virtual switch, the same idea as Docker's `docker0` from chapter 03-05 — and the bridge forwards frames between them. That alone satisfies Pod-to-Pod on the same host.
+
+The hard part is **host-to-host**: Pod `10.244.1.5` on node 1 sending to `10.244.2.7` on node 2. Node 1's bridge knows nothing about node 2's Pods. Something has to teach every node how to reach every other node's Pod subnet — by **routes** (node 2's subnet is via node 2's address) or by **encapsulation** (wrap the packet in a UDP/VXLAN packet addressed to node 2, unwrap it there). Even on a single host, Kubernetes delegates this to a plugin so the same mechanism works when a second node joins: the **CNI**.
+
+### 9.4 What CNI actually is — from the cluster's point of view
+
+Chapter 02-07 covered the CNI specification; this is the same thing seen from inside a cluster. **CNI is a contract between the container runtime (called by the kubelet) and a plugin binary on each node.** When a Pod is created, the runtime calls the plugin to:
+
+1. **Add an interface** to the Pod's network namespace.
+2. **Assign an IP** (through an IPAM helper) from the node's Pod subnet.
+3. **Program routes or encapsulation** so traffic can reach Pods on **other nodes**.
+4. Optionally apply **policy** or other node-local wiring.
+
+That's it — a small hook, invoked at Pod create and delete, that enables cluster networking. The plugin's long-running agent (Felix, the Cilium agent, `kube-flannel`) is what keeps the routes current afterwards.
+
+The three to know, with the one thing that distinguishes each:
+
+| CNI | Approach | Notes |
+|---|---|---|
+| **Flannel** | **Simple overlay** — encapsulates Pod traffic between nodes, commonly **VXLAN** | The easiest on-ramp; great for labs and small clusters; **no NetworkPolicy** enforcement |
+| **Calico** | **Routing-first (BGP)** with optional overlays (VXLAN / IP-in-IP) where the underlying network can't route | Strong **NetworkPolicy**; can run an **eBPF** dataplane to speed up Services; the most widely adopted |
+| **Cilium** | **eBPF dataplane** end to end | Observability and security built in (Hubble); **can replace kube-proxy** for faster Services; CNCF Graduated |
+
+### 9.5 Where CoreDNS fits — find vs reach
+
+A Pod calling `http://my-service/orders` needs two different things from the cluster, and two different components provide them:
+
+![A Pod resolving my-service through its resolv.conf and CoreDNS to a ClusterIP, then the packet delivered by kube-proxy rules and the CNI dataplane to a Pod on another node](./diagrams/05-coredns-vs-cni-two-layers.svg)
+
+- The **find** layer. The kubelet wrote the Pod's `/etc/resolv.conf` to point at the cluster DNS Service (`kube-dns`, typically `10.96.0.10`) with a search list of `<namespace>.svc.cluster.local svc.cluster.local cluster.local` — which is why a Pod can say just `my-service` for a Service in its own namespace and `my-service.other-ns` across namespaces. The query goes to a **CoreDNS Pod**, which watches the API for Services and answers with the Service's **ClusterIP**.
+- The **reach** layer. The ClusterIP is virtual — no interface anywhere has it. **kube-proxy's rules on the node** (or Cilium's eBPF) rewrite the destination to one backing Pod's IP, and the **CNI plugin's routes or encapsulation** carry the packet to that Pod, on whichever node it lives.
+
+In the page's words:
+
+> **CoreDNS = "How do I find you?"** (name → IP)
+> **CNI = "How do I reach you?"** (routing / encapsulation to that IP)
+
+They solve different layers of one problem, and neither replaces the other: a cluster with a broken CNI still resolves names and delivers nothing; one with a broken CoreDNS still delivers packets to anyone who already knows an IP. The Docker analogue from chapter 03-05 — user-defined-network DNS plus the bridge — is the same split on one host.
+
+### 9.6 What the KCNA needs from this
+
+High-level knowledge only: **Kubernetes uses CNI plugins to provide Pod networking across nodes**, and **CoreDNS provides cluster DNS / service discovery** so Pods resolve Service names to IPs. Specific plugin internals are not tested; the names (CNI, CoreDNS, "cluster DNS", Flannel/Calico/Cilium) at a conceptual level are. The CKA and CKS go further — installing a CNI, writing NetworkPolicy, debugging DNS.
+
+---
+
 ## Exam angle
 
 - **What a container orchestrator does**: provisioning, deployment, scaling, self-healing, service discovery, standards, integration. The 2010s contenders: **Docker Swarm, HashiCorp Nomad, OpenShift (now built on Kubernetes), Kubernetes** — the winner, open and extensible via **CRDs**.
@@ -231,6 +305,10 @@ The stacked topology is simpler (three machines) but losing one node loses both 
 - **kube-proxy**: **DaemonSet on every node**; **normal Pod, not static**; watches the API and configures **TCP/UDP/SCTP forwarding** for Services.
 - **CoreDNS**: **a Deployment** (x replicas); cluster DNS; depends on controllers.
 - **HA**: **API load balancer** in front of active-active API servers; **etcd quorum** over an odd number of members (stacked vs external topology); scheduler and controller-manager **leader-elected**.
+- **Network model**: every Pod has a **unique cluster-wide IP**; **Pod-to-Pod without NAT** across nodes; implemented by **CNI plugins**. A Linux bridge suffices on one node; CNI makes many nodes one network.
+- **CoreDNS = find (name → ClusterIP); CNI = reach (routes/encapsulation to the IP)**; kube-proxy or an eBPF CNI turns the virtual ClusterIP into a real Pod IP. Distractor: "CoreDNS routes traffic" or "CNI resolves names".
+- **Flannel** = simple overlay (VXLAN), no policy · **Calico** = routing-first (BGP), strong NetworkPolicy, optional eBPF · **Cilium** = eBPF dataplane, can replace kube-proxy.
+- Service DNS: `my-svc.my-namespace.svc.cluster.local`; short name works within a namespace because the kubelet writes the Pod's `resolv.conf` search list.
 
 ## References
 
@@ -241,3 +319,5 @@ The stacked topology is simpler (three machines) but losing one node loses both 
 - [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) and [Cloud Controller Manager](https://kubernetes.io/docs/concepts/architecture/cloud-controller/) — control loops; the node, route and service controllers
 - [kube-proxy reference](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-proxy/) — reflects Services on each node; TCP, UDP, SCTP; iptables / IPVS / nftables modes
 - [kubeadm HA topology options](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/) and [etcd FAQ — cluster size](https://etcd.io/docs/v3.6/faq/) — stacked vs external etcd, the load balancer, quorum and the odd-number rule
+- [Services, Load Balancing, and Networking — the Kubernetes network model](https://kubernetes.io/docs/concepts/services-networking/) — unique Pod IPs, Pod-to-Pod without NAT, implemented via CNI; the four networking problems
+- [DNS for Services and Pods](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/) — `my-svc.my-namespace.svc.cluster.local`, the Pod `resolv.conf` search list, ClusterIP records

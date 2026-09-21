@@ -41,6 +41,26 @@ kubectl get pod nginx -o jsonpath='{.spec.nodeName}{"\n"}'   # the field the sch
 kubectl delete pod nginx
 ```
 
+## Chapter 01 further study — find vs reach
+
+```bash
+# The find layer: CoreDNS
+kubectl get deployment,service -n kube-system -l k8s-app=kube-dns      # Deployment coredns (2 replicas) · Service kube-dns (the ClusterIP every Pod's resolv.conf points at)
+kubectl run dnstest --image=busybox:1.36 --restart=Never -- sleep 3600
+kubectl exec dnstest -- cat /etc/resolv.conf                            # nameserver 10.96.0.10 · search default.svc.cluster.local svc.cluster.local cluster.local
+kubectl exec dnstest -- nslookup kubernetes                             # short name → kubernetes.default.svc.cluster.local → the API server's ClusterIP
+kubectl exec dnstest -- nslookup kube-dns.kube-system.svc.cluster.local # full name across namespaces
+kubectl logs -n kube-system -l k8s-app=kube-dns --tail=5                # CoreDNS answering (enable the log plugin in the Corefile to see queries)
+
+# The reach layer: Pod IPs and the CNI
+kubectl get pods -A -o wide                                             # every Pod has its own IP; note the per-node subnets (10.244.<node>.x)
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.podCIDR}{"\n"}{end}'   # the Pod subnet each node was given
+kubectl get pods -n kube-system -o wide | grep -Ei 'flannel|calico|cilium|weave'   # which CNI provider is installed (a DaemonSet, one agent per node)
+kubectl exec dnstest -- ping -c1 <ip-of-a-pod-on-another-node>          # Pod-to-Pod across nodes, no NAT — the CNI's routes/encapsulation at work
+# on a node: ip route (a route per remote podCIDR = routed CNI) · ip -d link show flannel.1 (VXLAN = overlay) · ls /etc/cni/net.d
+kubectl delete pod dnstest
+```
+
 ## The API behind kubectl
 
 ```bash

@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title "How do I find you?" and "How do I reach you?" — two layers of one problem
+
+rectangle "Pod api (node 1)\n<size:11>calls http://my-service/orders</size>" <<plain>> as api
+
+rectangle "Layer 1 · find — CoreDNS" <<group>> as find {
+  rectangle "/etc/resolv.conf in the Pod\n<size:11>nameserver 10.96.0.10 (the kube-dns Service)</size>\n<size:11>search default.svc.cluster.local svc.cluster.local …</size>\n<size:11>→ my-service becomes my-service.default.svc.cluster.local</size>" <<plain>> as resolv
+  rectangle "CoreDNS Pods\n<size:11>Deployment in kube-system; watch the API for</size>\n<size:11>Services; answer: my-service → ClusterIP 10.96.45.3</size>" <<accent>> as dns
+  resolv -right-> dns : DNS query
+}
+
+rectangle "Layer 2 · reach — CNI + Service implementation" <<groupGood>> as reach {
+  rectangle "kube-proxy (or Cilium eBPF)\n<size:11>ClusterIP 10.96.45.3 is virtual: rules on the node</size>\n<size:11>rewrite it to one backing Pod, 10.244.2.7</size>" <<good>> as kp
+  rectangle "CNI plugin dataplane\n<size:11>node 1 knows 10.244.2.0/24 lives on node 2:</size>\n<size:11>routed (Calico BGP) or encapsulated (Flannel VXLAN)</size>" <<good>> as cni
+  rectangle "Pod orders (node 2)\n<size:11>eth0 10.244.2.7 — the veth the CNI</size>\n<size:11>plugin wired at Pod creation</size>" <<good>> as orders
+  kp -right-> cni : packet to 10.244.2.7
+  cni -right-> orders
+}
+
+api -down-> resolv : 1 · name?
+dns -down-> kp : 2 · IP in hand — send the packet
+find -[hidden]down-> reach
+
+caption <i>CoreDNS answers with an address and steps aside; every packet after that is CNI and kube-proxy's job. Neither substitutes for the other — a cluster with a broken CNI resolves names</i>\n<i>fine and delivers nothing; one with a broken CoreDNS delivers packets fine to anyone who already knows an IP. On one node, a Linux bridge alone would carry Pod-to-Pod traffic; CNI is what makes many nodes one network.</i>
+@enduml
