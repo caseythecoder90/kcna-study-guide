@@ -1,0 +1,43 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title High availability — three control plane nodes, an API load balancer, etcd quorum
+
+rectangle "kubectl · kubelets on every worker" <<plain>> as clients
+rectangle "API load balancer\n<size:11>one stable endpoint (:6443) in front of three kube-apiservers;</size>\n<size:11>the kubeconfig and every kubelet point here, not at a node</size>" <<accent>> as lb
+
+rectangle "Control plane 1" <<group>> as cp1 {
+  rectangle "kube-apiserver" <<good>> as a1
+  rectangle "etcd member" <<good>> as e1
+  rectangle "scheduler · c-m\n<size:11>one active, others standby</size>" <<plain>> as s1
+  a1 -[hidden]down-> e1
+  e1 -[hidden]down-> s1
+}
+rectangle "Control plane 2" <<group>> as cp2 {
+  rectangle "kube-apiserver" <<good>> as a2
+  rectangle "etcd member" <<good>> as e2
+  rectangle "scheduler · c-m\n<size:11>leader election via the API</size>" <<plain>> as s2
+  a2 -[hidden]down-> e2
+  e2 -[hidden]down-> s2
+}
+rectangle "Control plane 3" <<group>> as cp3 {
+  rectangle "kube-apiserver" <<good>> as a3
+  rectangle "etcd member" <<good>> as e3
+  rectangle "scheduler · c-m" <<plain>> as s3
+  a3 -[hidden]down-> e3
+  e3 -[hidden]down-> s3
+}
+
+rectangle "etcd Raft consensus\n<size:11>a write is committed when a majority — quorum = n/2 + 1 — has it.</size>\n<size:11>3 members tolerate 1 failure · 5 tolerate 2 · 7 tolerate 3. Even numbers add nothing.</size>\n<size:11>Lose quorum and the cluster goes read-only: the API server can't write.</size>" <<accent>> as raft
+
+clients -down-> lb
+lb -down-> a1
+lb -down-> a2
+lb -down-> a3
+cp1 -[hidden]right-> cp2
+cp2 -[hidden]right-> cp3
+s1 -down-> raft : e1
+s2 -down-> raft : e2
+s3 -down-> raft : e3
+
+caption <i>This is the "stacked etcd" topology: each control plane node carries an etcd member. "External etcd" moves the members to their own three hosts so losing a control plane</i>\n<i>node does not also lose an etcd member — more resilient, twice the machines. Either way, all API servers are active; scheduler and controller-manager elect one leader.</i>
+@enduml

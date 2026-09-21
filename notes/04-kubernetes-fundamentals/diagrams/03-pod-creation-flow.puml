@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title kubectl run nginx — every step goes through the API server; nobody calls anybody else
+
+rectangle "kubectl\n<size:11>POST /api/v1/namespaces/default/pods</size>" <<plain>> as kubectl
+rectangle "kube-scheduler\n<size:11>watching for Pods with no node</size>" <<good>> as sched
+rectangle "kube-apiserver\n<size:11>authenticates · authorises · admits · validates</size>\n<size:11>persists to etcd · notifies every watcher</size>" <<accent>> as api
+rectangle "etcd\n<size:11>the Pod object, nodeName empty …</size>\n<size:11>then nodeName: worker-1 … then status</size>" <<good>> as etcd
+rectangle "kubelet on worker-1\n<size:11>watching for Pods assigned to this node</size>" <<good>> as kubelet
+rectangle "containerd → runc\n<size:11>pull nginx · create the sandbox (CNI assigns the IP)</size>\n<size:11>· start the container</size>" <<plain>> as rt
+
+kubectl -down-> api : 1 · create Pod
+api -right-> etcd : 2 · write (nodeName empty)
+sched -down-> api : 3 · watch fires: unscheduled Pod\n4 · filter + score nodes, write a Binding
+api -down-> kubelet : 5 · watch fires: a Pod is assigned here
+kubelet -right-> rt : 6 · CRI: run it
+kubelet -up-> api : 7 · status: Running, PodIP
+kubectl -[hidden]right-> sched
+
+caption <i>The scheduler never talks to the kubelet, and the kubelet never talks to the scheduler. Each watches the API server for the change it cares about and writes back what it did.</i>\n<i>Loose coupling through one shared, watched store is the Kubernetes design pattern — and why every component can restart independently. A Pod with no node yet shows as Pending.</i>
+@enduml

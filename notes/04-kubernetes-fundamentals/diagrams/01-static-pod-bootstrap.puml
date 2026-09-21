@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title How a kubeadm control plane starts — static pods before there is an API server to ask
+
+rectangle "/etc/kubernetes/manifests/\n<size:11>etcd.yaml · kube-apiserver.yaml</size>\n<size:11>kube-controller-manager.yaml · kube-scheduler.yaml</size>\n<size:11>written by kubeadm init — plain Pod YAML</size>" <<accent>> as dir
+rectangle "kubelet\n<size:11>systemd service on the host — the only Kubernetes</size>\n<size:11>component that is NOT a container. Watches the</size>\n<size:11>directory (staticPodPath) every 20 s</size>" <<accent>> as kubelet
+rectangle "containerd\n<size:11>high-level runtime: pulls the images,</size>\n<size:11>prepares the bundles</size>" as containerd
+rectangle "runc\n<size:11>low-level runtime: namespaces + cgroups</size>" as runc
+rectangle "Static Pods" <<groupGood>> as sp {
+  rectangle "etcd" <<good>> as etcd
+  rectangle "kube-apiserver" <<good>> as api
+  rectangle "kube-controller-manager" <<good>> as cm
+  rectangle "kube-scheduler" <<good>> as sched
+  etcd -[hidden]right-> api
+  api -[hidden]right-> cm
+  cm -[hidden]right-> sched
+}
+rectangle "Mirror Pods in the API\n<size:11>kubectl get pods -n kube-system shows them (name-<node>),</size>\n<size:11>read-only: delete one and the kubelet recreates it;</size>\n<size:11>the file is the source of truth</size>" <<muted>> as mirror
+
+dir -down-> kubelet : sees the files
+kubelet -down-> containerd : CRI
+containerd -down-> runc : OCI
+runc -down-> sp : creates
+kubelet -right-> mirror : reports, once the API server is up
+api -up-> mirror
+
+caption <i>Chicken and egg, solved: the API server is itself a Pod, so something must start Pods without an API server. That is the kubelet reading a directory.</i>\n<i>Everything else the cluster runs — kube-proxy, CoreDNS, your apps — comes the normal way, as API objects the kubelet is told about.</i>
+@enduml

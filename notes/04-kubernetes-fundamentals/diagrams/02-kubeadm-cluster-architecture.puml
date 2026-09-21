@@ -1,0 +1,44 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title A kubeadm cluster — control plane and one worker node, and who talks to whom
+
+rectangle "kubectl\n<size:11>the user; kubeconfig</size>" <<plain>> as kubectl
+
+rectangle "Control plane node" <<group>> as cp {
+  rectangle "Static Pods — from /etc/kubernetes/manifests" <<groupGood>> as static {
+    rectangle "kube-apiserver\n<size:11>the front door: REST API, authN/authZ,</size>\n<size:11>the ONLY thing that talks to etcd</size>" <<accent>> as api
+    rectangle "etcd\n<size:11>source of truth — consistent,</size>\n<size:11>distributed key/value store (Raft)</size>" <<good>> as etcd
+    rectangle "kube-scheduler\n<size:11>picks a node for each</size>\n<size:11>unscheduled Pod</size>" <<good>> as sched
+    rectangle "kube-controller-manager\n<size:11>control loops: node, replication,</size>\n<size:11>deployment, endpoints …</size>" <<good>> as cm
+    etcd -[hidden]right-> sched
+    sched -[hidden]right-> cm
+  }
+  rectangle "Normal Pods — created through the API" <<group>> as normal {
+    rectangle "kube-proxy\n<size:11>DaemonSet</size>" <<plain>> as kp1
+    rectangle "CoreDNS\n<size:11>Deployment</size>" <<plain>> as dns
+    rectangle "cloud-controller-manager\n<size:11>cloud clusters only</size>" <<muted>> as ccm
+    kp1 -[hidden]right-> dns
+    dns -[hidden]right-> ccm
+  }
+  rectangle "kubelet → containerd → runc\n<size:11>runs every Pod on this node, static or normal</size>" <<accent>> as cprt
+  api -down-> etcd : reads / writes
+  sched -up-> api : watch + bind
+  cm -up-> api : watch + act
+  normal -up-> api : watch
+  static -[hidden]down-> normal
+  normal -[hidden]down-> cprt
+}
+
+rectangle "Worker node" <<group>> as node {
+  rectangle "kubelet\n<size:11>registers the node; watches the API for</size>\n<size:11>Pods assigned here; reports status</size>" <<accent>> as kubelet
+  rectangle "containerd → runc" as rt
+  rectangle "Pods\n<size:11>kube-proxy (DaemonSet) · your apps (nginx …)</size>" <<good>> as pods
+  kubelet -down-> rt : CRI
+  rt -down-> pods : OCI
+}
+
+kubectl -down-> api : HTTPS :6443
+kubelet -left-> api : HTTPS — the node talks TO the API server\n(the API server calls back for exec, logs, port-forward)
+
+caption <i>Two rules explain the whole picture: every component talks to the API server, never to each other; and only the API server talks to etcd.</i>\n<i>The control plane is itself a node — it has a kubelet and a runtime — which is how it can run its own components as Pods.</i>
+@enduml
