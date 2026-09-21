@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title ENTRYPOINT + CMD — what actually becomes PID 1
+
+rectangle "Image: ENTRYPOINT [“./cmatrix”]  ·  CMD [“-b”]" <<accent>> as img
+
+rectangle "docker run cmatrix\n<size:11>no arguments</size>" <<plain>> as r1
+rectangle "docker run cmatrix -ab\n<size:11>arguments replace CMD</size>" <<plain>> as r2
+rectangle "docker run ~-~-entrypoint sh cmatrix\n<size:11>~-~-entrypoint replaces ENTRYPOINT;</size>\n<size:11>CMD is dropped too</size>" <<plain>> as r3
+
+rectangle "PID 1: ./cmatrix -b" <<good>> as p1
+rectangle "PID 1: ./cmatrix -ab" <<good>> as p2
+rectangle "PID 1: sh" <<good>> as p3
+
+img -down-> r1
+img -down-> r2
+img -down-> r3
+r1 -down-> p1 : ENTRYPOINT + CMD
+r2 -down-> p2 : ENTRYPOINT + args
+r3 -down-> p3
+
+rectangle "Shell form vs exec form" <<group>> as forms {
+  rectangle "CMD ./cmatrix   (shell form)\n<size:11>runs /bin/sh -c “./cmatrix” — sh is PID 1,</size>\n<size:11>cmatrix its child; SIGTERM reaches sh, not the app;</size>\n<size:11>$VARS expand</size>" <<bad>> as shell
+  rectangle "CMD [“./cmatrix”]   (exec form — best practice)\n<size:11>runs the binary directly as PID 1; signals arrive;</size>\n<size:11>no shell, so no variable expansion; JSON array,</size>\n<size:11>double quotes only</size>" <<good>> as exec
+  shell -[hidden]right-> exec
+}
+p2 -[hidden]down-> forms
+
+caption <i>ENTRYPOINT = the executable the container exists to run; CMD = its default arguments, or the whole default command when there is no ENTRYPOINT. Only the last CMD and last ENTRYPOINT count.</i>\n<i>A shell-form ENTRYPOINT ignores CMD entirely. Neither instruction creates a layer — both are image config.</i>
+@enduml

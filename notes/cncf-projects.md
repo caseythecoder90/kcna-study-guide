@@ -70,6 +70,10 @@
 | **Docker Compose** | Multi-container tooling | Not CNCF (Docker, Inc.) | Defines and runs multi-container applications from a `compose.yaml`; the local-dev sibling of a Kubernetes manifest | [03-04](03-containers-with-docker/04-running-containers.md) |
 | **NGINX (image)** | Web server | Not CNCF (F5) | The course's port-80 demo workload: `nginx` official image serving `/usr/share/nginx/html`; also the base of the NGINX Ingress controller | [03-05](03-containers-with-docker/05-networking-and-volumes.md) |
 | **iptables / docker-proxy** | Host networking mechanism | Not CNCF (Linux) | How `-p` works: DNAT rules in the DOCKER chain, with docker-proxy as the userspace fallback | [03-05](03-containers-with-docker/05-networking-and-volumes.md) |
+| **Alpine Linux** | Base image / distribution | Not CNCF (independent) | Minimal ~8 MB Linux with musl libc and the `apk` package manager; the default small base for images | [03-06](03-containers-with-docker/06-building-container-images.md) |
+| **QEMU / binfmt_misc** | Emulation | Not CNCF (QEMU project / Linux kernel) | How buildx builds foreign-architecture images on one machine; Docker Desktop ships the handlers | [03-06](03-containers-with-docker/06-building-container-images.md) |
+| **GNU Autotools (autoconf, automake)** | Build system | Not CNCF (GNU) | `autoreconf -i` → `./configure` → `make` — the C build chain cmatrix uses; the lecture's excuse to need a compiler in the image | [03-06](03-containers-with-docker/06-building-container-images.md) |
+| **ncurses** | Terminal library | Not CNCF (GNU) | Text-UI library cmatrix links statically; its terminfo *data* still has to be installed at runtime | [03-06](03-containers-with-docker/06-building-container-images.md) |
 
 ## Organizations (not projects, but they appear in questions)
 

@@ -121,15 +121,29 @@ docker volume prune                       # unused volumes (data is lost)
 docker container run -v NAME:/data IMG    # attach; an empty new volume is pre-populated with the image's /data contents
 ```
 
-## Build — Dockerfile essentials
+## Build — `docker image build` / `docker buildx build`
 
 ```bash
-docker image build -t app:1.0 .           # context = current dir; .dockerignore trims it
-docker image build --target builder .     # stop at a stage of a multi-stage build
-docker image build --platform linux/amd64,linux/arm64 -t app:1.0 --push .   # multi-arch via buildx
+docker image build -t app:1.0 .                    # docker build; context = ., Dockerfile = ./Dockerfile
+docker image build -f Dockerfile.single-stage -t app:fat .    # another Dockerfile, same context
+docker image build --no-cache --pull -t app:1.0 .  # ignore the layer cache; refresh the base image
+docker image build --target builder -t app:build . # stop at a named stage of a multi-stage build
+docker image build --build-arg VERSION=1.2 .       # ARG values
+docker image history app:1.0                       # one row per instruction; size column shows which made layers
+docker image inspect -f '{{json .Config}}' app:1.0 | jq   # Labels, User, WorkingDir, Entrypoint, Cmd, Env, ExposedPorts
+
+# multi-platform (needs a docker-container builder or the containerd image store)
+docker buildx create --name multi --use --driver docker-container
+docker buildx build --platform linux/amd64,linux/arm64 -t user/app:1.0 --push .   # --push: the result is an index
+docker buildx imagetools inspect user/app:1.0      # one manifest per platform
+docker buildx ls                                   # builders and the platforms each can build
+
+# push to a registry
+docker login [REGISTRY]
+docker image tag app:1.0 user/app:1.0 && docker image push user/app:1.0     # only missing layers upload; prints the digest
 ```
 
-Instructions that create layers: `FROM`, `RUN`, `COPY`, `ADD`. Metadata only: `ENV`, `CMD`, `ENTRYPOINT`, `USER`, `WORKDIR`, `EXPOSE`, `LABEL`, `ARG`, `STOPSIGNAL`, `HEALTHCHECK`, `VOLUME`. `EXPOSE` documents a port and is what `-P` publishes; it does not open anything by itself.
+Dockerfile instructions — which create layers: `FROM`, `RUN`, `COPY`, `ADD`. Metadata only: `WORKDIR`, `ENV`, `ARG`, `LABEL`, `EXPOSE`, `USER`, `CMD`, `ENTRYPOINT`, `STOPSIGNAL`, `HEALTHCHECK`, `VOLUME`. Rules that bite: every `RUN` is a fresh shell (use `WORKDIR`, not `RUN cd`); chain with `&&` for one layer; exec form `["…"]` for `CMD`/`ENTRYPOINT`; `ENTRYPOINT` = the executable, `CMD` = default arguments, `docker run IMG args` replaces `CMD`; only the last `CMD`/`ENTRYPOINT` counts; `USER` after creating the user; `LABEL org.opencontainers.image.*` instead of `MAINTAINER`.
 
 ## Compose — `docker compose …`
 
@@ -198,6 +212,20 @@ docker run -d --rm -p 12345:80 --mount type=bind,src="$(pwd)",dst=/usr/share/ngi
 docker volume create pgdata && docker run -d --name db -v pgdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=x postgres:16
 docker rm -f db && docker volume ls                                # the volume is still there
 docker volume inspect pgdata                                       # Mountpoint under /var/lib/docker/volumes/
+```
+
+### 03-06 — building cmatrix (examples/docker/cmatrix)
+
+```bash
+docker run -it alpine sh                          # work the build out by hand, then `history` → first Dockerfile draft
+docker build -f Dockerfile.single-stage -t cmatrix:single-stage .   # v2: transcript + WORKDIR; hundreds of MB, 14 layers
+docker build -t cmatrix .                         # final: multi-stage, --no-cache, non-root, ENTRYPOINT+CMD; ~10 MB
+docker image ls cmatrix ; docker image history cmatrix
+docker run --rm -it cmatrix                       # ./cmatrix -b
+docker run --rm -it cmatrix -ab                   # CMD replaced, ENTRYPOINT kept
+docker run --rm -it --entrypoint sh cmatrix       # whoami → thomas
+docker buildx build --platform linux/amd64,linux/arm64 -t user/cmatrix --push .   # one tag, two architectures
+docker run --rm -it spurin/cmatrix                # the instructor's published image, any architecture
 ```
 
 ### Namespaces and cgroups under the hood (Linux host)

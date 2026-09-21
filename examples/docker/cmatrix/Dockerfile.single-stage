@@ -1,0 +1,28 @@
+# cmatrix — version 2 from the chapter: the history transcript with the RUN cd bug fixed by WORKDIR.
+# It builds and runs, and it ships git, gcc, autotools, headers and the source tree next to a static binary.
+# Build it to compare against the multi-stage Dockerfile:
+#
+#   docker build -f Dockerfile.single-stage -t cmatrix:single-stage .
+#   docker image ls cmatrix                     # compare SIZE
+#   docker image history cmatrix:single-stage   # 14 layers; see where the megabytes went
+
+FROM alpine
+
+LABEL org.opencontainers.image.authors="Casey Quinn"
+LABEL org.opencontainers.image.description="Container image from the matrix - check it out at https://github.com/abishekvashok/cmatrix"
+
+RUN apk update
+RUN apk add git
+RUN git clone https://github.com/spurin/cmatrix.git
+# RUN cd cmatrix/      ← does nothing for the next RUN: each RUN is a fresh shell in a new layer
+WORKDIR cmatrix/
+RUN apk add autoconf
+RUN apk add automake
+RUN autoreconf -i
+
+RUN apk add alpine-sdk
+RUN apk add ncurses-dev ncurses-static
+RUN mkdir -p /usr/lib/kbd/consolefonts /usr/share/consolefonts
+RUN ./configure LDFLAGS="-static"
+RUN make
+CMD ["./cmatrix"]

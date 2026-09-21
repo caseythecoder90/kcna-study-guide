@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title docker buildx build ~-~-platform linux/amd64,linux/arm64 -t user/cmatrix ~-~-push .
+
+rectangle "One Dockerfile + build context\n<size:11>FROM alpine resolves to the alpine variant for each target platform</size>" <<accent>> as src
+
+rectangle "BuildKit builder (docker-container driver, or the containerd image store)" <<group>> as bk {
+  rectangle "linux/amd64 build\n<size:11>native on an x86 laptop</size>" <<plain>> as b1
+  rectangle "linux/arm64 build\n<size:11>via QEMU emulation (binfmt_misc) — slower —</size>\n<size:11>or a native arm64 node, or cross-compiling</size>\n<size:11>with $BUILDPLATFORM / $TARGETPLATFORM</size>" <<plain>> as b2
+  b1 -[hidden]right-> b2
+}
+
+rectangle "Registry: docker.io/user/cmatrix:latest" <<groupGood>> as reg {
+  rectangle "Image index (manifest list)\n<size:11>one tag, one digest</size>" <<accent>> as idx
+  rectangle "manifest linux/amd64\n<size:11>config + layers</size>" <<good>> as m1
+  rectangle "manifest linux/arm64\n<size:11>config + layers</size>" <<good>> as m2
+  idx -down-> m1
+  idx -down-> m2
+}
+
+rectangle "docker pull user/cmatrix on a Mac (arm64)\n<size:11>picks the arm64 manifest automatically</size>" <<plain>> as mac
+rectangle "docker pull user/cmatrix on the ThinkPad (amd64)\n<size:11>picks the amd64 manifest</size>" <<plain>> as pc
+
+src -down-> b1
+src -down-> b2
+b1 -down-> idx : --push
+b2 -down-> idx : --push
+m2 -down-> mac
+m1 -down-> pc
+
+caption <i>~-~-push is required: a multi-platform result is an index, which the classic image store cannot hold locally. Without ~-~-platform, buildx builds only the host's platform;</i>\n<i>on Apple silicon that means an arm64-only image that fails on amd64 servers with "exec format error" — the reason the lecture cross-compiles for both.</i>
+@enduml
