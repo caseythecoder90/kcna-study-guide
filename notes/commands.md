@@ -99,7 +99,20 @@ docker login ; docker tag NAME user/NAME:TAG ; docker push user/NAME:TAG
 
 ## 3. kubectl basics
 
-_Section 4._
+Per-chapter detail: [`commands/kubectl-basics.md`](commands/kubectl-basics.md).
+
+### 3a. The architecture, from kubectl (chapter 04-01)
+
+```bash
+kubectl cluster-info ; kubectl get nodes -o wide            # API endpoint; every registered kubelet with its runtime
+kubectl get pods -n kube-system -o wide                     # etcd/apiserver/scheduler/c-m = static pod mirrors; kube-proxy = DaemonSet; coredns = Deployment
+kubectl get daemonset,deployment -n kube-system
+kubectl delete pod kube-scheduler-<node> -n kube-system     # a mirror pod comes straight back — the manifest file is the truth
+ls /etc/kubernetes/manifests/                               # on the control plane host: the four static pod YAMLs
+kubectl run nginx --image=nginx && kubectl get pod nginx -w # Pending (scheduler) → ContainerCreating (kubelet) → Running
+kubectl get events --sort-by=.metadata.creationTimestamp    # Scheduled · Pulling · Pulled · Created · Started
+kubectl get pods -v=8                                       # the REST calls behind the command
+```
 
 ## 4. Workloads and services
 
