@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The cmatrix Dockerfile in five versions — what changed and what it fixed
+
+rectangle "v1 · history → Dockerfile\n<size:11>FROM alpine · 12 separate RUN lines</size>\n<size:11>RUN git clone … · RUN cd cmatrix/ · RUN autoreconf -i …</size>\n<size:11>CMD ./cmatrix (shell form)</size>" <<bad>> as v1
+rectangle "v2 · WORKDIR\n<size:11>RUN cd cmatrix/ → WORKDIR cmatrix/</size>\n<size:11>CMD [“./cmatrix”] (exec form)</size>" <<plain>> as v2
+rectangle "v3 · multi-stage + one RUN\n<size:11>FROM alpine AS cmatrixbuilder · WORKDIR /cmatrix</size>\n<size:11>RUN a && b && c … (one layer) · git clone … .</size>\n<size:11>FROM alpine · LABEL … · CMD</size>" <<plain>> as v3
+rectangle "v4 · copy the artifact, add only runtime deps\n<size:11>COPY ~-~-from=cmatrixbuilder /cmatrix/cmatrix /cmatrix</size>\n<size:11>RUN apk add ~-~-no-cache ncurses-terminfo-base</size>" <<plain>> as v4
+rectangle "v5 · non-root + ENTRYPOINT/CMD\n<size:11>adduser … -s /usr/sbin/nologin -D -H thomas · USER thomas</size>\n<size:11>ENTRYPOINT [“./cmatrix”] · CMD [“-b”]</size>" <<good>> as v5
+
+rectangle "Fails at autoreconf: each RUN is a fresh shell in\na new layer — the cd never persisted, so the build\nran in / instead of /cmatrix" <<bad>> as p1
+rectangle "Builds and runs, but ships gcc, git, autotools,\nheaders and the source tree: a compiler in\nproduction, hundreds of MB, 14 layers" <<plain>> as p2
+rectangle "Build tools confined to a stage that is thrown\naway; but the runtime stage is an empty alpine —\nnothing to run (v3 forgot the COPY)" <<plain>> as p3
+rectangle "Static binary + the terminfo files ncurses reads\nat runtime; no apk index cached. Image ~10 MB,\na handful of layers, no toolchain" <<plain>> as p4
+rectangle "Runs as an unprivileged user with no shell and\nno home; the executable is fixed, the flags are\nthe overridable default: docker run img -ab" <<good>> as p5
+
+v1 -down-> v2
+v2 -down-> v3
+v3 -down-> v4
+v4 -down-> v5
+v1 -right-> p1
+v2 -right-> p2
+v3 -right-> p3
+v4 -right-> p4
+v5 -right-> p5
+
+caption <i>Left: the Dockerfile. Right: what each version got wrong or right. The transcript of an interactive session is the starting point, never the finished image.</i>
+@enduml

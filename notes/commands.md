@@ -86,6 +86,17 @@ docker run --mount type=bind|volume|tmpfs,src=…,dst=…[,readonly] IMG   # exp
 docker volume create | ls | inspect | rm | prune
 ```
 
+### 2e. Build and push (chapter 03-06)
+
+```bash
+docker build -t NAME:TAG .                      # ./Dockerfile; -f other; --no-cache; --pull; --target STAGE
+docker image history NAME:TAG                   # layers per instruction
+docker buildx build --platform linux/amd64,linux/arm64 -t user/app --push .   # multi-platform index
+docker login ; docker tag NAME user/NAME:TAG ; docker push user/NAME:TAG
+# Dockerfile: FROM (AS stage) · WORKDIR (not RUN cd) · RUN a && b (one layer) · COPY --from=stage
+#             LABEL org.opencontainers.image.* · USER nonroot · ENTRYPOINT ["bin"] · CMD ["default","args"]
+```
+
 ## 3. kubectl basics
 
 _Section 4._
