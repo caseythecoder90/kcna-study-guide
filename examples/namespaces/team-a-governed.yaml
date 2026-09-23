@@ -1,0 +1,83 @@
+# A namespace with both kinds of budget, so the difference between them can be
+# seen by trying to break each one.
+#
+#   kubectl apply -f team-a-governed.yaml
+#   kubectl describe namespace team-a          # shows both the quota and the limit range
+#   kubectl get resourcequota,limitrange -n team-a
+#
+# 1. A Pod with no resources at all is ACCEPTED — the LimitRange injects
+#    defaultRequest/default, which is also what keeps it legal under the quota:
+#      kubectl run a --image=nginx -n team-a
+#      kubectl get pod a -n team-a -o jsonpath='{.spec.containers[0].resources}{"\n"}'
+#
+# 2. A Pod asking for more than the per-container max is REJECTED by the
+#    LimitRange (403, "maximum cpu usage per Container is 2"):
+#      kubectl run b --image=nginx -n team-a \
+#        --overrides='{"spec":{"containers":[{"name":"b","image":"nginx","resources":{"requests":{"cpu":"3"}}}]}}'
+#
+# 3. Enough Pods to pass requests.cpu 4 in total are REJECTED by the
+#    ResourceQuota ("exceeded quota: team-a-quota"), even though each one is
+#    individually legal. That is the whole distinction: each versus all.
+#      for i in $(seq 1 12); do kubectl run c$i --image=nginx -n team-a; done
+#      kubectl describe resourcequota team-a-quota -n team-a   # Used vs Hard
+#
+#   kubectl delete namespace team-a            # deletes every object inside it
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-a
+  labels:
+    team: a
+
+---
+# The budget for ALL objects in the namespace, in aggregate.
+# Note: because this sets cpu/memory, every new Pod must end up with requests
+# and limits — the LimitRange below is what supplies them when a manifest does
+# not, so authors are not forced to write resources into every file.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: team-a-quota
+  namespace: team-a
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "5"
+
+---
+# The rule EACH container must obey, plus the defaults injected when it says
+# nothing. min/max reject; default/defaultRequest fill in.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: team-a-limits
+  namespace: team-a
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    min:
+      cpu: 50m
+      memory: 64Mi
+    max:
+      cpu: "2"
+      memory: 2Gi
+    maxLimitRequestRatio:
+      cpu: "10"
+  - type: PersistentVolumeClaim
+    min:
+      storage: 1Gi
+    max:
+      storage: 20Gi

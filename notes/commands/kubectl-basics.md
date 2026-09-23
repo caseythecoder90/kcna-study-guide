@@ -180,6 +180,45 @@ kubectl debug -it ubuntu --image=busybox:1.36 --target=ubuntu   # distroless/scr
 kubectl replace --force=true --grace-period=0 -f ubuntu.yaml; kubectl get pods --watch
 ```
 
+## Chapter 04 — Namespaces
+
+```bash
+# The tour
+kubectl get namespaces                                  # or ns — default, kube-system, kube-public, kube-node-lease
+kubectl get all -A                                      # every namespace at once (but "all" is a category, not everything)
+kubectl get all -n kube-system                          # what the system runs
+kubectl get service kubernetes                          # in DEFAULT, not kube-system: the API server's ClusterIP
+kubectl get configmap cluster-info -n kube-public       # the one thing unauthenticated clients may read
+kubectl get leases -n kube-node-lease                   # one per node — the kubelet heartbeat
+
+# Is this kind namespaced?
+kubectl api-resources --namespaced=true
+kubectl api-resources --namespaced=false                # Node, Namespace, PV, StorageClass, ClusterRole, CRD ...
+kubectl api-resources | more                            # the full table one screen at a time (space = next page, q = quit)
+kubectl api-resources | grep -i persistentvolume        # SHORTNAMES, APIVERSION, NAMESPACED, KIND
+kubectl api-resources --api-group=rbac.authorization.k8s.io
+
+# Using them
+kubectl create namespace team-a
+kubectl run nginx --image=nginx -n team-a
+kubectl get pods -n team-a
+kubectl get pods -A                                     # --all-namespaces
+kubectl describe namespace team-a                       # includes any ResourceQuota and LimitRange in effect
+kubectl delete namespace team-a                         # deletes EVERYTHING inside it
+
+# Quotas and limits
+kubectl get resourcequota,limitrange -n team-a
+kubectl describe resourcequota team-a-quota -n team-a   # Used vs Hard, line by line
+
+# Stop typing -n: the namespace is part of the context
+kubectl config set-context --current --namespace=team-a
+kubectl config view --minify | grep namespace:
+kubectl config get-contexts                             # * marks the current one
+kubectl config current-context
+kubectl config use-context docker-desktop
+# kubectx / kubens wrap the two above for daily use (not exam material)
+```
+
 ## The API behind kubectl
 
 ```bash

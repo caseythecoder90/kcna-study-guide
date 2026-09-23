@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What sits inside a namespace, and what sits above them all
+
+rectangle "One cluster" <<group>> as cluster {
+
+  rectangle "Cluster-scoped · no namespace · one set for the whole cluster\n<size:11>Node · Namespace · PersistentVolume · StorageClass · CustomResourceDefinition</size>\n<size:11>ClusterRole · ClusterRoleBinding · IngressClass · PriorityClass · APIService · RuntimeClass · CSIDriver</size>\n\n<size:11>kubectl api-resources ~-~-namespaced=false · adding -n or -A to kubectl get nodes changes nothing</size>" <<muted>> as cw
+
+  rectangle "namespace: kube-system\n<size:11>objects created by the Kubernetes system</size>\n<size:11>coredns · kube-proxy · etcd · kube-apiserver</size>\n<size:11>kube-scheduler · kube-controller-manager</size>" <<plain>> as ks
+
+  rectangle "namespace: default\n<size:11>where objects go when you pass no -n</size>\n<size:11>service/kubernetes lives here, not in kube-system —</size>\n<size:11>the ClusterIP for the API server, kept in default</size>\n<size:11>so every Pod can find the API the same way</size>" <<accent>> as df
+
+  rectangle "namespace: team-a\n<size:11>Pod · Deployment · ReplicaSet · Service · Ingress</size>\n<size:11>ConfigMap · Secret · ServiceAccount · Role · RoleBinding</size>\n<size:11>PVC · Job · CronJob · HPA · NetworkPolicy</size>\n<size:11>ResourceQuota · LimitRange · Endpoints · Event</size>" <<good>> as ta
+
+  rectangle "namespace: team-b\n<size:11>a Pod named web here and a Pod named web</size>\n<size:11>in team-a are two different objects — names must be</size>\n<size:11>unique within a namespace, not across them</size>" <<good>> as tb
+
+  cw -[hidden]down-> ks
+  ks -[hidden]right-> df
+  df -[hidden]right-> ta
+  ta -[hidden]right-> tb
+}
+
+caption <i>A namespace scopes names, RBAC and resource budgets. It does not scope the network: a Pod in team-a can still reach a Service in team-b at web.team-b.svc.cluster.local unless a NetworkPolicy says otherwise.</i>\n<i>Namespaces cannot be nested, every object belongs to exactly one, and deleting a namespace deletes everything inside it. Namespaces starting with kube- are reserved for the system.</i>
+@enduml

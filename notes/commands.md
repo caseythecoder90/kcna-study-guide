@@ -161,6 +161,20 @@ kubectl replace --force=true --grace-period=0 -f ubuntu.yaml; kubectl get pods -
 
 Container never started (`Pending`, `ImagePullBackOff`, `InvalidImageName`, `RunContainerError`, `RESTARTS 0`) → **no logs exist**, use `describe` and events. Container started then died (`CrashLoopBackOff`, `Error`, `OOMKilled`, `RESTARTS > 0`) → **`kubectl logs --previous`**.
 
+### 3f. Namespaces (chapter 04-04)
+
+```bash
+kubectl get ns ; kubectl get all -A                         # the four defaults; every namespace at once
+kubectl get service kubernetes                              # lives in default, not kube-system
+kubectl api-resources --namespaced=false                    # Node, Namespace, PV, StorageClass, ClusterRole, CRD ...
+kubectl api-resources | more                                # full table with SHORTNAMES, a screen at a time
+kubectl create namespace team-a ; kubectl get pods -n team-a
+kubectl describe namespace team-a                           # any ResourceQuota / LimitRange in effect
+kubectl config set-context --current --namespace=team-a     # stop typing -n
+kubectl config get-contexts ; kubectl config use-context <name>
+kubectl delete namespace team-a                             # deletes everything inside it
+```
+
 ## 4. Workloads and services
 
 _Section 5._
