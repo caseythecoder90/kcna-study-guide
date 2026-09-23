@@ -146,6 +146,21 @@ kubectl apply --dry-run=server -f mypod.yaml                # validated by the A
 kubectl explain pod.spec.restartPolicy                      # the schema from your own API server, offline
 ```
 
+### 3e. Troubleshooting Pods (chapter 04-03)
+
+```bash
+kubectl describe pod ubuntu                                 # Events, State / Last State / Reason / Message, Conditions
+kubectl events --for pod/ubuntu --watch                     # events about one object, streaming
+kubectl get events --sort-by=.metadata.creationTimestamp    # the older form
+kubectl logs ubuntu -p                                      # --previous: the instance that crashed
+kubectl logs -f --tail=20 ubuntu                            # recent context, then live
+kubectl logs ubuntu --all-containers -f --tail=20 --prefix  # every container in the Pod at once
+kubectl exec -it ubuntu -c ubuntu -- bash                   # everything after -- is the container's command
+kubectl replace --force=true --grace-period=0 -f ubuntu.yaml; kubectl get pods --watch   # recreate and watch
+```
+
+Container never started (`Pending`, `ImagePullBackOff`, `InvalidImageName`, `RunContainerError`, `RESTARTS 0`) → **no logs exist**, use `describe` and events. Container started then died (`CrashLoopBackOff`, `Error`, `OOMKilled`, `RESTARTS > 0`) → **`kubectl logs --previous`**.
+
 ## 4. Workloads and services
 
 _Section 5._

@@ -136,6 +136,50 @@ kubectl explain pod.spec.restartPolicy                                      # pr
 kubectl explain pod.spec.containers --recursive                             # every field below this point, names only
 ```
 
+## Chapter 03 — Troubleshooting Pods
+
+```bash
+# Where did it get to?
+kubectl get pods                                        # the STATUS column: a container reason, not the Pod phase
+kubectl get pod ubuntu -o jsonpath='{.status.phase}{"\n"}'   # the actual phase: Pending|Running|Succeeded|Failed|Unknown
+kubectl get pod ubuntu -o jsonpath='{.spec.nodeName}{"\n"}'  # empty = never scheduled
+kubectl describe pod ubuntu                             # Events at the bottom; State / Last State / Reason / Message; Conditions
+kubectl get pod ubuntu -o yaml | grep -A12 'containerStatuses:'   # the same states, raw
+
+# Events — the purpose-built command
+kubectl events                                          # this namespace
+kubectl events --for pod/ubuntu                         # only this object
+kubectl events --for pod/ubuntu --watch                 # and keep streaming
+kubectl events --types=Warning                          # or Warning,Normal
+kubectl events -A
+# the older form, still everywhere:
+kubectl get events --sort-by=.metadata.creationTimestamp
+kubectl get events --field-selector involvedObject.name=ubuntu,type=Warning
+# events expire (API server --event-ttl, about an hour) — a long-broken Pod shows Events: <none>
+
+# Logs — only if the container actually started (RESTARTS > 0)
+kubectl logs ubuntu
+kubectl logs ubuntu -p                                  # --previous: the instance that crashed — the one with the error
+kubectl logs -f --tail=20 ubuntu                        # recent context, then live: the pair worth memorising
+kubectl logs ubuntu -c ubuntu -f --tail=20              # and pick the container
+kubectl logs ubuntu --all-containers -f --tail=20       # every container in the Pod in one stream
+kubectl logs ubuntu --all-containers --prefix           # prefix each line with pod/container so it stays readable
+kubectl logs --since=15m ubuntu ; kubectl logs --timestamps ubuntu
+kubectl logs -l run=ubuntu --all-containers -f          # across Pods by label (--max-log-requests defaults to 5)
+# container never started? kubectl logs answers:
+#   Error from server (BadRequest): container "ubuntu" in pod "ubuntu" is waiting to start: trying and failing to pull image
+
+# Exec — the Pod runs but does the wrong thing
+kubectl exec ubuntu -- env                              # what the container actually sees
+kubectl exec ubuntu -- cat /etc/resolv.conf
+kubectl exec -it ubuntu -c ubuntu -- bash               # interactive shell (-i stdin, -t TTY, both needed)
+kubectl exec -it ubuntu -- sh                           # if the image has no bash
+kubectl debug -it ubuntu --image=busybox:1.36 --target=ubuntu   # distroless/scratch: attach an ephemeral container
+
+# Change a Pod and watch it come back (most of a Pod's spec is immutable)
+kubectl replace --force=true --grace-period=0 -f ubuntu.yaml; kubectl get pods --watch
+```
+
 ## The API behind kubectl
 
 ```bash

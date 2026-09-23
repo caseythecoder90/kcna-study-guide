@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Five Pod phases, and the STATUS column that is none of them
+
+rectangle "Pod accepted by the API server and written to etcd" <<muted>> as created
+
+rectangle "phase: Pending" <<accent>> as pending
+rectangle "Accepted by the cluster, but not every container is set up. This covers **both** waiting\nfor a node **and** pulling images — two very different problems under one phase.\n\n<size:11>STATUS you actually see while Pending:</size>\n<size:11>Pending — no node matched. Events say FailedScheduling: no such scheduler,</size>\n<size:11>taints, insufficient cpu/memory, unbound PVC, nodeSelector matched nothing</size>\n<size:11>ContainerCreating — kubelet is pulling the image, mounting volumes, wiring the CNI</size>\n<size:11>ErrImagePull → ImagePullBackOff — valid name, but it will not pull</size>\n<size:11>InvalidImageName — the reference itself is malformed, e.g. a capital letter</size>\n<size:11>CreateContainerConfigError — a ConfigMap or Secret it references does not exist</size>" <<plain>> as pdetail
+
+rectangle "phase: Running" <<good>> as running
+rectangle "Bound to a node, all containers created, at least one running, starting or restarting.\n**Running is not healthy** — a container in a crash loop keeps the Pod in this phase.\n\n<size:11>STATUS you actually see while Running:</size>\n<size:11>Running — what you want, and READY n/n confirms it</size>\n<size:11>CrashLoopBackOff — it starts, exits, and the kubelet is waiting before the next try</size>\n<size:11>RunContainerError — the runtime could not start the process at all (bad command)</size>\n<size:11>OOMKilled — exceeded its memory limit; exit 137</size>\n<size:11>Completed / Error — the last run ended; restartPolicy decides what happens next</size>" <<plain>> as rdetail
+
+rectangle "phase: Succeeded\n<size:11>every container exited 0</size>\n<size:11>and will not be restarted</size>" <<good>> as succ
+rectangle "phase: Failed\n<size:11>a container exited non-zero</size>\n<size:11>or was killed, and will not restart</size>" <<bad>> as fail
+rectangle "phase: Unknown\n<size:11>the node stopped reporting —</size>\n<size:11>check the node, not the Pod</size>" <<muted>> as unknown
+
+created -down-> pending
+pending -right-> pdetail
+pending -down-> running : sandbox created, containers started
+running -right-> rdetail
+running -down-> succ
+running -down-> fail
+fail -right-> unknown
+
+caption <i>The five phases are what the API stores in status.phase. The word in the STATUS column of kubectl get pods is usually not a phase at all — it is the reason from the container's own state,</i>\n<i>which is why ImagePullBackOff and CrashLoopBackOff never appear in the phase list. Read the phase to know how far the Pod got; read the STATUS reason to know what is wrong.</i>
+@enduml

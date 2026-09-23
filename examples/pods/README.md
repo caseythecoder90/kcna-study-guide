@@ -6,6 +6,7 @@ Companion manifests for [`02-pods`](../../notes/04-kubernetes-fundamentals/02-po
 |---|---|
 | [`sidecar-pod.yaml`](sidecar-pod.yaml) | Two containers in one Pod: nginx plus an ubuntu sidecar reachable over `localhost`, with a `/tmp/crash` switch so you can fail one container and watch the other survive |
 | [`countdown-pod.yaml`](countdown-pod.yaml) | An init container that counts 120 down to 0 before the app container is allowed to start — two minutes of `STATUS Init:0/1` |
+| [`broken-pods.yaml`](broken-pods.yaml) | **Five Pods that each fail differently**, so `Pending`, `InvalidImageName`, `ImagePullBackOff`, `CrashLoopBackOff` and `RunContainerError` all appear in one `kubectl get pods`. Companion to [`04-03`](../../notes/04-kubernetes-fundamentals/03-troubleshooting-pods.md) |
 
 ## Both at once
 
