@@ -1,0 +1,39 @@
+# Two containers in one Pod, sharing one network namespace and one IP.
+#
+# The sidecar prints a timestamped line every 5 seconds and exits 1 as soon as
+# /tmp/crash exists, so you can make one container fail on demand and watch the
+# other keep running:
+#
+#   kubectl apply -f sidecar-pod.yaml
+#   kubectl get pod mypod                          # READY 2/2
+#   kubectl logs mypod -c sidecar
+#   kubectl exec -it mypod -c sidecar -- bash
+#     curl localhost:80                            # nginx answers: same network namespace
+#   kubectl exec mypod -c sidecar -- touch /tmp/crash
+#   kubectl get pod mypod -w                       # RESTARTS climbs for the sidecar only
+#
+# Generated with:
+#   kubectl run mypod --image=nginx --dry-run=client -o yaml | tee mypod.yaml
+# then hand-edited to add the second container.
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: mypod
+  name: mypod
+spec:
+  containers:
+  - name: webserver
+    image: nginx
+    resources: {}
+  - name: sidecar
+    image: ubuntu
+    args:
+    - /bin/sh
+    - -c
+    - while true; do echo "$(date +'%T') - Hello from the sidecar"; sleep 5; if [ -f /tmp/crash ]; then exit 1; fi; done
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}

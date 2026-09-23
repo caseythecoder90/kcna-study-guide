@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Reaching a Pod depends on where kubectl is running
+
+rectangle "Case 1 · you are on the cluster" <<groupGood>> as inside {
+  rectangle "root@control-plane\n<size:11>kubectl and the Pod network are on the same host</size>" <<plain>> as u1
+  rectangle "curl http://10.42.2.7\n<size:11>the Pod IP is routable here — the CNI wired the route</size>" <<good>> as c1
+  rectangle "Pod nginx\n<size:11>10.42.2.7:80</size>" <<accent>> as p1
+  u1 -right-> c1
+  c1 -right-> p1 : straight to the Pod IP
+}
+
+rectangle "Case 2 · you are on a laptop, the cluster is elsewhere" <<group>> as outside {
+  rectangle "your laptop\n<size:11>10.42.0.0/16 means nothing on your LAN — the Pod IP is unreachable</size>" <<plain>> as u2
+  rectangle "kubectl port-forward pod/nginx 8080:80\n<size:11>opens a listener on 127.0.0.1:8080 and tunnels it over the</size>\n<size:11>authenticated HTTPS session to the API server, then to the kubelet</size>" <<accent>> as pf
+  rectangle "Pod nginx\n<size:11>10.42.2.7:80</size>" <<accent>> as p2
+  u2 -right-> pf : http://localhost:8080
+  pf -right-> p2 : TCP only, one client, dies with the command
+}
+
+inside -[hidden]down-> outside
+
+caption <i>port-forward is a debugging tunnel, not a way to publish an application: it is TCP only, it serves whoever runs the command, and it stops when you press ctrl-c.</i>\n<i>Publishing to real users is a Service, and then an Ingress or the Gateway API. The same difference explains why a Pod IP you read out of kubectl get pods -o wide works over ssh to a node and not from your own shell.</i>
+@enduml

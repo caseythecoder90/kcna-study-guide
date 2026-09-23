@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title A Pod is a shared context, not a container
+
+rectangle "Node worker-2" <<group>> as node {
+  rectangle "Pod mypod · one cluster-wide IP · 10.42.2.7" <<groupGood>> as pod {
+    rectangle "container: webserver\n<size:11>image nginx · listens on :80</size>" <<accent>> as web
+    rectangle "container: sidecar\n<size:11>image ubuntu · curl localhost:80 reaches nginx</size>" <<accent>> as side
+
+    rectangle "SHARED by every container in the Pod\n<size:11>network namespace — one IP, one port space, and localhost between them</size>\n<size:11>IPC namespace — shared memory and semaphores</size>\n<size:11>volumes declared in the Pod spec, mounted into whichever containers ask for them</size>\n<size:11>lifecycle — co-located and co-scheduled on one node; scheduled together, deleted together</size>" <<good>> as shared
+
+    rectangle "NOT shared\n<size:11>each container keeps its own image, filesystem and process tree (mnt + pid namespaces)</size>\n<size:11>so two containers in one Pod cannot both bind :80 — it is one port space</size>\n<size:11>a crashed container is restarted on its own; the Pod and its IP survive</size>" <<plain>> as notshared
+
+    rectangle "pause\n<size:11>the tiny infrastructure container the kubelet starts first: it holds the</size>\n<size:11>namespaces open so app containers can restart without losing the IP</size>" <<muted>> as pause
+
+    web -right-> side : localhost
+    web -[hidden]down-> shared
+    side -[hidden]down-> shared
+    shared -[hidden]down-> notshared
+    notshared -[hidden]down-> pause
+  }
+}
+
+caption <i>A container is not a Kubernetes object. The smallest thing you can create, schedule, name and delete is the Pod, and everything inside it lives on one node with one address.</i>\n<i>Most Pods hold exactly one container; a second one belongs there only when it must share that address and those volumes — a log shipper, a proxy, a config reloader.</i>
+@enduml
