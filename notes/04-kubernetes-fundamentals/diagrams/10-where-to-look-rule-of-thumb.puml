@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The rule of thumb: did the container ever start?
+
+rectangle "The Pod is not working" <<accent>> as start
+
+rectangle "Never started\n<size:11>STATUS: Pending · ContainerCreating · ImagePullBackOff</size>\n<size:11>InvalidImageName · CreateContainerConfigError · RunContainerError</size>" <<groupBad>> as never {
+  rectangle "There are no logs. There was never a process.\n<size:11>kubectl logs answers:</size>\n<size:11>Error from server (BadRequest): container “ubuntu” in pod “ubuntu”</size>\n<size:11>is waiting to start: trying and failing to pull image</size>" <<bad>> as nolog
+  rectangle "Look here instead\n<size:11>kubectl describe pod NAME — the Events list at the bottom, and</size>\n<size:11>State / Last State / Reason / Message for each container</size>\n<size:11>kubectl events ~-~-for pod/NAME ~-~-watch</size>" <<plain>> as nowhere
+  rectangle "What it will say\n<size:11>FailedScheduling · Failed to pull image · InvalidImageName</size>\n<size:11>executable file not found in $PATH · secret not found</size>" <<plain>> as nowhat
+  nolog -[hidden]down-> nowhere
+  nowhere -[hidden]down-> nowhat
+}
+
+rectangle "Started, then died\n<size:11>STATUS: CrashLoopBackOff · Error · Completed · OOMKilled</size>\n<size:11>RESTARTS is climbing</size>" <<groupGood>> as died {
+  rectangle "Logs exist — from the run that just ended.\n<size:11>The live container may be between restarts, so the current log is empty</size>" <<good>> as yeslog
+  rectangle "Look here first\n<size:11>kubectl logs NAME ~-~-previous (or -p) — the instance that crashed</size>\n<size:11>kubectl logs -f ~-~-tail=20 NAME — follow the next attempt</size>\n<size:11>then kubectl describe for the exit code and reason</size>" <<good>> as yeswhere
+  rectangle "What it will say\n<size:11>an application stack trace · a missing environment variable</size>\n<size:11>or nothing at all, because the command simply ran and exited 0</size>" <<plain>> as yeswhat
+  yeslog -[hidden]down-> yeswhere
+  yeswhere -[hidden]down-> yeswhat
+}
+
+start -down-> never : container never ran
+start -down-> died : container ran at least once
+
+caption <i>Container not started means no application or container logs — asking for them wastes the first five minutes of an incident. Container started and then crashed means the logs from the last run are there,</i>\n<i>and ~-~-previous is how you reach them. RESTARTS greater than 0 in kubectl get pods is the fastest way to tell the two apart.</i>
+@enduml

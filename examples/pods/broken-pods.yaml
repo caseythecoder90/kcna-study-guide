@@ -1,0 +1,96 @@
+# Five Pods that each fail in a different way, so every STATUS from
+# 04-03 can be seen side by side in one kubectl get pods.
+#
+#   kubectl apply -f broken-pods.yaml
+#   kubectl get pods -w
+#   kubectl describe pod broken-bad-command
+#   kubectl logs broken-crashloop --previous
+#   kubectl events --for pod/broken-unscheduled
+#   kubectl delete -f broken-pods.yaml
+#
+# Expected after a minute or so:
+#   broken-unscheduled         0/1   Pending             0
+#   broken-invalid-image-name  0/1   InvalidImageName    0
+#   broken-image-not-found     0/1   ImagePullBackOff    0
+#   broken-crashloop           0/1   CrashLoopBackOff    4
+#   broken-bad-command         0/1   RunContainerError   3
+#
+# RESTARTS tells the two families apart: 0 means the container never ran and
+# there are no logs, so use describe and events. Non-zero means it ran, so
+# kubectl logs --previous has the answer.
+
+---
+# 1. Never scheduled: no scheduler by this name is running, so nothing ever
+# binds this Pod to a node. It sits in Pending with NO events at all — not
+# even a failure — which is the giveaway. Compare with an ordinary
+# unschedulable Pod, where the default scheduler reports FailedScheduling.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-unscheduled
+spec:
+  schedulerName: does-not-exist
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    args: ["sleep", "infinity"]
+
+---
+# 2. InvalidImageName: repository names must be lowercase, so "ubuntuX" is not
+# a valid image reference at all. The kubelet rejects it locally and never
+# contacts a registry, so there is no ErrImagePull/ImagePullBackOff cycle.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-invalid-image-name
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntuX
+    args: ["sleep", "infinity"]
+
+---
+# 3. ErrImagePull -> ImagePullBackOff: "ubuntux" is a legal reference, so the
+# kubelet does ask docker.io for it — and it does not exist. The two statuses
+# alternate: ErrImagePull is the failed attempt, ImagePullBackOff is the wait
+# before the next one. RESTARTS stays 0 because no container ever started.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-image-not-found
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntux
+    args: ["sleep", "infinity"]
+
+---
+# 4. CrashLoopBackOff: no command and no args, so the container runs the
+# image's CMD, which for ubuntu is /bin/bash. Non-interactive bash with no
+# script reads EOF and exits 0 — "Completed". restartPolicy defaults to
+# Always, so it is restarted, exits again, and the kubelet starts backing off
+# (10s, 20s, 40s ... capped at 5 minutes).
+#
+# A container lives exactly as long as its main process.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-crashloop
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+
+---
+# 5. RunContainerError / StartError: the image pulls, the sandbox is created,
+# and then runc cannot find "sleeep" in $PATH. describe shows Exit Code 128
+# and a Started time of Thu, 01 Jan 1970 — the epoch, meaning it never ran.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-bad-command
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    args: ["sleeep", "infinity"]
