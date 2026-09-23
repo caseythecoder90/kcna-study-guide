@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What starts when inside one Pod
+
+rectangle "Phase 1 · initContainers — one at a time, each runs to completion" <<group>> as phase1 {
+  rectangle "init-countdown\n<size:11>image busybox · counts 120 → 0, then exits 0</size>\n<size:11>the next init container starts only once this one succeeded</size>\n<size:11>no liveness, readiness or startup probes; no lifecycle hooks</size>" <<muted>> as i1
+  rectangle "what kubectl get pods shows meanwhile\n<size:11>STATUS Init:0/1 · READY 0/1 — no app container has started yet</size>\n<size:11>exits non-zero? restartPolicy Always or OnFailure retries it;</size>\n<size:11>Never marks the whole Pod Failed</size>" <<plain>> as s1
+  i1 -[hidden]right-> s1
+}
+
+rectangle "Phase 2 · containers — all started together, meant to run forever" <<groupGood>> as phase2 {
+  rectangle "main-container\n<size:11>the application</size>" <<good>> as a1
+  rectangle "sidecar\n<size:11>helper in the same Pod: log shipper,</size>\n<size:11>proxy, metrics exporter</size>" <<good>> as a2
+  rectangle "what kubectl get pods shows now\n<size:11>STATUS Running · READY 2/2 · RESTARTS counts per container, not per Pod</size>\n<size:11>kill one container and only that one restarts — the Pod and its IP stay</size>" <<plain>> as s2
+  a1 -right-> a2 : localhost
+  a1 -[hidden]down-> s2
+  a2 -[hidden]down-> s2
+}
+
+i1 -down-> a1 : every init container exited 0
+
+rectangle "Since 1.33 the supported way to write a sidecar: an entry in initContainers with restartPolicy Always\n<size:11>starts in phase 1 but does not block the next init container, then keeps running for the life of the Pod,</size>\n<size:11>and is shut down after the app containers so a log shipper outlives the thing whose logs it ships</size>\n<size:11>beta 1.28 · stable 1.33 · a plain second entry under containers still works and is what the lecture shows</size>" <<plain>> as native
+
+phase2 -[hidden]down-> native
+
+caption <i>Init containers are for work that must finish before the app may start — waiting on a dependency, fetching config, running a migration. Sidecars are for work that must happen alongside it.</i>\n<i>Both share the Pod's network namespace and volumes, which is the whole reason to put them in this Pod instead of a Pod of their own.</i>
+@enduml

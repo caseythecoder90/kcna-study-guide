@@ -1,0 +1,27 @@
+# An init container that runs to completion before the app container starts.
+#
+# The init container counts down from 120 to 0 — about two minutes during which
+# the Pod sits at STATUS Init:0/1 and READY 0/1, with no app container running:
+#
+#   kubectl apply -f countdown-pod.yaml
+#   kubectl get pods -o wide
+#   until kubectl logs pod/countdown-pod -c init-countdown --follow --pod-running-timeout=5m; do sleep 1; done
+#   until kubectl logs pod/countdown-pod -c main-container --follow --pod-running-timeout=5m; do sleep 1; done
+#   kubectl delete -f countdown-pod.yaml
+#
+# The until loops are there because the container may not be startable the
+# instant the command is issued.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: countdown-pod
+spec:
+  initContainers:
+  - name: init-countdown
+    image: busybox
+    command: ['sh', '-c', 'for i in $(seq 120 -1 0); do echo init-countdown: $i; sleep 1; done']
+
+  containers:
+  - name: main-container
+    image: busybox
+    command: ['sh', '-c', 'while true; do count=$((count + 1)); echo main-container: sleeping for 30 seconds - iteration $count; sleep 30; done']

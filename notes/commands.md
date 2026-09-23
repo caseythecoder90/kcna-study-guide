@@ -123,6 +123,29 @@ kubectl get pods -A -o wide ; kubectl get nodes -o jsonpath='{.items[*].spec.pod
 kubectl get pods -n kube-system -o wide | grep -Ei 'flannel|calico|cilium'   # the CNI agent DaemonSet
 ```
 
+### 3c. Pods (chapter 04-02)
+
+```bash
+kubectl run nginx --image=nginx                             # kubectl run only ever creates a Pod
+kubectl get pods -o wide                                    # READY = containers ready/total · adds IP and NODE
+kubectl describe pod nginx                                  # Events at the bottom are the first thing to read
+kubectl logs mypod -c sidecar ; kubectl logs mypod --previous   # -c per container; --previous is the crashed instance
+kubectl exec -it mypod -c sidecar -- bash                   # everything after -- is the container's command
+kubectl exec -it mypod -- curl http://10.42.2.7             # Pod to Pod, no NAT
+kubectl run tmp --image=curlimages/curl -it --rm --restart=Never -- curl -s http://10.42.2.7   # throwaway client Pod
+kubectl port-forward pod/nginx 8080:80                      # from outside the cluster: TCP only, one client, ctrl-c ends it
+```
+
+### 3d. Imperative to declarative (chapter 04-02)
+
+```bash
+kubectl run mypod --image=nginx --dry-run=client -o yaml | tee mypod.yaml   # generate and keep; tee prints and writes
+kubectl apply -f mypod.yaml ; kubectl diff -f mypod.yaml    # declarative: state the result, reconcile the difference
+kubectl apply --dry-run=server -f mypod.yaml                # validated by the API server, then discarded
+{ cat nginx.yaml; echo "---"; cat ubuntu.yaml; } | tee combined.yaml   # one file out of several (the ; before } is required)
+kubectl explain pod.spec.restartPolicy                      # the schema from your own API server, offline
+```
+
 ## 4. Workloads and services
 
 _Section 5._

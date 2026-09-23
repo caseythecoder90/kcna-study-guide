@@ -61,6 +61,81 @@ kubectl exec dnstest -- ping -c1 <ip-of-a-pod-on-another-node>          # Pod-to
 kubectl delete pod dnstest
 ```
 
+## Chapter 02 — Pods
+
+```bash
+# Create and inspect
+kubectl run nginx --image=nginx                         # imperative; kubectl run only ever creates a Pod
+kubectl run nginx --image=nginx --restart=Never         # sets spec.restartPolicy (default Always)
+kubectl run nginx --image=nginx --port=80 --labels=app=web,tier=frontend
+kubectl get pods                                        # NAME READY STATUS RESTARTS AGE
+kubectl get pods -o wide                                # adds IP and NODE — the two columns this chapter is about
+kubectl get pods -A                                     # every namespace
+kubectl get pods -w                                     # watch state changes as they happen
+kubectl get pod nginx -o yaml                           # the stored object, with defaults and status filled in
+kubectl describe pod nginx                              # spec, per-container status, and Events at the bottom
+kubectl get pod nginx -o jsonpath='{.status.podIP}{"\n"}'
+kubectl get pods -o custom-columns='NAME:.metadata.name,IP:.status.podIP,NODE:.spec.nodeName'
+
+# Logs
+kubectl logs nginx
+kubectl logs mypod -c sidecar                           # -c is required once the Pod has more than one container
+kubectl logs -f mypod -c sidecar                        # follow
+kubectl logs mypod --previous                           # the log of the container instance that crashed, not the running one
+kubectl logs mypod --tail=20 --timestamps
+kubectl logs --selector run=mypod --all-containers      # by label instead of by name
+until kubectl logs pod/countdown-pod -c init-countdown --follow --pod-running-timeout=5m; do sleep 1; done   # retry until it is startable
+
+# Exec — everything after -- is the container's command, not kubectl's
+kubectl exec mypod -- ls /usr/share/nginx/html
+kubectl exec -it mypod -- bash                          # sh if the image has no bash
+kubectl exec -it mypod -c sidecar -- bash
+kubectl exec mypod -c sidecar -- touch /tmp/crash       # make that container exit 1; RESTARTS climbs for it alone
+
+# Pod to Pod, from inside the cluster
+kubectl get pod nginx -o wide                           # read the IP, e.g. 10.42.2.7
+kubectl exec -it mypod -- curl http://10.42.2.7         # any Pod reaches any Pod, no NAT
+kubectl run tmp --image=curlimages/curl -it --rm --restart=Never -- curl -s http://10.42.2.7   # throwaway client, deleted on exit
+kubectl run tmp --image=busybox:1.36 -it --rm --restart=Never -- sh   # nslookup, wget, ping in a scratch Pod
+
+# From outside the cluster network
+kubectl port-forward pod/nginx 8080:80                  # then http://localhost:8080 — TCP only, one client, ctrl-c ends it
+kubectl port-forward pod/nginx :80                      # let kubectl pick the local port
+kubectl port-forward deployment/mongo 28015:27017       # also works on deployment/, replicaset/, service/
+
+# Delete
+kubectl delete pod nginx
+kubectl delete pod nginx --now                          # skip the 30s graceful shutdown
+kubectl delete pods --all
+kubectl delete -f combined.yaml                         # delete exactly what a manifest created
+```
+
+### Generating manifests, applying them, and looking up fields
+
+```bash
+# Generate rather than type
+kubectl run mypod --image=nginx --dry-run=client -o yaml                    # built locally and printed; the API server is never contacted
+kubectl run mypod --image=nginx --dry-run=client -o yaml | tee mypod.yaml   # print AND save — tee writes the file and passes the text through
+kubectl create deployment web --image=nginx --dry-run=client -o yaml | tee web.yaml
+kubectl get pod mypod -o yaml | tee snapshot.yaml                           # the same trick against a live object
+
+# Apply — declarative
+kubectl apply -f mypod.yaml
+kubectl diff -f mypod.yaml                                                  # what apply would change, before it changes it
+kubectl apply --dry-run=server -f mypod.yaml                                # validated, defaulted and admitted by the API server, then discarded
+kubectl apply -f nginx.yaml -f ubuntu.yaml                                  # several files
+kubectl apply -f ./manifests/                                               # or a whole directory
+{ cat nginx.yaml; echo "---"; cat ubuntu.yaml; } | tee combined.yaml        # one artifact out of several — the ; before } is required
+kubectl apply -f combined.yaml
+
+# The field reference, with no internet
+kubectl explain pod
+kubectl explain pod.spec
+kubectl explain pod.spec.containers
+kubectl explain pod.spec.restartPolicy                                      # prints the allowed values: Always, OnFailure, Never
+kubectl explain pod.spec.containers --recursive                             # every field below this point, names only
+```
+
 ## The API behind kubectl
 
 ```bash
