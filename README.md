@@ -90,6 +90,8 @@ Always confirm the current version, duration, and passing score on the official 
 
 Not exam material, but grown out of it: [`extras/keycloak-starter-guide.md`](extras/keycloak-starter-guide.md) is a step-by-step path into contributing to Keycloak (CNCF incubating, Java/Quarkus) — run it, learn the architecture, build from source, trace requests with a debugger, write a test the project's way, land a first PR.
 
+[`extras/vintage-mac-collecting.md`](extras/vintage-mac-collecting.md) is entirely off-topic: which old Macs are worth buying for a shelf, where to find them, and the maintenance that keeps a 30-year-old machine alive.
+
 ## Attribution & license
 
 Notes were built while working through James Spurin's KCNA course and expanded with additional depth from the official CNCF and Kubernetes documentation. They are original write-ups intended for study and sharing; no course material is reproduced. Every diagram is an original PlantUML drawing (source `.puml` committed next to the rendered `.svg`), not a course slide.
