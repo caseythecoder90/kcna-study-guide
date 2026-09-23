@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two budgets in one namespace: the total, and the each
+
+rectangle "namespace: team-a" <<group>> as ns {
+
+  rectangle "ResourceQuota · the budget for ALL Pods together\n<size:11>requests.cpu 4 · limits.memory 8Gi · pods 20 · persistentvolumeclaims 5</size>\n<size:11>the SUM across the namespace may not exceed this — one object, checked in aggregate</size>\n<size:11>set a cpu or memory quota and every new Pod MUST declare requests or limits, or it is rejected</size>" <<accent>> as quota
+
+  rectangle "LimitRange · the rule EACH Pod or container must obey\n<size:11>min / max — reject anything outside the band</size>\n<size:11>default / defaultRequest — fill in what the manifest author left out (which is what keeps the quota above satisfied)</size>\n<size:11>maxLimitRequestRatio — stop a container requesting 100m and limiting 4</size>\n<size:11>applies to Container, Pod and PersistentVolumeClaim</size>" <<good>> as lr
+
+  rectangle "pod a\n<size:11>requests 500m / 1Gi</size>\n<size:11>within the band, fits the total</size>" <<plain>> as p1
+  rectangle "pod b\n<size:11>no resources set</size>\n<size:11>LimitRange injects the defaults</size>" <<plain>> as p2
+  rectangle "pod c · rejected 403\n<size:11>either its own request is outside the</size>\n<size:11>LimitRange band, or it would push the</size>\n<size:11>namespace total past the quota</size>" <<bad>> as p3
+
+  lr -down-> p1 : checked per object
+  lr -down-> p2
+  lr -down-> p3
+  p1 -[hidden]right-> p2
+  p2 -[hidden]right-> p3
+  quota -[hidden]down-> lr
+  p1 -up-> quota : counted toward the total
+}
+
+caption <i>ResourceQuota is the namespace's ceiling; LimitRange is the per-object rule. They are separate objects and neither implies the other, but they are written together: without a LimitRange</i>\n<i>supplying defaults, a cpu or memory quota makes every manifest that omits requests fail with 403 Forbidden. Both are namespaced, and both reject at admission rather than evicting later.</i>
+@enduml
