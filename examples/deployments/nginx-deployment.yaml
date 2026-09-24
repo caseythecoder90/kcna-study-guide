@@ -1,0 +1,86 @@
+# A Deployment with every rollout-relevant field written out, so the defaults
+# stop being invisible. 12 replicas makes the maxSurge/maxUnavailable
+# arithmetic easy to watch:
+#
+#   maxUnavailable 25% of 12 = 3, rounds DOWN -> never fewer than 9 available
+#   maxSurge       25% of 12 = 3, rounds UP   -> never more than 15 in total
+#
+# The lab:
+#   kubectl apply -f nginx-deployment.yaml
+#   kubectl get deployment,replicaset,pods
+#   kubectl rollout history deployment/nginx          # REVISION 1, CHANGE-CAUSE from the annotation below
+#
+#   # watch a rolling update in another terminal:
+#   watch kubectl get pods -o wide
+#
+#   # revision 2 — set the change-cause first so it lands on the right revision
+#   kubectl annotate deployment/nginx kubernetes.io/change-cause="bump to nginx:1.27" --overwrite
+#   kubectl set image deployment/nginx nginx=nginx:1.27
+#   kubectl rollout status deployment/nginx
+#   kubectl get replicaset                            # the old RS is still there, scaled to 0
+#
+#   # revision 3 — a broken image, to watch a rollout stall
+#   kubectl annotate deployment/nginx kubernetes.io/change-cause="typo: nginx:1.27x" --overwrite
+#   kubectl set image deployment/nginx nginx=nginx:1.27x
+#   kubectl rollout status deployment/nginx           # blocks, then fails at progressDeadlineSeconds
+#   kubectl get pods                                  # new RS Pods stuck in ImagePullBackOff
+#                                                     # the old ones are still serving: that is maxUnavailable doing its job
+#
+#   # roll back, and watch the revision numbers
+#   kubectl rollout history deployment/nginx          # 1, 2, 3
+#   kubectl rollout undo deployment/nginx --to-revision=2
+#   kubectl rollout history deployment/nginx          # 1, 3, 4  <- revision 2 is GONE, it is now revision 4
+#
+# Scaling does NOT add a revision — only .spec.template changes do:
+#   kubectl scale deployment nginx --replicas=6
+#   kubectl rollout history deployment/nginx          # unchanged
+#
+#   kubectl delete -f nginx-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  annotations:
+    # Copied into the CHANGE-CAUSE column of kubectl rollout history when the
+    # revision is created. The old --record flag is deprecated; this is the
+    # supported way.
+    kubernetes.io/change-cause: "initial deployment"
+spec:
+  replicas: 12
+
+  # Immutable after creation, and must match .spec.template.metadata.labels.
+  selector:
+    matchLabels:
+      app: nginx
+
+  # Defaults, written out explicitly.
+  revisionHistoryLimit: 10        # old ReplicaSets kept for rollback
+  progressDeadlineSeconds: 600    # when a stuck rollout is declared failed
+  minReadySeconds: 0              # how long a Pod must stay Ready to count as available
+
+  strategy:
+    type: RollingUpdate           # the default; the alternative is Recreate (downtime)
+    rollingUpdate:
+      maxSurge: 25%               # rounds UP   -> at most 15 Pods total
+      maxUnavailable: 25%         # rounds DOWN -> at least 9 Pods available
+
+  # Everything below here is a PodTemplateSpec — the Pod, one level deeper than
+  # it sits in a standalone Pod manifest. Change ANY of it and you get a new
+  # pod-template-hash, a new ReplicaSet and a new revision.
+  template:
+    metadata:
+      labels:
+        app: nginx                # must match spec.selector.matchLabels
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.26
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

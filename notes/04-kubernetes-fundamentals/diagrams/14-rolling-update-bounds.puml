@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title A rolling update of 12 replicas, and the two numbers that bound it
+
+rectangle "The defaults, applied to replicas: 12" <<group>> as rule {
+  rectangle "maxUnavailable 25% → 3 · rounds DOWN\n<size:11>so never fewer than 9 available — the floor</size>\n<size:11>docs: at least 75% of desired Pods are up</size>" <<good>> as mu
+  rectangle "maxSurge 25% → 3 · rounds UP\n<size:11>so never more than 15 total — the ceiling</size>\n<size:11>docs: at most 125% of desired Pods are up</size>" <<good>> as ms
+  mu -right-> ms
+}
+
+rectangle "1 · before\n<size:11>old ReplicaSet 12</size>\n<size:11>new ReplicaSet 0</size>\n<size:11>total 12 · available 12</size>" <<plain>> as s1
+rectangle "2 · during\n<size:11>old ReplicaSet 9 · new ReplicaSet 6</size>\n<size:11>total 15 — sitting on the surge ceiling</size>\n<size:11>available never dips below 9 — the floor</size>\n<size:11>the controller scales one down, the other up, and waits for Ready</size>" <<accent>> as s2
+rectangle "3 · after\n<size:11>old ReplicaSet 0</size>\n<size:11>new ReplicaSet 12</size>\n<size:11>total 12 · available 12</size>" <<good>> as s3
+
+rule -[hidden]down-> s1
+s1 -right-> s2
+s2 -right-> s3
+
+rectangle "strategy.type: Recreate — the other option\n<size:11>every old Pod is killed first, then the new ones are created: a moment where 0 Pods are available</size>\n<size:11>for applications that cannot have two versions running at once, such as a single-writer database migration</size>" <<bad>> as recreate
+
+s1 -[hidden]down-> recreate
+
+caption <i>Both values may be given as a percentage or an absolute count, and neither may be 0 if the other is 0. Lower maxUnavailable for availability, raise maxSurge for speed — and remember maxSurge costs real capacity,</i>\n<i>because 15 Pods must actually fit on the cluster. minReadySeconds makes the controller pause after each Pod turns Ready; progressDeadlineSeconds (600 by default) is when a stuck rollout is declared failed.</i>
+@enduml
