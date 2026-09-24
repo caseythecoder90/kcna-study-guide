@@ -217,6 +217,20 @@ kubectl rollout pause/resume deployment/nginx           # batch several edits in
 
 Defaults: `strategy.type` **RollingUpdate**, `maxSurge` **25%** (rounds up), `maxUnavailable` **25%** (rounds down), `revisionHistoryLimit` **10**, `progressDeadlineSeconds` **600**, `minReadySeconds` **0**.
 
+### 4c. DaemonSets (chapter 04-06)
+
+```bash
+# No `kubectl create daemonset` exists — generate a Deployment, then: kind -> DaemonSet, drop replicas, drop strategy
+kubectl get daemonset ; kubectl get ds -A               # DESIRED = eligible NODES; kube-proxy and the CNI agent are DaemonSets
+kubectl get pods -o wide                                # named <ds>-<suffix>: DaemonSet owns Pods directly, no ReplicaSet
+kubectl logs -l app=logger --prefix                     # prove coverage, one line per node
+kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints[*].key'   # why DESIRED may be short
+kubectl describe node <control-plane> | grep -A3 Taints # node-role.kubernetes.io/control-plane:NoSchedule
+kubectl rollout status ds/logger ; kubectl rollout restart ds/logger
+```
+
+Defaults: `updateStrategy.type` **RollingUpdate** (or **OnDelete**), `maxUnavailable` **1**, `maxSurge` **0**, `revisionHistoryLimit` **10**. There is **no `replicas` field**.
+
 ## 5. Observability tooling
 
 _Section 6._

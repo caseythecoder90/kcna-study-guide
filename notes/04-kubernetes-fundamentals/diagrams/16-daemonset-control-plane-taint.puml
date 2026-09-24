@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Why your DaemonSet skipped the control-plane node
+
+rectangle "DaemonSet controller\n<size:11>creates one Pod for each ELIGIBLE node — eligible is the load-bearing word</size>" <<accent>> as ctrl
+
+rectangle "Tolerations the controller adds to every DaemonSet Pod, for free" <<group>> as tol {
+  rectangle "node.kubernetes.io/not-ready · NoExecute\nnode.kubernetes.io/unreachable · NoExecute\n<size:11>so a CNI agent can start on a node that is not Ready yet —</size>\n<size:11>otherwise: node not Ready because no network, no network because node not Ready</size>" <<plain>> as t1
+  rectangle "node.kubernetes.io/disk-pressure · NoSchedule\nnode.kubernetes.io/memory-pressure · NoSchedule\nnode.kubernetes.io/pid-pressure · NoSchedule\nnode.kubernetes.io/unschedulable · NoSchedule\n<size:11>cordon a node and its DaemonSet Pods still run</size>" <<plain>> as t2
+  rectangle "node.kubernetes.io/network-unavailable · NoSchedule\n<size:11>only for Pods with hostNetwork: true</size>" <<plain>> as t3
+  rectangle "NOT on this list: node-role.kubernetes.io/control-plane\n<size:11>which is exactly the taint kubeadm puts on control-plane nodes</size>" <<bad>> as t4
+  t1 -[hidden]down-> t2
+  t2 -[hidden]down-> t3
+  t3 -[hidden]down-> t4
+}
+
+rectangle "worker node\n<size:11>no taint · eligible</size>\n<size:11>Pod scheduled</size>" <<good>> as w1
+rectangle "control-plane node\n<size:11>taint node-role.kubernetes.io/control-plane:NoSchedule</size>\n<size:11>nothing tolerates it → NOT eligible → no Pod</size>" <<bad>> as cp
+
+ctrl -down-> tol
+tol -down-> w1
+tol -down-> cp
+
+rectangle "Two ways it works anyway\n<size:11>1 · the workload declares the toleration itself — this is why kube-proxy and Calico DO run on control-plane nodes</size>\n<size:11>     tolerations: [{key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}]</size>\n<size:11>2 · the node was never tainted — k3s does not taint its server node by default, which is why the course's lab shows 3 of 3</size>" <<good>> as fix
+
+w1 -[hidden]down-> fix
+
+caption <i>A DaemonSet does not override scheduling rules, it works within them: the controller sets node affinity for the target node and the default scheduler still has to agree. Taints, node pressure and resource</i>\n<i>availability all still apply. Check with kubectl describe node NAME | grep -A3 Taints, and remove one with kubectl taint nodes NAME node-role.kubernetes.io/control-plane:NoSchedule- if you actually want app Pods there.</i>
+@enduml

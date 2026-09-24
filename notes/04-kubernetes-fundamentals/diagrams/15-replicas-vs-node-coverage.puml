@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Replica count is not node coverage
+
+rectangle "Deployment · replicas: 3\n<size:11>you control HOW MANY</size>" <<groupBad>> as dep {
+  rectangle "node-1\n<size:11>pod · pod</size>" <<bad>> as d1
+  rectangle "node-2\n<size:11>pod</size>" <<bad>> as d2
+  rectangle "node-3\n<size:11>nothing</size>" <<bad>> as d3
+  rectangle "The scheduler spreads Pods, but spreading is a preference, not a promise.\n<size:11>Three replicas can land 2 + 1 + 0. Raise it to six and you will probably cover</size>\n<size:11>every node — probably. Add a node tomorrow and nothing new is scheduled on it.</size>\n<size:11>If you need a Pod on every node, hoping is not the mechanism.</size>" <<plain>> as dnote
+  d1 -[hidden]down-> d2
+  d2 -[hidden]down-> d3
+  d3 -[hidden]down-> dnote
+}
+
+rectangle "DaemonSet · no replicas field at all\n<size:11>you control WHERE — one Pod per eligible node</size>" <<groupGood>> as ds {
+  rectangle "node-1\n<size:11>pod</size>" <<good>> as s1
+  rectangle "node-2\n<size:11>pod</size>" <<good>> as s2
+  rectangle "node-3\n<size:11>pod</size>" <<good>> as s3
+  rectangle "The controller creates one Pod per eligible node and keeps it that way.\n<size:11>Add a node and a Pod appears on it. Remove a node and its Pod is garbage collected.</size>\n<size:11>Delete the DaemonSet and all of them go. The count is an output, not an input.</size>" <<plain>> as snote
+  s1 -[hidden]down-> s2
+  s2 -[hidden]down-> s3
+  s3 -[hidden]down-> snote
+}
+
+dep -[hidden]right-> ds
+
+caption <i>The question changes from “how many?” to “everywhere?”. Use a Deployment for stateless services where scaling and rolling out matter more than which host a Pod runs on. Use a DaemonSet when a copy must run</i>\n<i>on all or certain hosts because it provides node-level functionality that lets the other Pods on that node work at all — a CNI agent, a log shipper, a metrics exporter, a CSI node plugin.</i>
+@enduml

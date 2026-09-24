@@ -269,6 +269,41 @@ kubectl rollout resume deployment/nginx
 kubectl delete deployment nginx                         # takes the ReplicaSets and Pods with it
 ```
 
+## Chapter 06 — DaemonSets
+
+```bash
+# There is no `kubectl create daemonset` — generate a Deployment and edit three things:
+#   kind: Deployment -> DaemonSet · delete spec.replicas · delete spec.strategy (or use spec.updateStrategy)
+kubectl create deployment logger --image=alpine --dry-run=client -o yaml \
+  -- /bin/sh -c "while true; do date +'%Y-%m-%d-%H:%M:%S - Hello from \$NODE_NAME'; sleep 30; done" | tee logger.yaml
+
+kubectl apply -f logger.yaml
+kubectl get daemonset                                   # DESIRED = eligible NODES, not a number you set
+kubectl get ds -A                                       # kube-proxy and the CNI agent are DaemonSets
+kubectl get pods -o wide                                # named logger-<suffix>: no ReplicaSet in the middle
+kubectl get pod <ds-pod> -o jsonpath='{.metadata.ownerReferences[0].kind}{"\n"}'   # DaemonSet, not ReplicaSet
+kubectl logs -l app=logger --prefix                     # one line per node, labelled by Pod
+kubectl describe daemonset logger
+
+# DESIRED lower than your node count? Look at taints.
+kubectl get nodes -o custom-columns='NAME:.metadata.name,TAINTS:.spec.taints[*].key'
+kubectl describe node <control-plane> | grep -A3 Taints # node-role.kubernetes.io/control-plane:NoSchedule
+kubectl get ds kube-proxy -n kube-system -o jsonpath='{.spec.template.spec.tolerations}'   # how kube-proxy gets on there anyway
+kubectl taint nodes <node> node-role.kubernetes.io/control-plane:NoSchedule-   # trailing - REMOVES the taint (broad: opens it to everything)
+
+# Coverage follows node labels
+kubectl label node worker-1 gpu=true                    # a nodeSelector: gpu=true DaemonSet gains a Pod here
+kubectl label node worker-1 gpu-                        # and loses it again
+
+# Rollouts — same verbs, different defaults (maxUnavailable 1, maxSurge 0, or OnDelete)
+kubectl rollout status  ds/logger
+kubectl rollout history ds/logger
+kubectl rollout restart ds/logger
+kubectl rollout undo    ds/logger
+
+kubectl delete -f logger.yaml
+```
+
 ## The API behind kubectl
 
 ```bash
