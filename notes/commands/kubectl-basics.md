@@ -219,6 +219,56 @@ kubectl config use-context docker-desktop
 # kubectx / kubens wrap the two above for daily use (not exam material)
 ```
 
+## Chapter 05 — Deployments and ReplicaSets
+
+```bash
+# Create, and see the whole chain
+kubectl create deployment nginx --image=nginx
+kubectl create deployment nginx --image=nginx --replicas=3 --port=80
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml | tee nginx-deployment.yaml | kubectl apply -f -
+                                                        # tee writes the file AND pipes it on; the lone - means "read from stdin"
+kubectl get deployment,replicaset,pods                  # nginx → nginx-77b4fdf86c → nginx-77b4fdf86c-qrfpm
+kubectl get deployment -o wide                          # CONTAINERS, IMAGES, SELECTOR
+kubectl get rs -o wide                                  # DESIRED / CURRENT / READY per ReplicaSet
+kubectl get pods --show-labels                          # pod-template-hash=77b4fdf86c on every Pod
+kubectl describe deployment nginx                       # StrategyType, RollingUpdateStrategy, OldReplicaSets, NewReplicaSet
+
+# Scale the DEPLOYMENT — there is no scaling a Pod
+kubectl scale deployment nginx --replicas=12
+kubectl scale deployment nginx --current-replicas=12 --replicas=6   # only act if it is currently 12
+kubectl rollout history deployment/nginx                # unchanged: scaling is not a revision
+
+# Trigger a rollout — only .spec.template changes count
+kubectl set image deployment/nginx nginx=nginx:1.27     # <container-name>=<new-image>
+kubectl edit deployment nginx
+kubectl apply -f nginx-deployment.yaml
+kubectl set resources deployment/nginx -c=nginx --limits=cpu=200m,memory=512Mi
+kubectl rollout restart deployment/nginx                # same image, fresh Pods (re-read a ConfigMap, clear bad state)
+
+# Watch it
+kubectl rollout status deployment/nginx                 # blocks until done; non-zero exit if it fails
+kubectl get replicaset -w                               # old RS scaling down, new RS scaling up
+watch kubectl get pods -o wide                          # at 12 replicas: never below 9 available, never above 15 total
+
+# History and why each revision happened
+kubectl annotate deployment/nginx kubernetes.io/change-cause="bump to 1.27" --overwrite   # set BEFORE the change
+kubectl rollout history deployment/nginx                # REVISION + CHANGE-CAUSE (--record is deprecated)
+kubectl rollout history deployment/nginx --revision=3   # labels, image and ports of that revision
+
+# Roll back
+kubectl rollout undo deployment/nginx                   # back one revision
+kubectl rollout undo deployment/nginx --to-revision=4   # to a specific one
+kubectl rollout history deployment/nginx                # the number you rolled back TO is now gone — it was re-annotated
+kubectl get rs -o custom-columns='NAME:.metadata.name,REV:.metadata.annotations.deployment\.kubernetes\.io/revision,DESIRED:.spec.replicas'
+
+# Batch several changes into one rollout
+kubectl rollout pause deployment/nginx
+kubectl set image deployment/nginx nginx=nginx:1.27
+kubectl rollout resume deployment/nginx
+
+kubectl delete deployment nginx                         # takes the ReplicaSets and Pods with it
+```
+
 ## The API behind kubectl
 
 ```bash

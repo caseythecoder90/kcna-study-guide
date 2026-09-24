@@ -1,0 +1,22 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Deployment owns ReplicaSet owns Pod — and the hash that ties them together
+
+rectangle "Deployment · nginx\n<size:11>what you declare: replicas, selector, strategy, template</size>\n<size:11>managed by the Deployment controller in kube-controller-manager</size>\n<size:11>its job: keep the right ReplicaSet scaled up, and the old ones around for rollback</size>" <<accent>> as dep
+
+rectangle "ReplicaSet · nginx-77b4fdf86c\n<size:11>77b4fdf86c is the pod-template-hash — a hash of .spec.template, added by the</size>\n<size:11>Deployment controller to the ReplicaSet, its selector, and every Pod it owns</size>\n<size:11>one distinct pod template = one ReplicaSet = one revision</size>\n<size:11>managed by the ReplicaSet controller — its job: keep exactly N Pods alive</size>" <<good>> as rs
+
+rectangle "Pod · nginx-77b4fdf86c-qrfpm\n<size:11>name = ReplicaSet name + a random suffix</size>\n<size:11>labels: app=nginx, pod-template-hash=77b4fdf86c</size>" <<plain>> as pod1
+rectangle "Pod · nginx-77b4fdf86c-lh9rm" <<plain>> as pod2
+rectangle "Pod · nginx-77b4fdf86c-z7m9s" <<plain>> as pod3
+
+rectangle "ReplicaSet · nginx-f57fcc886 · the previous revision\n<size:11>scaled to 0 but not deleted — this is what a rollback scales back up</size>\n<size:11>revisionHistoryLimit (default 10) decides how many are kept</size>\n<size:11>change .spec.template and a NEW ReplicaSet appears; change replicas and it does not</size>" <<muted>> as oldrs
+
+dep -down-> rs : creates and scales
+dep -right-> oldrs : keeps, scaled to 0
+rs -down-> pod1 : ownerReferences
+rs -down-> pod2
+rs -down-> pod3
+
+caption <i>Three objects, two controllers, one chain of ownership: delete a Pod and the ReplicaSet replaces it; delete the ReplicaSet and the Deployment replaces it; delete the Deployment and all of it goes.</i>\n<i>The hash in the middle of every Pod name is not decoration — it says which pod template that Pod was built from, which is how a rolling update keeps two generations apart while both are running.</i>
+@enduml

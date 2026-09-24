@@ -200,6 +200,23 @@ kubectl describe hpa web                                             # Events sh
 kubectl run -it load --rm --restart=Never --image=busybox:1.36 -- /bin/sh -c "while true; do wget -q -O- http://web; done"
 ```
 
+### 4b. Deployments and ReplicaSets (chapter 04-05)
+
+```bash
+kubectl create deployment nginx --image=nginx --dry-run=client -o yaml | tee nginx-deployment.yaml | kubectl apply -f -
+kubectl get deployment,replicaset,pods                  # nginx → nginx-<pod-template-hash> → <rs>-<random>
+kubectl scale deployment nginx --replicas=12            # scale the Deployment, not the Pod; no new revision
+kubectl set image deployment/nginx nginx=nginx:1.27     # .spec.template changed → new ReplicaSet → new revision
+kubectl rollout status deployment/nginx                 # blocks; fails at progressDeadlineSeconds (600s)
+kubectl annotate deployment/nginx kubernetes.io/change-cause="bump to 1.27" --overwrite
+kubectl rollout history deployment/nginx                # REVISION + CHANGE-CAUSE
+kubectl rollout undo deployment/nginx --to-revision=4   # the number you roll back TO disappears from the history
+kubectl rollout restart deployment/nginx                # replace Pods without changing the image
+kubectl rollout pause/resume deployment/nginx           # batch several edits into one rollout
+```
+
+Defaults: `strategy.type` **RollingUpdate**, `maxSurge` **25%** (rounds up), `maxUnavailable` **25%** (rounds down), `revisionHistoryLimit` **10**, `progressDeadlineSeconds` **600**, `minReadySeconds` **0**.
+
 ## 5. Observability tooling
 
 _Section 6._
