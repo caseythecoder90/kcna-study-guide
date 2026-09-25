@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Walking the object to build a JSON Pointer path
+
+rectangle "Read the YAML downwards, write the path with slashes" <<group>> as walk {
+  rectangle "kind: Deployment\n<size:11>the root — the path starts here, at /</size>" <<muted>> as r0
+  rectangle "spec:\n<size:11>→ /spec</size>" <<plain>> as r1
+  rectangle "  template:          <size:11>the PodTemplateSpec</size>\n<size:11>→ /spec/template</size>" <<plain>> as r2
+  rectangle "    spec:            <size:11>the Pod's own spec — yes, spec twice</size>\n<size:11>→ /spec/template/spec</size>" <<plain>> as r3
+  rectangle "      containers:    <size:11>a LIST, so the next step is an index</size>\n<size:11>→ /spec/template/spec/containers</size>" <<plain>> as r4
+  rectangle "      - name: nginx  <size:11>the first element is 0, not 1</size>\n<size:11>→ /spec/template/spec/containers/0</size>" <<plain>> as r5
+  rectangle "        image: nginx:1.26\n<size:11>→ /spec/template/spec/containers/0/image</size>" <<good>> as r6
+  r0 -down-> r1
+  r1 -down-> r2
+  r2 -down-> r3
+  r3 -down-> r4
+  r4 -down-> r5
+  r5 -down-> r6
+}
+
+rectangle "Two pieces of syntax that are not path segments" <<group>> as rules {
+  rectangle "the dash means APPEND\n<size:11>path: /spec/template/spec/containers/-</size>\n<size:11>with op: add, this puts a new container at the END of the list</size>\n<size:11>a number there would insert BEFORE that index instead</size>" <<accent>> as dash
+  rectangle "~1 and ~0 are escapes\n<size:11>a literal / inside a key becomes ~1, and a literal ~ becomes ~0</size>\n<size:11>so the annotation kubernetes.io/change-cause is addressed as</size>\n<size:11>/metadata/annotations/kubernetes.io~1change-cause</size>\n<size:11>forget this and the path silently points at the wrong place</size>" <<bad>> as tilde
+  dash -[hidden]down-> tilde
+}
+
+walk -[hidden]right-> rules
+
+caption <i>Two specs in a row catches everyone: /spec is the Deployment's, /spec/template/spec is the Pod's. On a bare Pod the same field is just /spec/containers/0/image — which is exactly why a patch written for a Deployment fails on a Pod and vice versa.</i>\n<i>Build the path by reading the object you are about to patch, not from memory: kubectl get deploy web -o yaml is the reference, and kubectl explain deployment.spec.template.spec.containers confirms the field names.</i>
+@enduml

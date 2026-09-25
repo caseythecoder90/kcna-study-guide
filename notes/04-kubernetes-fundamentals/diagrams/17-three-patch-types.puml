@@ -1,0 +1,18 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three patch types, one intention, three outcomes
+
+rectangle "The live Deployment · spec.template.spec.containers\n<size:11>[0] name: nginx    image: nginx:1.26</size>\n<size:11>[1] name: sidecar  image: busybox</size>\n\n<size:11>The intention in every case below: move nginx to 1.27 and leave the sidecar alone.</size>" <<accent>> as before
+
+rectangle "~-~-type=strategic · THE DEFAULT\n<size:11>Kubernetes' own extension. Body:</size>\n<size:11>containers: [ {name: nginx, image: nginx:1.27} ]</size>\n\n<size:11>The API knows containers has patchMergeKey “name”, so it</size>\n<size:11>matches the entry by NAME and merges into it.</size>\n\n<size:11>RESULT: nginx → 1.27 · sidecar UNTOUCHED</size>\n<size:11>Not supported on custom resources (CRDs).</size>" <<good>> as strategic
+
+rectangle "~-~-type=merge · RFC 7386 JSON Merge Patch\n<size:11>Identical body:</size>\n<size:11>containers: [ {name: nginx, image: nginx:1.27} ]</size>\n\n<size:11>Plain JSON semantics: an array is a VALUE, not a set of</size>\n<size:11>records. The whole list is replaced by what you sent.</size>\n\n<size:11>RESULT: nginx → 1.27 · SIDECAR SILENTLY DELETED</size>\n<size:11>Same text, same command, different flag, data loss.</size>" <<bad>> as merge
+
+rectangle "~-~-type=json · RFC 6902 JSON Patch\n<size:11>A LIST of operations, not a shape of the object:</size>\n<size:11>- op: replace</size>\n<size:11>  path: /spec/template/spec/containers/0/image</size>\n<size:11>  value: nginx:1.27</size>\n\n<size:11>Addresses by POSITION. Precise, and the only type that can</size>\n<size:11>remove a field or append to a list — but index 0 is a guess</size>\n<size:11>about today's order, and “test” ops are how you guard it.</size>\n\n<size:11>RESULT: nginx → 1.27 · sidecar UNTOUCHED</size>" <<good>> as jsonp
+
+before -down-> strategic
+before -down-> merge
+before -down-> jsonp
+
+caption <i>Strategic merge is the default because it does what you meant on Kubernetes' own types. JSON merge patch is the one that silently eats list entries — reach for it only on custom resources, where strategic merge is unavailable.</i>\n<i>JSON Patch is the scalpel: positional, explicit, and the only way to say “delete this field” (op: remove) or “append to this list” (path ending in /-).</i>
+@enduml

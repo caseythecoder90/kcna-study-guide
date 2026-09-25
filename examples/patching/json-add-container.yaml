@@ -1,0 +1,18 @@
+# Appending to a list — something only JSON Patch can do.
+#
+#   kubectl patch deployment web --type=json --patch-file=json-add-container.yaml
+#
+# The trailing `-` in the path means "the end of this list". A number there
+# would INSERT BEFORE that index instead.
+#
+# Also note the two specs in a row: /spec is the Deployment's,
+# /spec/template/spec is the Pod's. On a bare Pod this path would be
+# /spec/containers/-.
+- op: add
+  path: /spec/template/spec/containers/-
+  value:
+    name: extra
+    image: busybox
+    args:
+    - sleep
+    - infinity

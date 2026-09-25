@@ -1,0 +1,17 @@
+# JSON Patch, RFC 6902 — a LIST OF OPERATIONS, not a shape of the object.
+#
+#   kubectl patch deployment web --type=json --patch-file=json-image.yaml
+#
+# Written as YAML on purpose: kubectl converts patch input from YAML to JSON
+# before it looks at --type, so --type=json accepts this happily. No yq needed.
+#
+# The `test` op is the guard for positional addressing: index 0 is an assumption
+# about today's container order. JSON Patch is atomic, so if the test fails
+# nothing is applied.
+- op: test
+  path: /spec/template/spec/containers/0/name
+  value: nginx
+
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: nginx:1.27

@@ -1,0 +1,22 @@
+# A two-container Deployment: the target for every patch in this directory.
+# The sidecar exists so you can see which patch types keep it and which do not.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.26
+      - name: sidecar
+        image: busybox
+        args: ["sleep", "infinity"]

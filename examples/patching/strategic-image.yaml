@@ -1,0 +1,13 @@
+# Strategic merge patch (the DEFAULT type, so no --type flag needed).
+#
+#   kubectl patch deployment web --patch-file=strategic-image.yaml
+#
+# `name: nginx` is not decoration — containers has patchMergeKey "name", so the
+# API server matches this entry to the existing nginx container and merges into
+# it. The sidecar is untouched. Omit the name and the patch is rejected.
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27
