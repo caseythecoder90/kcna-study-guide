@@ -1,0 +1,17 @@
+# JSON merge patch, RFC 7386. BYTE-FOR-BYTE the same body as
+# strategic-image.yaml — only the flag differs:
+#
+#   kubectl patch deployment web --type=merge --patch-file=merge-image.yaml
+#
+# Plain JSON has no idea `containers` is a keyed list. An array is a single
+# value, so the whole list is REPLACED by this one entry and the sidecar is
+# silently deleted. Same text, different flag, data loss.
+#
+# Use this type on custom resources (where strategic merge is unsupported) and
+# on flat fields. Its one unique trick: setting a key to null deletes it.
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27

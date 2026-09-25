@@ -231,6 +231,23 @@ kubectl rollout status ds/logger ; kubectl rollout restart ds/logger
 
 Defaults: `updateStrategy.type` **RollingUpdate** (or **OnDelete**), `maxUnavailable` **1**, `maxSurge` **0**, `revisionHistoryLimit` **10**. There is **no `replicas` field**.
 
+### 4d. set image and patch (chapter 04-07)
+
+```bash
+kubectl set image deployment/web nginx=nginx:1.27           # left of = is the CONTAINER name, not the resource name
+kubectl set image daemonset/abc '*=nginx:1.9.1'             # wildcard = EVERY container gets this same image
+kubectl set image pod/nginx nginx=nginx:alpine-slim         # bare Pod: restarts in place, same IP, no revision
+kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'   # verify what RUNS
+
+kubectl patch deployment web -p '{"spec":{"template":{"spec":{"containers":[{"name":"nginx","image":"nginx:1.27"}]}}}}'   # strategic (default): merges by name
+kubectl patch deployment web --type=merge  -p '...'         # RFC 7386: REPLACES whole lists; null deletes a key
+kubectl patch deployment web --type=json   -p '[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"nginx:1.27"}]'
+kubectl patch deployment web --type=json --patch-file=add-container.yaml   # YAML works for ALL types — no yq needed
+kubectl patch deployment web --subresource=scale --type=merge -p '{"spec":{"replicas":2}}'
+```
+
+Types: **`strategic`** (default, merges lists by merge key — `name` for containers; not available on CRDs) · **`merge`** (RFC 7386, replaces lists) · **`json`** (RFC 6902, `op`/`path`/`value`; `-` appends, `~1` escapes a `/`).
+
 ## 5. Observability tooling
 
 _Section 6._

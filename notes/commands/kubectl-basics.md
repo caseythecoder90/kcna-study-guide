@@ -304,6 +304,53 @@ kubectl rollout undo    ds/logger
 kubectl delete -f logger.yaml
 ```
 
+## Chapter 07 — set image and patch
+
+```bash
+# kubectl set image <type>/<name> <CONTAINER-NAME>=<image>
+# the left of the = is the CONTAINER name from the pod template, not the resource name
+kubectl get deployment web -o wide                          # CONTAINERS and IMAGES columns, side by side
+kubectl get deployment web -o jsonpath='{.spec.template.spec.containers[*].name}{"\n"}'
+kubectl set image deployment/web nginx=nginx:1.27           # .spec.template changed -> new RS -> rolling update
+kubectl set image deployment/web nginx=nginx:1.27 sidecar=busybox:1.36   # several containers, named
+kubectl set image daemonset/abc '*=nginx:1.9.1'             # WILDCARD = every container gets THIS SAME image
+kubectl set image pod/nginx nginx=nginx:alpine-slim         # on a bare Pod: container restarts IN PLACE, same IP, no revision
+kubectl set image deployments,rc nginx=nginx:1.9.1 --all    # all resources of those types in the namespace
+kubectl set image deployment -l app=web nginx=nginx:1.27    # by label
+kubectl set image deployment/web nginx=nginx:1.27 --dry-run=client -o yaml
+kubectl set image -f deploy.yaml nginx=nginx:1.9.1 --local -o yaml   # edit a FILE, never contact the server
+kubectl set resources deployment/web -c=nginx --limits=cpu=200m,memory=512Mi   # the same family: resources, env, serviceaccount, selector, subject
+
+# Verify — spec vs reality
+kubectl rollout status deployment/web                       # did it finish?
+kubectl get deployment web -o wide                          # what the SPEC says
+kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[*].image}{"\n"}{end}'   # what is RUNNING
+
+# kubectl patch — three types, default is strategic
+kubectl patch deployment web -p '{"spec":{"template":{"spec":{"containers":[{"name":"nginx","image":"nginx:1.27"}]}}}}'
+                                                            # strategic: merges the list BY NAME (patchMergeKey), sidecar survives
+kubectl patch deployment web --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"nginx","image":"nginx:1.27"}]}}}}'
+                                                            # merge (RFC 7386): REPLACES the whole list — sidecar deleted
+kubectl patch deployment web --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/image","value":"nginx:1.27"}]'
+                                                            # json (RFC 6902): by position; ops add/remove/replace/copy/move/test
+kubectl patch deployment web --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/-","value":{"name":"busybox","image":"busybox","args":["sleep","infinity"]}}]'
+                                                            # trailing - appends to the list; only JSON Patch can append or remove
+kubectl patch deployment web --type=merge -p '{"metadata":{"annotations":{"old-key":null}}}'   # merge patch: null DELETES a key
+kubectl patch deployment web --subresource=scale --type=merge -p '{"spec":{"replicas":2}}'     # scale without touching the spec
+kubectl patch node k8s-node-1 -p '{"spec":{"unschedulable":true}}'
+
+# Patch FILES — YAML works for all three types (kubectl converts YAML to JSON before reading --type), so no yq needed
+kubectl patch deployment web --patch-file=patch.yaml
+kubectl patch deployment web --type=json --patch-file=add-container.yaml
+cat patch.yaml | yq -o=json -I=0                            # one-line JSON when a file is not an option
+
+# JSON Pointer paths: zero-based index · - appends · ~1 escapes a literal /
+kubectl patch deployment web --type=json -p '[{"op":"add","path":"/metadata/annotations/kubernetes.io~1change-cause","value":"bump to 1.27"}]'
+# Deployment: /spec/template/spec/containers/0/image  ·  bare Pod: /spec/containers/0/image
+
+kubectl set image --help | more                             # pipe a long help page into a pager (less is better: / to search, q to quit)
+```
+
 ## The API behind kubectl
 
 ```bash
