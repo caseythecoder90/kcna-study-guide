@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What DNS answers — ClusterIP versus headless
+
+rectangle "nslookup nginx · normal ClusterIP Service" <<groupGood>> as normal {
+  rectangle "ONE answer: 10.43.22.69\n<size:11>the Service's virtual IP</size>" <<good>> as n1
+  rectangle "The client always connects to the same address.\n<size:11>kube-proxy rewrites it to a real Pod IP per connection,</size>\n<size:11>so load balancing happens BELOW the client, in the dataplane.</size>\n<size:11>A cached DNS answer is harmless — the VIP never moves.</size>" <<plain>> as n2
+  n1 -[hidden]down-> n2
+}
+
+rectangle "nslookup nginx · headless, clusterIP: None, with a selector" <<group>> as headless {
+  rectangle "THREE answers: 10.42.0.3 · 10.42.1.3 · 10.42.2.3\n<size:11>A records pointing straight at the Pods</size>" <<accent>> as h1
+  rectangle "No VIP, no kube-proxy rules, no platform load balancing.\n<size:11>curl nginx still reaches different Pods on different runs — but that is the</size>\n<size:11>RESOLVER picking from a multi-answer response, not Kubernetes balancing.</size>\n<size:11>A long-lived client that resolves once pins itself to one Pod until its cache expires.</size>" <<plain>> as h2
+  h1 -[hidden]down-> h2
+}
+
+rectangle "The reason headless exists: stable per-Pod names" <<groupGood>> as stable {
+  rectangle "web-0.nginx.default.svc.cluster.local → 10.42.0.3\n<size:11>web-1.nginx… → 10.42.1.3    web-2.nginx… → 10.42.2.3</size>\n\n<size:11>Addressing ONE specific Pod by a name that survives reschedules.</size>\n<size:11>A StatefulSet gives every Pod hostname + subdomain automatically via spec.serviceName;</size>\n<size:11>with a plain Deployment you only get the flat list above, which is why the lecture's</size>\n<size:11>headless demo still looked like round-robin.</size>\n\n<size:11>This is the shape behind database replicas, brokers, quorum members —</size>\n<size:11>and any client that must reach a named partition owner rather than “one of them”.</size>" <<good>> as s1
+}
+
+normal -[hidden]right-> headless
+headless -[hidden]down-> stable
+
+caption <i>Same question, different answers. A normal Service hides the Pods behind one address; a headless Service publishes them and gets out of the way. Choose headless when the client needs to know who it is talking to,</i>\n<i>or when something else — a StatefulSet, a database driver, a service mesh, your own discovery code — is doing the balancing and wants the real addresses.</i>
+@enduml
