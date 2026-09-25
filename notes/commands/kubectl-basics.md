@@ -351,6 +351,50 @@ kubectl patch deployment web --type=json -p '[{"op":"add","path":"/metadata/anno
 kubectl set image --help | more                             # pipe a long help page into a pager (less is better: / to search, q to quit)
 ```
 
+## Chapter 08 — Services
+
+```bash
+# Create one from a Deployment: expose copies the SELECTOR and the PORT
+kubectl create deployment nginx --image=nginx --port=80 --replicas=3
+kubectl expose deployment/nginx                              # type defaults to ClusterIP
+kubectl expose deployment/nginx --dry-run=client -o yaml     # see the selector it will inherit
+kubectl expose deployment/nginx --type=NodePort
+kubectl expose deployment/nginx --type=LoadBalancer --port 8080 --target-port 80
+kubectl create service clusterip|nodeport|loadbalancer|externalname   # EXACTLY four subcommands = four types
+kubectl create service externalname my-service --external-name nginx-red.default.svc.cluster.local
+
+# Look at it
+kubectl get services                                         # PORT(S) 80:32610 = SERVICE port : NODE port
+kubectl get svc -o wide                                       # adds SELECTOR
+kubectl describe service nginx                                # Selector, Type, IP, Port, TargetPort, Endpoints
+kubectl get endpoints                                         # the ready Pod IPs — SAME NAME as the Service
+kubectl get endpointslices                                    # the modern API (Endpoints deprecated in 1.33)
+kubectl get endpointslice -l kubernetes.io/service-name=nginx -o yaml
+kubectl get pods -o wide                                      # cross-check: do these IPs appear in the endpoints?
+
+# Reach it
+curl 10.43.22.69                                              # ClusterIP, from a node or a Pod
+curl 172.18.0.3:32610                                         # NodePort, via ANY node's IP
+kubectl port-forward service/nginx 8080:80                    # from your laptop
+
+# The throwaway test Pod — worth memorising
+kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- sh
+  cat /etc/resolv.conf                                        # search default.svc.cluster.local ... ndots:5
+  nslookup nginx                                              # ClusterIP: ONE answer · headless: ONE PER POD
+  curl nginx                                                  # short name works inside the namespace
+  curl nginx.other-ns                                         # across namespaces needs the qualifier
+  exit
+kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- curl -s nginx    # one-shot
+kubectl run -it --rm net --image=busybox:1.36 --restart=Never -- sh                   # nslookup, wget, ping
+
+# Headless: clusterIP None. Not a type — a ClusterIP with no IP.
+kubectl get svc nginx-headless                                # CLUSTER-IP column reads None
+kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- nslookup nginx-headless   # the Pod IPs
+# StatefulSet + headless gives per-Pod names: web-0.<svc>.<ns>.svc.cluster.local
+
+kubectl delete service/nginx
+```
+
 ## The API behind kubectl
 
 ```bash

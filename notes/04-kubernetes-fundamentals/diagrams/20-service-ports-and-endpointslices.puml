@@ -1,0 +1,35 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One request, three ports, and the chain that finds a Pod
+
+rectangle "client outside the cluster\n<size:11>curl 172.18.0.3:32610</size>" <<plain>> as out
+rectangle "any node, on nodePort 32610\n<size:11>NodePort only. Every node listens, whether or not it runs a backing Pod.</size>\n<size:11>Allocated from 30000-32767 unless you pin it.</size>" <<muted>> as node
+
+rectangle "client inside the cluster\n<size:11>curl nginx  → CoreDNS → 10.43.22.69</size>" <<plain>> as in
+rectangle "Service nginx · ClusterIP 10.43.22.69 · port 80\n<size:11>a VIRTUAL IP: nothing listens on it, no interface holds it</size>\n<size:11>kube-proxy (or an eBPF CNI) programs the rules that rewrite it</size>" <<accent>> as svc
+
+rectangle "EndpointSlice nginx-abcde\n<size:11>created and kept current by the endpoint controllers, which watch Pods matching the selector</size>\n<size:11>holds the READY Pod IPs and ports · a new slice per 100 endpoints</size>\n<size:11>the legacy Endpoints object has the SAME NAME as the Service and truncates at 1000</size>" <<good>> as eps
+
+rectangle "Pod 10.42.0.3\n<size:11>targetPort 80</size>" <<plain>> as p1
+rectangle "Pod 10.42.1.3\n<size:11>targetPort 80</size>" <<plain>> as p2
+rectangle "Pod 10.42.2.3\n<size:11>targetPort 80</size>" <<plain>> as p3
+
+rectangle "The three ports, and whose they are" <<group>> as ports {
+  rectangle "port 80\n<size:11>the SERVICE's own port —</size>\n<size:11>what clients connect to</size>" <<accent>> as pp
+  rectangle "targetPort 80\n<size:11>the CONTAINER's port —</size>\n<size:11>where the app listens</size>\n<size:11>defaults to port if omitted;</size>\n<size:11>may be a named port</size>" <<good>> as tp
+  rectangle "nodePort 32610\n<size:11>the NODE's port — NodePort</size>\n<size:11>and LoadBalancer only</size>" <<muted>> as npp
+  pp -[hidden]down-> tp
+  tp -[hidden]down-> npp
+}
+
+out -down-> node
+node -down-> svc
+in -down-> svc
+svc -down-> eps : which Pods are ready right now?
+eps -down-> p1
+eps -down-> p2
+eps -down-> p3
+svc -right-> ports
+
+caption <i>The Service is a stable name and a stable virtual IP; the EndpointSlice is the live list behind it. Pods come and go, the EndpointSlice is rewritten, and the ClusterIP never changes — that is the entire point.</i>\n<i>A Service with no matching ready Pods has an empty EndpointSlice and connections are refused, which is why kubectl get endpoints is the first check when a Service returns nothing.</i>
+@enduml

@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Four Service types — three of them stack, one does not
+
+rectangle "type: LoadBalancer · reachable from the internet\n<size:11>asks the cloud provider for an external load balancer pointing at every node's nodePort</size>\n<size:11>Kubernetes ships no load balancer itself — no provider, no EXTERNAL-IP, and it sits at pending forever</size>" <<group>> as lb {
+  rectangle "type: NodePort · reachable from outside the cluster\n<size:11>opens the SAME port on EVERY node, from the range 30000-32767, and forwards it inward</size>\n<size:11>PORT(S) reads 80:32610/TCP — the service port, then the node port</size>" <<group>> as np {
+    rectangle "type: ClusterIP · reachable from inside the cluster only\n<size:11>THE DEFAULT. A stable virtual IP plus a DNS name in front of a changing set of Pods.</size>\n<size:11>Every type above is built on one of these — they add to it, they do not replace it.</size>" <<accent>> as cip
+  }
+}
+
+rectangle "type: ExternalName · the odd one out" <<groupBad>> as en {
+  rectangle "No ClusterIP. No selector. No EndpointSlices. No kube-proxy rules. No proxying of any kind.\n<size:11>CoreDNS simply returns a CNAME pointing at spec.externalName, and the client connects there itself.</size>\n<size:11>Redirection happens at the DNS level, which is why it can point outside the cluster entirely.</size>" <<bad>> as enb
+}
+
+rectangle "Not a fifth type: HEADLESS\n<size:11>type is still ClusterIP — you set clusterIP: None</size>\n<size:11>no virtual IP, no kube-proxy, no platform load balancing;</size>\n<size:11>DNS returns the Pod IPs themselves</size>" <<good>> as headless
+
+rectangle "Not a Service at all: INGRESS\n<size:11>an Application Service, not one of the core four —</size>\n<size:11>it exposes HTTP and HTTPS routes from outside the</size>\n<size:11>cluster to Services within it, and sits in front of them</size>" <<muted>> as ingress
+
+lb -[hidden]down-> en
+en -[hidden]right-> headless
+headless -[hidden]right-> ingress
+
+caption <i>kubectl create service has exactly four subcommands — clusterip, nodeport, loadbalancer, externalname — which is the cleanest proof that there are four types. Headless is a ClusterIP with its IP set to None,</i>\n<i>and Ingress is a separate object that routes to Services. Delete a NodePort Service and its ClusterIP goes too: the outer types allocate an inner one, they are not alternatives to it.</i>
+@enduml

@@ -248,6 +248,24 @@ kubectl patch deployment web --subresource=scale --type=merge -p '{"spec":{"repl
 
 Types: **`strategic`** (default, merges lists by merge key — `name` for containers; not available on CRDs) · **`merge`** (RFC 7386, replaces lists) · **`json`** (RFC 6902, `op`/`path`/`value`; `-` appends, `~1` escapes a `/`).
 
+### 4e. Services (chapter 04-08)
+
+```bash
+kubectl expose deployment/nginx                              # inherits the selector and the port; ClusterIP by default
+kubectl expose deployment/nginx --type=NodePort              # PORT(S) 80:32610 = SERVICE port : NODE port (30000-32767)
+kubectl expose deployment/nginx --type=LoadBalancer          # EXTERNAL-IP stays <pending> with no cloud provider
+kubectl create service externalname my-svc --external-name my.database.example.com   # a CNAME; no ClusterIP, no proxying
+kubectl get services ; kubectl get endpoints ; kubectl get endpointslices   # empty endpoints = no backends
+kubectl describe service nginx                               # Selector, Endpoints, TargetPort
+kubectl port-forward service/nginx 8080:80
+
+# the throwaway tester, worth memorising
+kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- sh
+#   nslookup nginx · curl nginx · curl nginx.other-ns · cat /etc/resolv.conf
+```
+
+Four types: **ClusterIP** (default, internal only) · **NodePort** (every node, 30000-32767) · **LoadBalancer** (needs a provider) · **ExternalName** (CNAME, no proxying). **Headless** = `clusterIP: None`, not a fifth type. **Ingress** is not a Service type. DNS: `<service>.<namespace>.svc.cluster.local`.
+
 ## 5. Observability tooling
 
 _Section 6._
