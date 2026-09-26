@@ -297,6 +297,19 @@ kubectl rollout restart deployment/web                             # how running
 
 `--from-file` = one key holding a whole file · `--from-env-file` = one key per `key=value` line. Consume via `configMapKeyRef` (one key), `envFrom` (all keys), a volume mount (key → file) or `subPath` (one file). **1 MiB** limit; **`immutable: true` cannot be reverted**.
 
+### 4h. Secrets (chapter 04-11)
+
+```bash
+kubectl create secret generic db-creds --from-literal=password=supersecret     # → Opaque, the default type
+kubectl create secret docker-registry regcred --docker-server=... --docker-username=... --docker-password=...
+kubectl create secret tls my-site-tls --cert=tls.crt --key=tls.key             # → kubernetes.io/tls
+kubectl get secrets                                       # TYPE · DATA = number of keys
+kubectl describe secret db-creds                          # redacted...
+kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d   # ...but base64 is NOT encryption
+```
+
+**Secrets are encoded, not encrypted**, and stored unencrypted in etcd by default. What protects them: **encryption at rest**, **least-privilege RBAC** (`list`/`watch` reads them all), restricting them to specific containers, and external stores. Consume via `secretKeyRef`, `envFrom` + `secretRef`, a volume (**tmpfs**) or **`imagePullSecrets`**. `data` = base64, `stringData` = plaintext write-only.
+
 ## 5. Observability tooling
 
 _Section 6._
