@@ -325,6 +325,20 @@ kubectl logs -l app=web --prefix ; kubectl delete pods -l colour=pink
 
 **Equality-based** (`=`, `==`, `!=`) is the only grammar **Service** and **ReplicationController** support. **Set-based** (`in`, `notin`, key, `!key`; `In`/`NotIn`/`Exists`/`DoesNotExist` in YAML) is available to Deployment, ReplicaSet, DaemonSet, StatefulSet, Job and NetworkPolicy via `matchLabels` + `matchExpressions`. `!=` also matches objects **missing the key**.
 
+### 4j. Annotations (chapter 04-13)
+
+```bash
+kubectl annotate deployment/web company.org/owner="platform-team"
+kubectl annotate deployment/web company.org/owner="sre-team" --overwrite   # to change an existing key
+kubectl annotate deployment/web company.org/owner-                         # trailing - removes it
+kubectl describe pod web-abc | grep -A5 Annotations
+kubectl get pod web-abc -o jsonpath='{.metadata.annotations}' | python -m json.tool
+# no --annotation-selector and no --show-annotations: annotations are NOT selectable
+kubectl get pods -o json | jq -r '.items[] | select(.metadata.annotations."company.org/owner") | .metadata.name'
+```
+
+**metadata.annotations** on a Deployment = harmless. **spec.template.metadata.annotations** = new ReplicaSet and a **full rolling update**, because `.spec.template` changed. `kubectl rollout restart` uses that deliberately via `kubectl.kubernetes.io/restartedAt`.
+
 ## 5. Observability tooling
 
 _Section 6._

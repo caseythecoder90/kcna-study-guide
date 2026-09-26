@@ -1,0 +1,73 @@
+# A Deployment with annotations in BOTH metadata blocks, so the difference in
+# blast radius can be demonstrated rather than taken on trust.
+#
+#   kubectl apply -f annotated-deployment.yaml
+#   kubectl get rs                                   # ONE ReplicaSet
+#   kubectl rollout history deployment/web           # revision 1
+#
+# 1. Annotate the DEPLOYMENT — nothing happens to the Pods:
+#      kubectl annotate deployment/web company.org/ticket=OPS-9999 --overwrite
+#      kubectl get rs                                # still ONE ReplicaSet
+#      kubectl rollout history deployment/web        # still revision 1
+#      kubectl get pods                              # same Pods, same AGE
+#
+# 2. Annotate the POD TEMPLATE — a full rolling update:
+#      kubectl patch deployment web -p '{"spec":{"template":{"metadata":{"annotations":{"company.org/note":"changed"}}}}}'
+#      kubectl get rs                                # TWO ReplicaSets now
+#      kubectl rollout history deployment/web        # revision 2
+#      kubectl get pods                              # brand new Pods
+#
+#    `.spec.template` changed, so the pod-template-hash changed, so a new
+#    ReplicaSet was created. Chapter 05's rule with no exception.
+#
+# 3. The same mechanism, used on purpose:
+#      kubectl rollout restart deployment/web
+#      kubectl get deploy web -o jsonpath='{.spec.template.metadata.annotations}' | python -m json.tool
+#    rollout restart stamps kubectl.kubernetes.io/restartedAt INTO the template.
+#
+# Annotations are NOT selectable — there is no --annotation-selector:
+#      kubectl get pods -l app=web                   # works: a LABEL
+#      kubectl get pods -o json | jq -r '.items[] | select(.metadata.annotations."company.org/note") | .metadata.name'
+#
+#   kubectl delete -f annotated-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web                     # SELECTABLE — this is what the ReplicaSet and any Service match on
+  annotations:
+    # ---- On the DEPLOYMENT object itself. Safe to edit: not part of
+    # .spec.template, so no new pod-template-hash and nothing restarts. ----
+    company.org/owner: "platform-team"
+    company.org/ticket: "OPS-1234"
+    company.org/git-commit: "a3f9c1e"
+    kubernetes.io/change-cause: "initial deployment"   # the CHANGE-CAUSE column
+    # Values must be STRINGS — quoted. `replicas: 3` would be rejected.
+    company.org/max-surge-note: "25"
+    # No character restrictions and up to 256 KiB total, so structured data is fine:
+    company.org/contacts: '{"oncall":"#platform-oncall","email":"platform@example.com"}'
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+      annotations:
+        # ---- Inside the POD TEMPLATE. These land on every Pod, and CHANGING
+        # ANY OF THEM TRIGGERS A ROLLING UPDATE. This is where controllers
+        # that act on Pods look. ----
+        company.org/note: "this lands on a Pod"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        # sidecar.istio.io/inject: "true"   # a mesh webhook would read this at Pod creation
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27
+        ports:
+        - containerPort: 80

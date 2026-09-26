@@ -539,6 +539,36 @@ kubectl get endpoints palette                       # relabel a Pod and watch me
 
 Key syntax: optional **prefix** (DNS subdomain, ≤253) + **name** (≤63); **values ≤63 chars, may be empty**; **`kubernetes.io/` and `k8s.io/` are reserved**. Labels are **selectable**, annotations are **not**.
 
+## Chapter 13 — Annotations
+
+```bash
+# Add, change, remove — same grammar as kubectl label
+kubectl annotate deployment/web company.org/owner="platform-team"
+kubectl annotate deployment/web company.org/owner="sre-team" --overwrite   # required to change an existing key
+kubectl annotate deployment/web company.org/owner-                         # trailing - REMOVES it
+kubectl annotate pods --all company.org/reviewed="2026-09-26"
+kubectl annotate deployment/web kubernetes.io/change-cause="bump to 1.27"  # the CHANGE-CAUSE column
+
+# Read them
+kubectl describe pod web-abc | grep -A5 Annotations
+kubectl get pod web-abc -o jsonpath='{.metadata.annotations}' | python -m json.tool
+kubectl get deploy web -o jsonpath='{.metadata.annotations.kubernetes\.io/change-cause}{"\n"}'
+kubectl get rs -o custom-columns='NAME:.metadata.name,REV:.metadata.annotations.deployment\.kubernetes\.io/revision'
+
+# There is NO --annotation-selector and NO --show-annotations.
+# Annotations are not selectable — filter client-side:
+kubectl get pods -o json | jq -r '.items[] | select(.metadata.annotations."company.org/owner"=="platform-team") | .metadata.name'
+
+# WHERE the annotation goes decides whether anything restarts
+kubectl annotate deployment/web company.org/ticket=OPS-9999 --overwrite    # metadata: nothing restarts
+kubectl patch deployment web -p '{"spec":{"template":{"metadata":{"annotations":{"note":"x"}}}}}'
+                                                        # spec.template: NEW ReplicaSet, full rolling update
+kubectl rollout restart deployment/web                  # does exactly that on purpose, via kubectl.kubernetes.io/restartedAt
+kubectl get deploy web -o jsonpath='{.spec.template.metadata.annotations}' | python -m json.tool
+```
+
+Core annotations worth recognising: **`kubernetes.io/change-cause`** · **`deployment.kubernetes.io/revision`** (the number that renumbers on rollback) · **`kubectl.kubernetes.io/last-applied-configuration`** (how `apply` three-way merges) · **`kubectl.kubernetes.io/restartedAt`**. Controller hints: `nginx.ingress.kubernetes.io/*`, `cert-manager.io/cluster-issuer`, `external-dns.alpha.kubernetes.io/hostname`, `sidecar.istio.io/inject`, `prometheus.io/scrape`.
+
 ## The API behind kubectl
 
 ```bash
