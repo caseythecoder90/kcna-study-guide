@@ -266,6 +266,22 @@ kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- sh
 
 Four types: **ClusterIP** (default, internal only) · **NodePort** (every node, 30000-32767) · **LoadBalancer** (needs a provider) · **ExternalName** (CNAME, no proxying). **Headless** = `clusterIP: None`, not a fifth type. **Ingress** is not a Service type. DNS: `<service>.<namespace>.svc.cluster.local`.
 
+### 4f. Jobs and CronJobs (chapter 04-09)
+
+```bash
+kubectl create job calculatepi --image=perl:5.34.0 -- perl -Mbignum=bpi -wle "print bpi(2000)"
+kubectl get jobs                                        # COMPLETIONS = succeeded/wanted · DURATION
+kubectl logs job/calculatepi                            # finished Jobs and Pods are kept on purpose
+kubectl explain job.spec.completions ; kubectl explain job.spec.parallelism
+kubectl create cronjob pi --image=perl:5.34.0 --schedule="*/5 * * * *" -- perl -Mbignum=bpi -wle "print bpi(200)"
+kubectl get cronjobs                                    # SCHEDULE · SUSPEND · ACTIVE · LAST SCHEDULE
+kubectl create job manual-run --from=cronjob/pi         # fire one off-schedule
+kubectl patch cronjob pi -p '{"spec":{"suspend":true}}' # pause future runs
+kubectl delete cronjob pi                               # cascades: Jobs, then their Pods
+```
+
+**`completions`** = how many Pods must finish **successfully in total**; **`parallelism`** = how many may run **at once**. `completions` left **null** makes it a work queue where any Pod's success completes the Job. Job Pods must use `restartPolicy: Never` or `OnFailure`.
+
 ## 5. Observability tooling
 
 _Section 6._
