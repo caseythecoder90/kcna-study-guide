@@ -1,0 +1,100 @@
+# One ConfigMap, consumed all four ways by one Pod, so the differences are
+# visible in a single `kubectl logs`.
+#
+#   kubectl apply -f configmap-demo.yaml
+#   kubectl logs pod/config-consumer
+#
+# Then prove the update rule. Change a value:
+#   kubectl patch configmap demo --type=merge -p '{"data":{"colour":"green"}}'
+#   kubectl exec config-consumer -- cat /etc/config/colour     # -> green, within a sync period
+#   kubectl exec config-consumer -- printenv COLOUR            # -> still blue, until the Pod restarts
+#   kubectl exec config-consumer -- cat /etc/single/app.properties   # subPath: NEVER updates
+#
+#   kubectl delete -f configmap-demo.yaml
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo
+data:
+  # Simple scalar values — good candidates for environment variables.
+  colour: blue
+  size: large
+
+  # A whole file as one value. This is what --from-file produces, and what a
+  # volume mount is for. Note the key contains a dot, so envFrom will SKIP it:
+  # a dot is not legal in a shell variable name.
+  app.properties: |
+    colour=blue
+    size=large
+    retries=3
+
+# Uncomment to make this immutable. Protects against accidental edits and lets
+# the API server close its watches — but it CANNOT be reverted. Delete and
+# recreate is the only way back.
+#
+# immutable: true
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: config-consumer
+spec:
+  restartPolicy: Never
+  containers:
+  - name: app
+    image: busybox:1.36
+    command:
+    - sh
+    - -c
+    - |
+      echo "=== 1. env + configMapKeyRef (one key, renamed) ==="
+      echo "COLOUR=$COLOUR"
+      echo
+      echo "=== 2. envFrom + configMapRef (all keys, prefixed) ==="
+      env | grep '^APP_' | sort
+      echo "   note: APP_APP.PROPERTIES is absent — a dot is not a valid variable name, so that key is SKIPPED"
+      echo
+      echo "=== 3. volume mount (each key becomes a file) ==="
+      ls -l /etc/config
+      echo "--- /etc/config/colour ---"; cat /etc/config/colour
+      echo
+      echo "=== 4. volume mount with subPath (one key, one file) ==="
+      cat /etc/single/app.properties
+      sleep infinity
+
+    env:
+    # 1. ONE key, and the variable name is yours to choose.
+    - name: COLOUR
+      valueFrom:
+        configMapKeyRef:
+          name: demo
+          key: colour
+          optional: false        # the default: a missing key stops the Pod starting
+
+    # 2. ALL keys, named after the keys, with a prefix.
+    envFrom:
+    - configMapRef:
+        name: demo
+      prefix: APP_
+
+    volumeMounts:
+    # 3. Every key as a file in a directory.
+    - name: config
+      mountPath: /etc/config
+      readOnly: true
+
+    # 4. ONE key as a single file. The only way to place a file into a
+    # directory the image already owns — at the cost of never updating.
+    - name: config
+      mountPath: /etc/single/app.properties
+      subPath: app.properties
+      readOnly: true
+
+  volumes:
+  - name: config
+    configMap:
+      name: demo
+      defaultMode: 0444

@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Four ways a Pod reads a ConfigMap — and which ones notice a change
+
+rectangle "ConfigMap demo\n<size:11>colour: blue · size: large · app.properties: (a whole file)</size>\n<size:11>must be in the SAME NAMESPACE as the Pod</size>" <<accent>> as cm
+
+rectangle "Environment variables — need a Pod restart" <<groupBad>> as envs {
+  rectangle "1 · env + configMapKeyRef\n<size:11>ONE key → one variable, and you choose the variable's name</size>\n<size:11>env: [{name: COLOUR, valueFrom: {configMapKeyRef: {name: demo, key: colour}}}]</size>" <<bad>> as e1
+  rectangle "2 · envFrom + configMapRef\n<size:11>ALL keys → variables named after the keys</size>\n<size:11>envFrom: [{configMapRef: {name: demo}}]</size>\n<size:11>keys that are not valid variable names are SKIPPED, with an event</size>" <<bad>> as e2
+  rectangle "Values are injected ONCE, at container start.\n<size:11>Edit the ConfigMap and the running container never sees it —</size>\n<size:11>“ConfigMaps consumed as environment variables are not updated</size>\n<size:11>automatically and require a pod restart.”</size>" <<plain>> as enote
+  e1 -[hidden]down-> e2
+  e2 -[hidden]down-> enote
+}
+
+rectangle "Files on disk — update live" <<groupGood>> as vols {
+  rectangle "3 · volume mount\n<size:11>EACH KEY becomes a file in the mount directory</size>\n<size:11>/etc/config/colour · /etc/config/size · /etc/config/app.properties</size>\n<size:11>items: lets you project only some keys, under chosen paths</size>" <<good>> as v1
+  rectangle "4 · volume mount with subPath\n<size:11>ONE key mounted as a single file, next to the image's own files</size>\n<size:11>the only way to drop one file into an existing directory</size>" <<bad>> as v2
+  rectangle "A plain volume mount IS refreshed: the kubelet re-checks on every\n<size:11>periodic sync, so the delay is the sync period plus cache propagation.</size>\n<size:11>BUT a subPath mount NEVER updates — that is the trade for putting</size>\n<size:11>one file into a directory the image already owns.</size>" <<plain>> as vnote
+  v1 -[hidden]down-> v2
+  v2 -[hidden]down-> vnote
+}
+
+cm -down-> envs
+cm -down-> vols
+
+caption <i>Even a live-updating file only helps if the application re-reads it — most do not, which is why kubectl rollout restart deployment/x exists. The blunt rule: if the value can change, mount it as a volume and reload;</i>\n<i>if it is fixed for the life of the Pod, an environment variable is simpler. A missing ConfigMap stops the Pod starting unless the reference is marked optional: true.</i>
+@enduml
