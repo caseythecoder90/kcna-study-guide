@@ -1,0 +1,22 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two selector grammars, and two things “namespaced” means
+
+rectangle "Equality-based · operators = == !=" <<group>> as eq {
+  rectangle "environment = production\ntier != frontend\nenvironment=production,tier!=frontend\n\n<size:11>the comma is AND. != also matches objects that have NO such key at all.</size>\n\n<size:11>Written as a plain MAP in a manifest:</size>\n<size:11>selector:</size>\n<size:11>  component: redis</size>\n\n<size:11>ONLY grammar available to: Service · ReplicationController</size>" <<plain>> as e
+}
+
+rectangle "Set-based · operators in notin exists" <<groupGood>> as set {
+  rectangle "environment in (production, qa)\ntier notin (frontend, backend)\npartition          <size:11>— the key exists, any value</size>\n!partition         <size:11>— the key does not exist</size>\n\n<size:11>In a manifest, matchLabels + matchExpressions, ALL ANDed together:</size>\n<size:11>selector:</size>\n<size:11>  matchLabels: {component: redis}</size>\n<size:11>  matchExpressions:</size>\n<size:11>  - {key: tier, operator: In, values: [cache]}</size>\n<size:11>operators: In · NotIn · Exists · DoesNotExist</size>\n\n<size:11>Available to: Deployment · ReplicaSet · DaemonSet · StatefulSet · Job · NetworkPolicy</size>" <<good>> as s
+}
+
+rectangle "Sense 1 · the KEY can be namespaced\n<size:11>a key is an optional PREFIX plus a name: app.kubernetes.io/name</size>\n<size:11>prefix = a DNS subdomain, up to 253 characters · name = up to 63</size>\n<size:11>no prefix means the key is private to you</size>\n<size:11>automated components MUST use a prefix, and</size>\n<size:11>kubernetes.io/ and k8s.io/ are RESERVED for core components</size>" <<accent>> as ns1
+
+rectangle "Sense 2 · the SELECTOR is namespace-scoped\n<size:11>a Service selects only Pods in its OWN namespace — labels are not cluster-wide</size>\n<size:11>kubectl get pods -l app=web searches the current namespace; add -A for all</size>\n<size:11>a NetworkPolicy's podSelector means THIS namespace; to allow traffic from</size>\n<size:11>another one you must add a namespaceSelector, which matches NAMESPACE labels</size>\n<size:11>(every namespace carries kubernetes.io/metadata.name automatically)</size>" <<bad>> as ns2
+
+eq -[hidden]right-> set
+eq -[hidden]down-> ns1
+ns1 -[hidden]right-> ns2
+
+caption <i>Equality is a special case of set-based: environment=production is the same as environment in (production). Mixing them is allowed at the command line — partition in (customerA, customerB),environment!=qa.</i>\n<i>The scoping point is the one that surprises people: a label selector never crosses a namespace on its own, so “it matches nothing” is usually a namespace problem rather than a typo.</i>
+@enduml

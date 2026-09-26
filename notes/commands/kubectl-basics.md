@@ -495,6 +495,50 @@ kubectl delete secret db-creds
 
 Consuming one: `env` + **`secretKeyRef`** (one key) · `envFrom` + **`secretRef`** (all keys; invalid variable names are skipped) · a **`secret` volume** (each key a file, held in **tmpfs**) · **`imagePullSecrets`** for private registries. Types: **`Opaque` (default)**, `service-account-token`, `dockercfg`, `dockerconfigjson`, `basic-auth`, `ssh-auth`, **`kubernetes.io/tls`**, `bootstrap.kubernetes.io/token`. **`data`** = base64 · **`stringData`** = plaintext, write-only. 1 MiB; `immutable: true` cannot be reverted.
 
+## Chapter 12 — Labels and selectors
+
+```bash
+# See them
+kubectl get pods --show-labels
+kubectl get pods -L colour -L tier                  # labels as COLUMNS, one per -L
+kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels}{"\n"}{end}'
+
+# Equality-based — the ONLY grammar a Service or ReplicationController can use
+kubectl get pods -l colour=red
+kubectl get pods -l colour==red                     # == is a synonym for =
+kubectl get pods -l colour=red,tier=backend         # comma is AND
+kubectl get pods -l 'colour!=red'                   # ALSO matches objects with no colour key at all
+
+# Set-based — Deployment · ReplicaSet · DaemonSet · StatefulSet · Job · NetworkPolicy
+kubectl get pods -l 'colour in (red,pink)'
+kubectl get pods -l 'colour notin (green)'
+kubectl get pods -l colour                          # the key exists, any value
+kubectl get pods -l '!colour'                       # the key does NOT exist
+kubectl get pods -l 'partition in (a,b),environment!=qa'   # the two grammars mix
+
+# Selectors work on any command, and across kinds
+kubectl get all --selector run=nginx                # the Pod AND the Service it was exposed as
+kubectl get pods -l app=web -A                      # selectors are NAMESPACE-SCOPED — -A for all
+kubectl logs -l app=web --prefix --tail=20
+kubectl delete pods -l colour=pink
+kubectl describe pods -l tier=backend
+
+# Add, change and remove labels
+kubectl label pod ubuntu-red colour=red
+kubectl label pod ubuntu-red colour=crimson --overwrite    # required to change an existing key
+kubectl label pod ubuntu-red colour-                       # trailing - REMOVES the label
+kubectl label pods --all env=dev
+kubectl label node worker-1 disktype=ssd                   # node labels drive nodeSelector and affinity
+kubectl annotate deployment/web kubernetes.io/change-cause="..."   # annotations: NOT selectable
+
+# Who is selecting on them
+kubectl get svc palette -o jsonpath='{.spec.selector}{"\n"}'
+kubectl get deploy web -o jsonpath='{.spec.selector}{"\n"}'
+kubectl get endpoints palette                       # relabel a Pod and watch membership change
+```
+
+Key syntax: optional **prefix** (DNS subdomain, ≤253) + **name** (≤63); **values ≤63 chars, may be empty**; **`kubernetes.io/` and `k8s.io/` are reserved**. Labels are **selectable**, annotations are **not**.
+
 ## The API behind kubectl
 
 ```bash

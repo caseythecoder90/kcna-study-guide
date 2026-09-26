@@ -1,0 +1,116 @@
+# Four Pods that differ ONLY in their labels, plus a Service whose selector
+# picks a subset of them. The point is to watch a selector change which Pods
+# an object owns, without touching the Pods.
+#
+#   kubectl apply -f coloured-pods.yaml
+#   kubectl get pods --show-labels
+#   kubectl get pods -L colour -L tier          # labels as COLUMNS instead
+#
+# Equality-based:
+#   kubectl get pods -l colour=red
+#   kubectl get pods -l 'colour!=red'           # also matches Pods with NO colour label
+#   kubectl get pods -l colour=red,tier=backend # comma = AND
+#
+# Set-based (not available to a Service's selector):
+#   kubectl get pods -l 'colour in (red,pink)'
+#   kubectl get pods -l 'colour notin (green)'
+#   kubectl get pods -l colour                  # the key exists, any value
+#   kubectl get pods -l '!colour'               # the key does NOT exist
+#
+# Across kinds — this is the lecture's `kubectl get all --selector run=nginx`:
+#   kubectl get all --selector app=palette
+#
+# Relabel a running Pod and watch it join or leave the Service's endpoints
+# WITHOUT the Pod changing at all:
+#   kubectl get endpoints palette               # THREE addresses: red, pink, plain (all tier=backend)
+#   kubectl label pod ubuntu-green tier=backend --overwrite
+#   kubectl get endpoints palette               # FOUR now — green joined, and green never changed
+#   kubectl label pod ubuntu-red tier-          # trailing - REMOVES the label
+#   kubectl get endpoints palette               # back to THREE — red dropped out
+#
+# The addresses appear even though nothing is listening on port 80: endpoint
+# membership is about the SELECTOR matching and the Pod being Ready, not about
+# whether the port actually works.
+#
+#   kubectl delete -f coloured-pods.yaml
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-red
+  labels:
+    app: palette          # shared by everything here — the "which project" label
+    colour: red
+    tier: backend         # the Service selects on this
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "infinity"]
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-green
+  labels:
+    app: palette
+    colour: green
+    tier: frontend        # NOT selected by the Service below
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "infinity"]
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-pink
+  labels:
+    app: palette
+    colour: pink
+    tier: backend
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "infinity"]
+
+---
+# No `colour` label at all — the target for `-l '!colour'` and the reason
+# `-l 'colour!=red'` returns more than you might expect.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-plain
+  labels:
+    app: palette
+    tier: backend
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "infinity"]
+
+---
+# A Service selector is EQUALITY-BASED ONLY — a plain map, ANDed.
+# You cannot write `colour in (red, pink)` here; that grammar is available to
+# Deployments, ReplicaSets, DaemonSets, StatefulSets, Jobs and NetworkPolicies,
+# but not to a Service.
+#
+# Note also that this selects only within THIS namespace. Identical labels in
+# another namespace are invisible to it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: palette
+spec:
+  selector:
+    app: palette
+    tier: backend
+  ports:
+  - port: 80
+    targetPort: 80

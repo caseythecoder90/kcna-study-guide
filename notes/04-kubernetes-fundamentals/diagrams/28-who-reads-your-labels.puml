@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Who is reading your labels — the control plane, mostly
+
+rectangle "Pod web-77b4fdf86c-qrfpm\n<size:11>metadata.labels:</size>\n<size:11>  app: web · tier: frontend · env: prod · pod-template-hash: 77b4fdf86c</size>\n\n<size:11>The Pod does nothing with these. They are not configuration and the container never sees them.</size>\n<size:11>They exist so that OTHER objects can find this one.</size>" <<accent>> as pod
+
+rectangle "Controllers — “are these mine?”" <<groupGood>> as ctrl {
+  rectangle "Service · spec.selector\n<size:11>app: web → this Pod's IP goes into the EndpointSlice,</size>\n<size:11>and kube-proxy sends traffic here. Equality-based only.</size>" <<good>> as svc
+  rectangle "ReplicaSet · spec.selector.matchLabels\n<size:11>the Deployment adds pod-template-hash so two generations</size>\n<size:11>never steal each other's Pods during a rolling update</size>" <<good>> as rs
+  rectangle "DaemonSet · StatefulSet · Job\n<size:11>same mechanism: a selector that must match the pod template</size>\n<size:11>and is immutable once created</size>" <<good>> as other
+  rectangle "PodDisruptionBudget · spec.selector\n<size:11>which Pods this availability guarantee covers during drains</size>" <<good>> as pdb
+  svc -[hidden]down-> rs
+  rs -[hidden]down-> other
+  other -[hidden]down-> pdb
+}
+
+rectangle "Policy and placement — “does this rule apply?”" <<group>> as pol {
+  rectangle "NetworkPolicy · podSelector + namespaceSelector\n<size:11>which Pods the rule protects, and which Pods may reach them.</size>\n<size:11>A podSelector alone means THIS namespace — reaching another</size>\n<size:11>one requires a namespaceSelector as well</size>" <<accent>> as np
+  rectangle "Scheduler · nodeSelector and node affinity\n<size:11>labels on NODES this time: disktype=ssd, topology.kubernetes.io/zone</size>\n<size:11>plus podAffinity/antiAffinity, which select PODS to sit near or away from</size>" <<plain>> as sched
+  rectangle "EndpointSlice · kubernetes.io/service-name\n<size:11>a label on the slice itself, tying it back to its Service</size>" <<plain>> as eps
+  np -[hidden]down-> sched
+  sched -[hidden]down-> eps
+}
+
+rectangle "Humans — “show me a subset”\n<size:11>kubectl get all ~-~-selector run=nginx · kubectl get pods -l 'env in (prod,qa)'</size>\n<size:11>kubectl logs -l app=web ~-~-prefix · kubectl delete pods -l colour=red</size>\n<size:11>the same selector grammar the control plane uses, at the command line</size>" <<muted>> as human
+
+ctrl -down-> pod : select
+pol -down-> pod : select
+human -down-> pod : select
+
+caption <i>This is the point of labels: they are not decoration and not configuration. Nearly every relationship in Kubernetes that is not direct ownership is expressed as one object's selector matching another object's labels.</i>\n<i>Change a Pod's labels and it silently leaves its Service, its ReplicaSet replaces it, and the NetworkPolicy protecting it may stop applying — all without touching the Pod itself.</i>
+@enduml

@@ -310,6 +310,21 @@ kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d   # ...bu
 
 **Secrets are encoded, not encrypted**, and stored unencrypted in etcd by default. What protects them: **encryption at rest**, **least-privilege RBAC** (`list`/`watch` reads them all), restricting them to specific containers, and external stores. Consume via `secretKeyRef`, `envFrom` + `secretRef`, a volume (**tmpfs**) or **`imagePullSecrets`**. `data` = base64, `stringData` = plaintext write-only.
 
+### 4i. Labels and selectors (chapter 04-12)
+
+```bash
+kubectl get pods --show-labels ; kubectl get pods -L colour     # show labels, or as columns
+kubectl get pods -l colour=red,tier=backend                     # equality-based; comma = AND
+kubectl get pods -l 'colour in (red,pink)' ; kubectl get pods -l '!colour'   # set-based
+kubectl get all --selector app=palette                          # one selector, every kind
+kubectl get pods -l app=web -A                                  # selectors are NAMESPACE-SCOPED
+kubectl label pod ubuntu-red colour=crimson --overwrite         # --overwrite to change an existing key
+kubectl label pod ubuntu-red colour-                            # trailing - REMOVES it
+kubectl logs -l app=web --prefix ; kubectl delete pods -l colour=pink
+```
+
+**Equality-based** (`=`, `==`, `!=`) is the only grammar **Service** and **ReplicationController** support. **Set-based** (`in`, `notin`, key, `!key`; `In`/`NotIn`/`Exists`/`DoesNotExist` in YAML) is available to Deployment, ReplicaSet, DaemonSet, StatefulSet, Job and NetworkPolicy via `matchLabels` + `matchExpressions`. `!=` also matches objects **missing the key**.
+
 ## 5. Observability tooling
 
 _Section 6._
