@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title CronJob to Job to Pod — three objects, and what deleting one takes with it
+
+rectangle "CronJob · backup\n<size:11>schedule: “*/5 * * * *” · timeZone · jobTemplate</size>\n<size:11>concurrencyPolicy: Allow | Forbid | Replace · suspend</size>\n<size:11>successfulJobsHistoryLimit 3 · failedJobsHistoryLimit 1</size>\n<size:11>answers WHEN and HOW OFTEN — nothing else</size>" <<accent>> as cj
+
+rectangle "Job · backup-29388420\n<size:11>one per scheduled time — a ONE-TIME execution of the task</size>\n<size:11>completions · parallelism · backoffLimit 6 · activeDeadlineSeconds</size>\n<size:11>answers HOW MANY must succeed and how hard to retry</size>" <<good>> as job
+
+rectangle "Pod · backup-29388420-x7k2p\n<size:11>restartPolicy MUST be Never or OnFailure — never Always</size>\n<size:11>runs on a node and actually does the work</size>" <<plain>> as pod
+
+rectangle "History, not garbage\n<size:11>finished Jobs and their Pods are KEPT on purpose, so you can</size>\n<size:11>read the logs and the status afterwards</size>\n<size:11>the CronJob prunes to 3 successful + 1 failed; a bare Job keeps</size>\n<size:11>everything until you delete it or set ttlSecondsAfterFinished</size>" <<muted>> as hist
+
+rectangle "Deletion cascades DOWN the chain\n<size:11>each object carries an ownerReference to the one above, so garbage collection follows it</size>\n<size:11>delete the CronJob → its Jobs go → their Pods go</size>\n<size:11>delete a Job → its Pods go (“when you delete the job using kubectl, all the pods it created are deleted too”)</size>\n<size:11>the same rule as deleting a namespace, or a Deployment taking its ReplicaSets and Pods with it</size>" <<bad>> as del
+
+cj -down-> job : at each scheduled time, creates
+job -down-> pod : creates one or more
+job -right-> hist
+cj -right-> del
+
+caption <i>Three objects means three places to look when something is wrong: kubectl get cronjob for LAST SCHEDULE, kubectl get jobs for COMPLETIONS, and kubectl logs job/NAME for what the code actually printed.</i>\n<i>A CronJob creates a Job approximately once per scheduled time — two Jobs, or none, are both possible — so the work a CronJob does should be idempotent.</i>
+@enduml

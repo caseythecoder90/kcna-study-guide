@@ -1,0 +1,101 @@
+# The three Job patterns plus a CronJob, so completions vs parallelism can be
+# watched rather than memorised.
+#
+#   kubectl apply -f jobs-and-cronjob.yaml
+#   watch kubectl get jobs,pods
+#
+# What to expect:
+#   pi-once          1/1     one Pod, done in ~20s
+#   batch-fixed      0/6 → 6/6   six successes, never more than 2 Pods at a time (three waves)
+#   queue-workers    1/1 of 3    THREE Pods start; the first success completes the Job
+#   every-minute     a new Job object each minute, pruned to 3 successes + 1 failure
+#
+#   kubectl get jobs                      # COMPLETIONS reads succeeded/wanted
+#   kubectl logs job/pi-once
+#   kubectl get pods --selector=batch.kubernetes.io/job-name=batch-fixed
+#
+# Deletion cascades — the CronJob takes its Jobs, and they take their Pods:
+#   kubectl delete -f jobs-and-cronjob.yaml
+
+---
+# 1. NON-PARALLEL: leave BOTH completions and parallelism unset. Both default
+# to 1. One Pod, complete as soon as it exits 0.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi-once
+spec:
+  backoffLimit: 4              # default is 6
+  ttlSecondsAfterFinished: 600 # delete the Job (and its Pods) 10 min after it finishes
+  template:
+    spec:
+      restartPolicy: Never     # MUST be Never or OnFailure — Always is rejected
+      containers:
+      - name: pi
+        image: perl:5.34.0
+        command: ["perl", "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+
+---
+# 2. FIXED COMPLETION COUNT: six Pods must SUCCEED, at most two at a time.
+# completions is a TOTAL; parallelism is a CONCURRENCY CAP. Watch it run in
+# three waves of two.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch-fixed
+spec:
+  completions: 6
+  parallelism: 2
+  completionMode: NonIndexed   # Indexed would give each Pod an index 0-5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: busybox:1.36
+        command: ["sh", "-c", "echo processing on $(hostname); sleep 10"]
+
+---
+# 3. WORK QUEUE: completions is deliberately ABSENT. Three Pods start together
+# and "the success of ANY pod signals the success of all" — once one exits 0,
+# no new Pods are created.
+#
+# Note this is NOT the same as completions: 1, which would also cap parallelism
+# at 1. Null and 1 are different settings.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: queue-workers
+spec:
+  parallelism: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: busybox:1.36
+        command: ["sh", "-c", "echo pulling from the queue on $(hostname); sleep 15"]
+
+---
+# 4. CRONJOB: creates a Job object on a schedule. The chain is
+# CronJob -> Job -> Pod, and deleting the CronJob deletes all of it.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: every-minute
+spec:
+  schedule: "* * * * *"        # minute hour day-of-month month day-of-week
+  timeZone: "Etc/UTC"          # without this, the kube-controller-manager's local zone is used
+  concurrencyPolicy: Forbid    # default is Allow — skip a run rather than overlap
+  startingDeadlineSeconds: 60  # below 10s it may never fire; the controller checks every 10s
+  successfulJobsHistoryLimit: 3  # the default
+  failedJobsHistoryLimit: 1      # the default
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: pi
+            image: perl:5.34.0
+            command: ["perl", "-Mbignum=bpi", "-wle", "print bpi(200)"]

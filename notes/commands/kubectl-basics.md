@@ -395,6 +395,42 @@ kubectl run -it --rm curl --image=curlimages/curl --restart=Never -- nslookup ng
 kubectl delete service/nginx
 ```
 
+## Chapter 09 — Jobs and CronJobs
+
+```bash
+# Jobs — run to completion
+kubectl create job calculatepi --image=perl:5.34.0 -- perl -Mbignum=bpi -wle "print bpi(2000)"
+kubectl create job calculatepi --image=perl:5.34.0 --dry-run=client -o yaml -- perl -Mbignum=bpi -wle "print bpi(2000)" | tee job.yaml
+kubectl get jobs                                        # COMPLETIONS reads succeeded/wanted · DURATION is how long it took
+watch kubectl get jobs,pods
+kubectl logs job/calculatepi                            # finished Pods are KEPT on purpose so this works
+kubectl describe job calculatepi
+kubectl get pods --selector=batch.kubernetes.io/job-name=calculatepi
+kubectl explain job.spec.completions                    # "the desired number of SUCCESSFULLY FINISHED pods"
+kubectl explain job.spec.parallelism                    # "the maximum desired number of pods ... AT ANY GIVEN TIME"
+
+# The three patterns — it all hinges on whether completions is set
+#   both unset      -> non-parallel (both default to 1)
+#   completions: N  -> fixed count; parallelism caps concurrency
+#   completions nil -> WORK QUEUE; any Pod's success completes the Job
+kubectl patch job batch-fixed -p '{"spec":{"parallelism":0}}'    # 0 PAUSES a Job
+
+# CronJobs — create Job objects on a schedule
+kubectl create cronjob calculatepi --image=perl:5.34.0 --schedule="*/5 * * * *" -- perl -Mbignum=bpi -wle "print bpi(200)"
+kubectl get cronjobs                                    # SCHEDULE · SUSPEND · ACTIVE · LAST SCHEDULE
+kubectl get jobs                                        # one per fired schedule: <cronjob>-<timestamp>
+kubectl logs job/calculatepi-29388420
+kubectl create job manual-run --from=cronjob/calculatepi   # fire one NOW, off-schedule
+kubectl patch cronjob calculatepi -p '{"spec":{"suspend":true}}'   # stop future runs, keep the object
+
+# Deletion cascades DOWN the ownerReferences chain
+kubectl delete cronjob calculatepi                      # → its Jobs → their Pods
+kubectl delete job calculatepi                          # → its Pods
+kubectl delete job calculatepi --cascade=orphan         # leave the Pods running (rarely wanted)
+```
+
+Defaults: `backoffLimit` **6** · `completions`/`parallelism` **1** when unset · `concurrencyPolicy` **Allow** · `successfulJobsHistoryLimit` **3** · `failedJobsHistoryLimit` **1**. A Job Pod's `restartPolicy` must be **`Never` or `OnFailure`** — never `Always`. Schedule fields: **minute hour day-of-month month day-of-week** ([crontab.guru](https://crontab.guru/)).
+
 ## The API behind kubectl
 
 ```bash
