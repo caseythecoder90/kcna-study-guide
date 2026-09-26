@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Annotations are how you talk to a controller the API never heard of
+
+rectangle "The problem they solve\n<size:11>An Ingress object has a fixed spec: rules, hosts, paths, a TLS secret name. That is all the API knows about.</size>\n<size:11>But an ingress controller may support rewrites, rate limits, timeouts, auth, canary weights, session affinity…</size>\n<size:11>None of that can go in the spec — adding a field for every controller's every feature would never end.</size>\n<size:11>So the extras go in ANNOTATIONS: a free-form channel the API server stores faithfully and never interprets.</size>" <<accent>> as why
+
+rectangle "Ingress controller\n<size:11>nginx.ingress.kubernetes.io/rewrite-target: /</size>\n<size:11>nginx.ingress.kubernetes.io/ssl-redirect: “true”</size>\n<size:11>nginx.ingress.kubernetes.io/canary-weight: “20”</size>\n<size:11>tweaks routing WITHOUT changing the Ingress spec</size>" <<good>> as ing
+
+rectangle "cert-manager\n<size:11>cert-manager.io/cluster-issuer: letsencrypt-prod</size>\n<size:11>put this on an Ingress and a certificate is obtained,</size>\n<size:11>renewed, and written into a kubernetes.io/tls Secret</size>" <<good>> as cm
+
+rectangle "external-dns\n<size:11>external-dns.alpha.kubernetes.io/hostname: app.example.com</size>\n<size:11>a DNS record appears in Route53 or Cloudflare</size>" <<good>> as dns
+
+rectangle "Service mesh\n<size:11>sidecar.istio.io/inject: “true”</size>\n<size:11>an admission webhook adds the Envoy sidecar</size>\n<size:11>at Pod creation — chapter 02-02's data plane</size>" <<good>> as mesh
+
+rectangle "Prometheus\n<size:11>prometheus.io/scrape: “true”</size>\n<size:11>prometheus.io/port: “9090”</size>\n<size:11>the scraper discovers the target itself</size>" <<good>> as prom
+
+rectangle "Kubernetes itself\n<size:11>kubernetes.io/change-cause — the CHANGE-CAUSE column (chapter 05)</size>\n<size:11>deployment.kubernetes.io/revision — the revision number on a ReplicaSet</size>\n<size:11>kubectl.kubernetes.io/last-applied-configuration — how apply computes a three-way merge</size>\n<size:11>kubectl.kubernetes.io/restartedAt — what rollout restart stamps into the template</size>" <<muted>> as core
+
+why -down-> ing
+why -down-> cm
+why -down-> dns
+ing -[hidden]down-> mesh
+cm -[hidden]down-> prom
+dns -[hidden]down-> core
+
+caption <i>The pattern every one of these follows: you annotate an object, a controller that is WATCHING for its own prefix sees it, and acts. The API server stores the string and has no idea what it means —</i>\n<i>which is why a typo in an annotation key fails silently. Nothing validates it, nothing rejects it, the feature simply never turns on.</i>
+@enduml

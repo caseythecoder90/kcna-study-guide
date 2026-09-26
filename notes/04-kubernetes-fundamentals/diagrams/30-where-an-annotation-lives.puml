@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The same annotation, two places — one of them redeploys your application
+
+rectangle "Deployment web" <<group>> as dep {
+  rectangle "metadata:\n  annotations:\n    company.org/owner: “platform-team”\n\n<size:11>Lives on the DEPLOYMENT object only. Ops metadata, ownership,</size>\n<size:11>ticket IDs, the change-cause for rollout history.</size>\n\n<size:11>NOT part of .spec.template → no new pod-template-hash →</size>\n<size:11>no new ReplicaSet → NOTHING RESTARTS. Safe to edit any time.</size>" <<good>> as top
+
+  rectangle "spec:\n  template:\n    metadata:\n      annotations:\n        company.org/note: “this lands on a Pod”\n\n<size:11>Lives inside the POD TEMPLATE, so it ends up on every Pod.</size>\n<size:11>Where a service mesh reads sidecar.istio.io/inject and</size>\n<size:11>Prometheus reads prometheus.io/scrape.</size>\n\n<size:11>IS part of .spec.template → new hash → NEW REPLICASET →</size>\n<size:11>A FULL ROLLING UPDATE, every Pod replaced.</size>" <<bad>> as tmpl
+
+  top -[hidden]down-> tmpl
+}
+
+rectangle "Harmless\n<size:11>kubectl annotate deployment/web company.org/ticket=OPS-1234</size>\n<size:11>the object is updated; the Pods never notice</size>\n<size:11>kubectl rollout history is unchanged</size>" <<good>> as safe
+
+rectangle "A deployment, whether you meant one or not\n<size:11>kubectl patch deployment web -p '{“spec”:{“template”:{“metadata”:{“annotations”:{“note”:“x”}}}}}'</size>\n<size:11>chapter 05's rule with no exception: a rollout is triggered IF AND ONLY IF .spec.template changes —</size>\n<size:11>and the template's annotations are part of the template</size>\n<size:11>this is exactly how kubectl rollout restart works: it stamps a timestamp annotation INTO the template on purpose</size>" <<bad>> as boom
+
+top -right-> safe
+tmpl -right-> boom
+
+caption <i>Two nearly identical edits, two very different blast radii. Before annotating a workload, look at the indentation: metadata at the top is a note about the object, metadata under spec.template is part of the Pod's identity.</i>\n<i>The same applies to LABELS in a pod template — and to anything else under .spec.template.</i>
+@enduml
