@@ -569,6 +569,39 @@ kubectl get deploy web -o jsonpath='{.spec.template.metadata.annotations}' | pyt
 
 Core annotations worth recognising: **`kubernetes.io/change-cause`** · **`deployment.kubernetes.io/revision`** (the number that renumbers on rollback) · **`kubectl.kubernetes.io/last-applied-configuration`** (how `apply` three-way merges) · **`kubectl.kubernetes.io/restartedAt`**. Controller hints: `nginx.ingress.kubernetes.io/*`, `cert-manager.io/cluster-issuer`, `external-dns.alpha.kubernetes.io/hostname`, `sidecar.istio.io/inject`, `prometheus.io/scrape`.
 
+## Chapter 14 — Startup, liveness and readiness probes
+
+```bash
+# Probes are QUIET: describe shows FAILURES, never the steady stream of successes
+kubectl describe pod probe-demo | grep -A15 Events
+kubectl get pod probe-demo                              # the READY column IS the readiness probe's verdict
+kubectl get pod probe-demo -o jsonpath='{.status.conditions}' | python -m json.tool
+                                                        # ContainersReady / Ready go False while readiness fails
+kubectl get endpoints my-service                        # a not-ready Pod's IP is absent from here
+
+# Read the probes off a live object
+kubectl get pod probe-demo -o jsonpath='{.spec.containers[0].startupProbe}'  | python -m json.tool
+kubectl get pod probe-demo -o jsonpath='{.spec.containers[0].livenessProbe}' | python -m json.tool
+kubectl explain pod.spec.containers.livenessProbe
+kubectl explain pod.spec.containers.startupProbe.httpGet
+
+# Watch the whole lifecycle in one pane (the course's approach)
+watch 'kubectl describe pod/probe-demo | sed 0,/Events:/d | tail -20; echo; \
+       kubectl logs pod/probe-demo --tail=15; echo; kubectl get pod/probe-demo'
+
+# Add or change a probe on a running Deployment (this is a .spec.template change → rollout)
+kubectl patch deployment web -p '{"spec":{"template":{"spec":{"containers":[{"name":"web","readinessProbe":{"httpGet":{"path":"/ready","port":8080},"periodSeconds":5}}]}}}}'
+kubectl rollout status deployment/web
+
+# Prove what readiness controls
+kubectl exec probe-demo -- rm /tmp/ready          # break a file-based readiness check
+kubectl get pod probe-demo                        # READY 1/1 → 0/1, RESTARTS unchanged
+kubectl get endpoints my-service                  # the IP is gone
+kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
+```
+
+Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
+
 ## The API behind kubectl
 
 ```bash

@@ -1,0 +1,104 @@
+# All three probes on one container, using the course's chaos-testing image so
+# the normally-invisible probe lifecycle is visible in the Pod's own logs.
+#   https://github.com/spurin/readiness-liveness-startup-probe-api
+#
+# Watch it all at once, in one terminal:
+#
+#   kubectl apply -f probe-demo.yaml
+#   watch 'kubectl describe pod/probe-demo | sed 0,/Events:/d | tail -20; echo; \
+#          kubectl logs pod/probe-demo --tail=15; echo; kubectl get pod/probe-demo'
+#
+# What you will see, in order — this IS the model:
+#
+#   0-30s   STARTUP_DELAY has /startup returning 500, so the startup probe
+#           fails. READY 0/1. NOTE: no readiness or liveness events at all —
+#           they are not merely failing, they are NOT RUNNING YET.
+#
+#   ~30s    /startup succeeds once. The startup probe stops forever and
+#           liveness + readiness begin. Their initialDelaySeconds starts NOW.
+#
+#   ~40s    /ready starts succeeding (READY_DELAY 10s after startup). READY
+#           goes 0/1 -> 1/1 and the Pod would now receive Service traffic.
+#
+#   ~50s+   /healthz fails permanently after 10 calls. Liveness crosses its
+#           failureThreshold and you get:
+#             Normal Killing  Container probe-demo failed liveness probe, will be restarted
+#           RESTARTS increments. Meanwhile the READINESS probe kept succeeding
+#           the whole time — the two are scheduled independently.
+#
+# Then experiment:
+#   * Delete the startupProbe and re-apply. The liveness probe now runs from
+#     the start, kills the container before STARTUP_DELAY elapses, and you get
+#     a boot loop that looks like a crash but is a misconfigured timeout.
+#   * Set HEALTHZ_PERMANENT_FAILURE_THRESHOLD very high and
+#     HEALTHZ_CHAOS_FREQUENCY to 3: intermittent failures that failureThreshold
+#     absorbs without a restart.
+#
+#   kubectl delete -f probe-demo.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-demo
+spec:
+  containers:
+  - name: probe-demo
+    image: spurin/readiness-liveness-startup-probe-api:latest
+    ports:
+    - containerPort: 8080
+
+    env:
+    - name: PORT
+      value: "8080"
+    - name: STARTUP_DELAY
+      value: "30"          # /startup returns 500 for the first 30 seconds
+    - name: READY_DELAY
+      value: "10"          # /ready returns 500 for the first 10 seconds
+    - name: HEALTHZ_CHAOS_FREQUENCY
+      value: "3"           # /healthz fails every 3rd call — absorbed by failureThreshold
+    - name: HEALTHZ_PERMANENT_FAILURE_THRESHOLD
+      value: "10"          # ...then fails permanently after 10 calls, forcing a restart
+
+    # PHASE 1 — runs ALONE. Liveness and readiness do not execute until this
+    # succeeds ONCE, after which it never runs again.
+    # Budget = failureThreshold x periodSeconds = 8 x 5 = 40 seconds,
+    # comfortably above the 30s STARTUP_DELAY.
+    startupProbe:
+      httpGet:
+        path: /startup
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 8
+
+    # PHASE 2 — "should this container be RESTARTED?"
+    # Failure is DESTRUCTIVE: the kubelet kills the container and restartPolicy
+    # takes over. Keep it testing the PROCESS only — never a database or another
+    # service, or one dependency blip restarts the whole fleet.
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 3    # successThreshold MUST be 1 here (the default)
+
+    # PHASE 2 — "should this Pod receive TRAFFIC?"
+    # Failure is REVERSIBLE: READY goes 1/1 -> 0/1 and the EndpointSlice
+    # controller drops the IP from matching Services. Nothing restarts, and the
+    # Pod rejoins by itself once the probe passes again.
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 1
+      failureThreshold: 3
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi

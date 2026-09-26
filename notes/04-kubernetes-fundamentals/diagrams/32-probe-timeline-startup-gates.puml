@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One container's life, and which probe is running when
+
+rectangle "Phase 1 · the startup probe runs ALONE" <<group>> as p1 {
+  rectangle "startupProbe\n<size:11>failureThreshold: 30 · periodSeconds: 10 → up to 300 seconds to come up</size>\n<size:11>polled every 10s until ONE success, then it never runs again</size>" <<accent>> as sp
+  rectangle "livenessProbe — NOT RUNNING\n<size:11>“Kubernetes does not execute liveness or readiness probes</size>\n<size:11>until the startup probe succeeds”</size>" <<muted>> as lv1
+  rectangle "readinessProbe — NOT RUNNING\n<size:11>the Pod is 0/1 and receives no traffic the whole time</size>" <<muted>> as rd1
+  rectangle "This is the point of a startup probe.\n<size:11>Without one, a slow JVM or a cache warm-up gets killed by its own liveness probe</size>\n<size:11>before it ever finishes booting — and restarted, and killed again: a boot loop</size>\n<size:11>that looks exactly like a crash but is really a misconfigured timeout.</size>" <<plain>> as why
+  sp -[hidden]down-> lv1
+  lv1 -[hidden]down-> rd1
+  rd1 -[hidden]down-> why
+}
+
+rectangle "Phase 2 · the app is up · liveness and readiness run for the rest of its life" <<groupGood>> as p2 {
+  rectangle "livenessProbe\n<size:11>“should this container be RESTARTED?”</size>\n<size:11>fails failureThreshold times → the kubelet KILLS the container,</size>\n<size:11>and the restartPolicy takes over. RESTARTS increments.</size>\n<size:11>initialDelaySeconds only starts counting NOW</size>" <<good>> as lv2
+  rectangle "readinessProbe\n<size:11>“should this Pod receive TRAFFIC?”</size>\n<size:11>fails → the Pod is marked not Ready, READY goes 1/1 → 0/1, and the</size>\n<size:11>EndpointSlice controller removes its IP from every matching Service.</size>\n<size:11>The container KEEPS RUNNING and keeps being probed — it can come back.</size>" <<good>> as rd2
+  rectangle "They are scheduled INDEPENDENTLY and run concurrently.\n<size:11>A Pod can be live but not ready (healthy, but a backend it needs is down)</size>\n<size:11>and that is the correct state: keep the process, stop the traffic.</size>" <<plain>> as indep
+  lv2 -right-> rd2
+  lv2 -[hidden]down-> indep
+}
+
+p1 -down-> p2 : the startup probe succeeds ONCE
+
+caption <i>The gating is the exam point: while a startup probe is failing, the other two are not merely tolerant of failure — they are not running at all. It is also why an over-tight startup probe is worse than none:</i>\n<i>if it exhausts failureThreshold × periodSeconds the kubelet kills the container just as a liveness probe would, and the app never gets to phase 2.</i>
+@enduml

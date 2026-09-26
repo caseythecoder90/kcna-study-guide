@@ -339,6 +339,19 @@ kubectl get pods -o json | jq -r '.items[] | select(.metadata.annotations."compa
 
 **metadata.annotations** on a Deployment = harmless. **spec.template.metadata.annotations** = new ReplicaSet and a **full rolling update**, because `.spec.template` changed. `kubectl rollout restart` uses that deliberately via `kubectl.kubernetes.io/restartedAt`.
 
+### 4k. Probes (chapter 04-14)
+
+```bash
+kubectl describe pod probe-demo | grep -A15 Events     # probe FAILURES appear here; successes never do
+kubectl get pod probe-demo                             # READY 0/1 vs 1/1 IS the readiness probe's verdict
+kubectl get pod probe-demo -o jsonpath='{.status.conditions}' | python -m json.tool
+kubectl get endpoints my-service                       # a not-ready Pod's IP is removed from here
+kubectl explain pod.spec.containers.startupProbe
+watch 'kubectl describe pod/probe-demo | sed 0,/Events:/d | tail -20; echo; kubectl logs pod/probe-demo --tail=15; echo; kubectl get pod/probe-demo'
+```
+
+**Startup** = has it booted? (gates the other two — they do not run until it succeeds once) · **Liveness** = restart the container? (destructive) · **Readiness** = send traffic? (reversible, changes the READY column). Defaults: `periodSeconds` **10**, `timeoutSeconds` **1**, `failureThreshold` **3**, `successThreshold` **1**, `initialDelaySeconds` **0**.
+
 ## 5. Observability tooling
 
 _Section 6._
