@@ -282,6 +282,21 @@ kubectl delete cronjob pi                               # cascades: Jobs, then t
 
 **`completions`** = how many Pods must finish **successfully in total**; **`parallelism`** = how many may run **at once**. `completions` left **null** makes it a work queue where any Pod's success completes the Job. Job Pods must use `restartPolicy: Never` or `OnFailure`.
 
+### 4g. ConfigMaps (chapter 04-10)
+
+```bash
+kubectl create configmap demo --from-literal=colour=blue           # one key per flag
+kubectl create configmap demo --from-file=app.properties           # ONE key, value = the whole file
+kubectl create configmap demo --from-env-file=app.properties       # ONE KEY PER LINE — the big distinction
+kubectl create configmap demo --from-file=./config-dir/ --dry-run=client -o yaml | tee demo-cm.yaml
+kubectl get cm demo -o yaml                                        # plain text in etcd — not a Secret
+kubectl patch configmap demo --type=merge -p '{"data":{"colour":"green"}}'
+kubectl exec mypod -- cat /etc/config/colour                       # volume: updates · printenv: does NOT · subPath: does NOT
+kubectl rollout restart deployment/web                             # how running Pods pick up new config
+```
+
+`--from-file` = one key holding a whole file · `--from-env-file` = one key per `key=value` line. Consume via `configMapKeyRef` (one key), `envFrom` (all keys), a volume mount (key → file) or `subPath` (one file). **1 MiB** limit; **`immutable: true` cannot be reverted**.
+
 ## 5. Observability tooling
 
 _Section 6._

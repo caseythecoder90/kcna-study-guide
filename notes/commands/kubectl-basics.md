@@ -431,6 +431,41 @@ kubectl delete job calculatepi --cascade=orphan         # leave the Pods running
 
 Defaults: `backoffLimit` **6** · `completions`/`parallelism` **1** when unset · `concurrencyPolicy` **Allow** · `successfulJobsHistoryLimit` **3** · `failedJobsHistoryLimit` **1**. A Job Pod's `restartPolicy` must be **`Never` or `OnFailure`** — never `Always`. Schedule fields: **minute hour day-of-month month day-of-week** ([crontab.guru](https://crontab.guru/)).
 
+## Chapter 10 — ConfigMaps
+
+```bash
+# Create — three sources, three very different results
+kubectl create configmap demo --from-literal=colour=blue --from-literal=size=large   # one key per flag
+kubectl create configmap demo --from-file=app.properties            # ONE key (the basename), value = the WHOLE file
+kubectl create configmap demo --from-file=cfg=app.properties        # same, but the key is renamed to cfg
+kubectl create configmap demo --from-file=./config-dir/             # every file in the directory becomes a key
+kubectl create configmap demo --from-env-file=app.properties        # ONE KEY PER LINE of key=value; the filename is gone
+kubectl create configmap demo --from-literal=colour=blue --append-hash   # demo-9f8cbt2k4m — how Kustomize forces a rollout
+
+# Generate the manifest instead of typing it
+kubectl create configmap demo --from-literal=colour=blue --from-file=app.properties --dry-run=client -o yaml | tee demo-cm.yaml
+kubectl apply -f demo-cm.yaml
+
+# Inspect
+kubectl get configmaps                                   # or cm
+kubectl get cm demo -o yaml                              # values are PLAIN TEXT — this is not a Secret
+kubectl describe cm demo
+kubectl get cm demo -o jsonpath='{.data.colour}{"\n"}'
+kubectl get cm demo -o jsonpath='{.data.app\.properties}'   # escape the dot in a key name
+
+# Change one, and watch what notices
+kubectl patch configmap demo --type=merge -p '{"data":{"colour":"green"}}'
+kubectl edit configmap demo
+kubectl exec mypod -- cat /etc/config/colour             # volume mount: updates within a kubelet sync period
+kubectl exec mypod -- printenv COLOUR                    # env var: NEVER updates — needs a Pod restart
+kubectl exec mypod -- cat /etc/single/app.properties     # subPath mount: NEVER updates either
+kubectl rollout restart deployment/web                   # the standard way to pick up new config
+
+kubectl delete configmap demo
+```
+
+Consuming one: `env` + `configMapKeyRef` (one key) · `envFrom` + `configMapRef` (all keys; invalid variable names are **skipped**) · a **volume mount** (each key becomes a file) · a volume mount with **`subPath`** (one key, one file). The Pod and the ConfigMap must be in the **same namespace**; a missing one blocks startup unless `optional: true`. Limit **1 MiB**; `immutable: true` **cannot be reverted**.
+
 ## The API behind kubectl
 
 ```bash

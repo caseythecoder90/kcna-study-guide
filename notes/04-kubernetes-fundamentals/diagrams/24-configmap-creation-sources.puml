@@ -1,0 +1,19 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three ways to fill a ConfigMap — and the keys each one produces
+
+rectangle "app.properties on disk\n<size:11>colour=blue</size>\n<size:11>size=large</size>\n<size:11>retries=3</size>" <<muted>> as file
+
+rectangle "~-~-from-literal=key=value\n<size:11>kubectl create cm demo ~-~-from-literal=colour=blue ~-~-from-literal=size=large</size>\n\n<size:11>ONE key per flag, typed by hand. Repeat the flag for more.</size>\n\n<size:11>data:</size>\n<size:11>  colour: blue</size>\n<size:11>  size: large</size>" <<plain>> as lit
+
+rectangle "~-~-from-file=app.properties\n<size:11>kubectl create cm demo ~-~-from-file=app.properties</size>\n\n<size:11>ONE key for the WHOLE FILE. The key is the file's basename,</size>\n<size:11>the value is its entire contents, newlines and all.</size>\n\n<size:11>data:</size>\n<size:11>  app.properties: |</size>\n<size:11>    colour=blue</size>\n<size:11>    size=large</size>\n<size:11>    retries=3</size>\n\n<size:11>~-~-from-file=cfg=app.properties renames the key to cfg</size>\n<size:11>~-~-from-file=dir/ takes every file in the directory</size>" <<accent>> as ff
+
+rectangle "~-~-from-env-file=app.properties\n<size:11>kubectl create cm demo ~-~-from-env-file=app.properties</size>\n\n<size:11>MANY keys from ONE file. Each LINE is parsed as key=value.</size>\n<size:11>The filename disappears entirely.</size>\n\n<size:11>data:</size>\n<size:11>  colour: blue</size>\n<size:11>  size: large</size>\n<size:11>  retries: “3”</size>" <<good>> as fef
+
+file -down-> ff : the same file
+file -down-> fef : the same file
+lit -[hidden]right-> ff
+ff -[hidden]right-> fef
+
+caption <i>The pair that catches people: the same file through ~-~-from-file gives ONE key holding the whole text, and through ~-~-from-env-file gives ONE KEY PER LINE. Use ~-~-from-file when the container wants a config FILE</i>\n<i>(nginx.conf, application.yaml) and ~-~-from-env-file when it wants ENVIRONMENT VARIABLES. Keys must be alphanumeric plus - _ . — and the whole ConfigMap may not exceed 1 MiB.</i>
+@enduml
