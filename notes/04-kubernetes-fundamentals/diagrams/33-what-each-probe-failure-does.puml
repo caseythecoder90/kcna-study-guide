@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three probes, three consequences
+
+rectangle "The kubelet runs the probe and gets one of three results\n<size:11>Success — passed · Failure — failed · Unknown — the diagnostic itself failed, take no action and check again</size>\n<size:11>A probe you did NOT configure always counts as Success. Readiness alone counts as FAILURE before its initial delay.</size>" <<accent>> as res
+
+rectangle "livenessProbe fails failureThreshold times" <<groupBad>> as lv {
+  rectangle "the kubelet KILLS the container\n<size:11>then the Pod's restartPolicy decides — Always or OnFailure restarts it</size>\n<size:11>RESTARTS increments · repeated failures give CrashLoopBackOff (chapter 03)</size>\n<size:11>the Pod object survives; it keeps its name and its IP</size>\n\n<size:11>Use for: a deadlock — the process is running but making no progress.</size>\n<size:11>If your app crashes on its own when unhealthy, you may not need one at all.</size>" <<bad>> as lvb
+}
+
+rectangle "readinessProbe fails failureThreshold times" <<group>> as rd {
+  rectangle "the Pod is marked NOT READY\n<size:11>READY goes 1/1 → 0/1 in kubectl get pods</size>\n<size:11>the EndpointSlice controller removes its IP from EVERY matching Service</size>\n<size:11>NOTHING IS RESTARTED — the container runs on and keeps being probed,</size>\n<size:11>so it rejoins automatically when it recovers</size>\n\n<size:11>Use for: warm-up, a temporary overload, a backend dependency being down,</size>\n<size:11>or taking a Pod out of rotation for maintenance on purpose.</size>" <<accent>> as rdb
+}
+
+rectangle "startupProbe fails failureThreshold times" <<groupBad>> as sp {
+  rectangle "the kubelet KILLS the container — same as liveness\n<size:11>subject to the restart policy, and then the startup probe begins again</size>\n<size:11>the budget is failureThreshold × periodSeconds; exceed it and the app is</size>\n<size:11>killed for being slow, not for being broken</size>\n\n<size:11>Use for: anything that takes longer to boot than</size>\n<size:11>initialDelaySeconds + failureThreshold × periodSeconds of the liveness probe.</size>" <<bad>> as spb
+}
+
+res -down-> lv
+res -down-> rd
+res -down-> sp
+
+rectangle "The one-sentence version\n<size:11>LIVENESS asks “should this container be restarted?” · READINESS asks “should this Pod receive traffic?” · STARTUP asks “has it finished booting yet?”</size>\n<size:11>Only readiness changes the READY column. Only readiness leaves the process alone. successThreshold MUST be 1 for liveness and startup — a container cannot be half-restarted.</size>" <<good>> as sum
+
+rd -[hidden]down-> sum
+
+caption <i>The distinction that matters in production: a liveness failure is destructive and a readiness failure is reversible. Putting a database dependency in a liveness probe turns one database blip into a cluster-wide restart storm;</i>\n<i>putting it in a readiness probe simply stops traffic until the database is back. Liveness should test the process, readiness should test whether it can usefully serve.</i>
+@enduml
