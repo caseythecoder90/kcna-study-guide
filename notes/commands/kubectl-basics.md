@@ -466,6 +466,35 @@ kubectl delete configmap demo
 
 Consuming one: `env` + `configMapKeyRef` (one key) · `envFrom` + `configMapRef` (all keys; invalid variable names are **skipped**) · a **volume mount** (each key becomes a file) · a volume mount with **`subPath`** (one key, one file). The Pod and the ConfigMap must be in the **same namespace**; a missing one blocks startup unless `optional: true`. Limit **1 MiB**; `immutable: true` **cannot be reverted**.
 
+## Chapter 11 — Secrets
+
+```bash
+# Create — three subcommands, matching the three common types
+kubectl create secret generic db-creds --from-literal=username=admin --from-literal=password=supersecret   # → Opaque
+kubectl create secret generic ssh-key --from-file=ssh-privatekey=$HOME/.ssh/id_rsa
+kubectl create secret generic app-env --from-env-file=app.env        # same --from-* semantics as ConfigMaps
+kubectl create secret docker-registry regcred --docker-server=registry.example.com --docker-username=me --docker-password=pw
+kubectl create secret tls my-site-tls --cert=tls.crt --key=tls.key   # → kubernetes.io/tls, needs tls.crt + tls.key
+kubectl create secret generic db-creds --from-literal=password=pw --dry-run=client -o yaml | tee secret.yaml
+
+# Inspect — and see why "encoded, not encrypted" matters
+kubectl get secrets                                      # TYPE column · DATA = number of KEYS, not bytes
+kubectl describe secret db-creds                         # values REDACTED here...
+kubectl get secret db-creds -o yaml                      # ...but plainly base64 here
+kubectl get secret db-creds -o jsonpath='{.data.password}' | base64 -d    # one command undoes it
+kubectl get secret my-site-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -subject -dates
+
+# Who can read them (chapter 04-04 RBAC)
+kubectl auth can-i get secrets
+kubectl auth can-i list secrets --as=system:serviceaccount:default:default
+# list or watch on Secrets = read EVERY Secret in the namespace
+# anyone who can create a Pod can mount a Secret and print it
+
+kubectl delete secret db-creds
+```
+
+Consuming one: `env` + **`secretKeyRef`** (one key) · `envFrom` + **`secretRef`** (all keys; invalid variable names are skipped) · a **`secret` volume** (each key a file, held in **tmpfs**) · **`imagePullSecrets`** for private registries. Types: **`Opaque` (default)**, `service-account-token`, `dockercfg`, `dockerconfigjson`, `basic-auth`, `ssh-auth`, **`kubernetes.io/tls`**, `bootstrap.kubernetes.io/token`. **`data`** = base64 · **`stringData`** = plaintext, write-only. 1 MiB; `immutable: true` cannot be reverted.
+
 ## The API behind kubectl
 
 ```bash
