@@ -352,6 +352,25 @@ watch 'kubectl describe pod/probe-demo | sed 0,/Events:/d | tail -20; echo; kube
 
 **Startup** = has it booted? (gates the other two — they do not run until it succeeds once) · **Liveness** = restart the container? (destructive) · **Readiness** = send traffic? (reversible, changes the READY column). Defaults: `periodSeconds` **10**, `timeoutSeconds` **1**, `failureThreshold` **3**, `successThreshold` **1**, `initialDelaySeconds` **0**.
 
+## 4A. The Kubernetes API (section 5)
+
+### 4A-a. Talking to the API (chapter 05-01)
+
+```bash
+kubectl get nodes --v=6                      # the URL kubectl calls · --v=8 adds request/response BODIES
+kubectl api-resources ; kubectl api-versions # what THIS server serves, CRDs included
+kubectl explain pod.spec                     # the OpenAPI schema, read from the server
+kubectl proxy &                              # authenticated proxy on :8001
+curl -s localhost:8001/api/v1/nodes | head           # core group
+curl -s localhost:8001/apis/apps/v1/deployments | head   # named group
+curl -s localhost:8001/openapi/v2 | head             # the Swagger document
+kubectl auth can-i --list                    # what the authorization stage allows you
+kubectl get crds ; kubectl api-resources --api-group=example.com
+kubectl convert -f old-ingress.yaml --output-version networking.k8s.io/v1
+```
+
+Three stages: **authentication** (401) → **authorization** (403; `--authorization-mode`, **defaults to `AlwaysAllow`**) → **admission control** (mutating then validating; **never on reads**) → validation → etcd. Versions: **alpha** may vanish without notice · **beta** gets 9 months or 3 releases after deprecation · **GA** is not removed within a major version (12 months or 3 releases minimum). **Rule #7: deprecated behaviours must function for no less than 1 year.**
+
 ## 5. Observability tooling
 
 _Section 6._

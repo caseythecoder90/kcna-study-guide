@@ -1,0 +1,38 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title kubectl is an HTTP client — and the API it calls can be extended
+
+rectangle "kubectl get nodes ~-~-v=6\n<size:11>I0722 16:51:26  loader.go:373] Config loaded from file: /root/.kube/config</size>\n<size:11>I0722 16:51:26  round_trippers.go:553] GET https://127.0.0.1:6443/api/v1/nodes?limit=500 200 OK in 3 milliseconds</size>" <<accent>> as cmd
+
+rectangle "The same line, taken apart" <<group>> as parts {
+  rectangle "METHOD  GET\n<size:11>get→GET · create→POST · apply/replace→PUT · patch→PATCH · delete→DELETE</size>" <<plain>> as m
+  rectangle "HOST  https://127.0.0.1:6443\n<size:11>read from ~/.kube/config — the context's cluster (chapter 04-04)</size>" <<plain>> as h
+  rectangle "PATH  /api/v1/nodes\n<size:11>group + version + resource</size>" <<plain>> as p
+  rectangle "QUERY  ?limit=500     RESPONSE  200 OK\n<size:11>kubectl paginates for you</size>" <<plain>> as q
+  m -[hidden]down-> h
+  h -[hidden]down-> p
+  p -[hidden]down-> q
+}
+
+rectangle "Two shapes of path, and that is all there is" <<groupGood>> as groups {
+  rectangle "CORE group — also called LEGACY\n<size:11>REST path /api/v1/...</size>\n<size:11>apiVersion: v1 — the group is NOT named</size>\n<size:11>Pod · Service · Node · Namespace · ConfigMap · Secret · PersistentVolume</size>" <<good>> as core
+  rectangle "NAMED groups\n<size:11>REST path /apis/GROUP/VERSION/...</size>\n<size:11>apiVersion: GROUP/VERSION</size>\n<size:11>apps/v1 Deployment · batch/v1 Job · networking.k8s.io/v1 Ingress</size>\n<size:11>rbac.authorization.k8s.io/v1 Role · discovery.k8s.io/v1 EndpointSlice</size>" <<good>> as named
+  core -right-> named
+}
+
+rectangle "This is why apiVersion looks inconsistent\n<size:11>kind: Pod → apiVersion: v1          (core group, no name)</size>\n<size:11>kind: Deployment → apiVersion: apps/v1   (named group)</size>\n<size:11>Not a quirk — it is the REST path written into the object.</size>" <<plain>> as why
+
+rectangle "Listing what a cluster actually serves\n<size:11>kubectl api-resources — NAME · SHORTNAMES · APIVERSION · NAMESPACED · KIND</size>\n<size:11>kubectl api-versions — every group/version the server offers</size>\n<size:11>Both read the LIVE server, so they include anything added by a CRD</size>" <<muted>> as list
+
+rectangle "CRDs extend the API — the fourth study-tip area" <<groupGood>> as crd {
+  rectangle "Install a CustomResourceDefinition and the API server grows a new path.\n<size:11>apiVersion: mysql.oracle.com/v2 · kind: InnoDBCluster</size>\n<size:11>→ served at /apis/mysql.oracle.com/v2/innodbclusters</size>\n\n<size:11>From that moment it is a first-class citizen: kubectl get innodbclusters works,</size>\n<size:11>RBAC covers it, it is stored in etcd, it appears in api-resources, it can be</size>\n<size:11>watched. An OPERATOR is a controller watching that new kind and reconciling it —</size>\n<size:11>the same control loop the built-in controllers use, for your own object.</size>\n\n<size:11>Note what a CRD does NOT bring: no behaviour. A CRD adds the NOUN; the</size>\n<size:11>operator supplies the VERB.</size>" <<good>> as crdb
+}
+
+cmd -down-> parts
+parts -down-> groups
+groups -down-> why
+why -down-> list
+list -down-> crd
+
+caption <i>Everything in this repository so far has been an HTTP call to one server. kubectl ~-~-v=6 shows the URL, ~-~-v=8 adds the request and response bodies — which is how you crib a JSON payload before writing it into your own client.</i>\n<i>kubectl proxy publishes the same API, unauthenticated, on localhost:8001, so curl localhost:8001/openapi/v2 fetches the OpenAPI spec that Swagger UI and every generated client library are built from.</i>
+@enduml

@@ -1,0 +1,89 @@
+# A CustomResourceDefinition that adds a brand new kind to the API server.
+#
+# The point of this file is to show what a CRD DOES and, just as importantly,
+# what it does NOT do: it adds the NOUN, not the VERB.
+#
+#   kubectl apply -f widget-crd.yaml
+#
+#   # the API server has grown a new REST path:
+#   kubectl api-resources | grep widget
+#   kubectl api-versions | grep example.com
+#   kubectl proxy &
+#   curl -s localhost:8001/apis/example.com/v1/widgets | head
+#
+#   # it is a first-class citizen now — kubectl, explain and RBAC all work:
+#   kubectl explain widget.spec
+#   kubectl auth can-i list widgets
+#
+#   kubectl apply -f widget-instance.yaml
+#   kubectl get widgets            # or `kubectl get wid`, via the short name
+#   kubectl get widget my-widget -o yaml
+#   kubectl describe widget my-widget
+#
+#   # ...and NOTHING ELSE HAPPENS. No Pod, no Deployment, no colour applied
+#   # anywhere. The object is validated and stored in etcd, and that is all a
+#   # CRD promises. An OPERATOR — a controller watching this kind — is what
+#   # would reconcile it into real infrastructure.
+#
+#   kubectl delete -f widget-instance.yaml -f widget-crd.yaml
+#   # deleting the CRD deletes every Widget with it (ownership cascades)
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # The name MUST be <plural>.<group>
+  name: widgets.example.com
+spec:
+  group: example.com
+
+  # Namespaced (like a Pod) or Cluster (like a Node). Chapter 04-04's split,
+  # and you choose which side your resource lands on.
+  scope: Namespaced
+
+  names:
+    plural: widgets
+    singular: widget
+    kind: Widget
+    shortNames:
+    - wid              # `kubectl get wid` — the SHORTNAMES column of api-resources
+
+  versions:
+  - name: v1
+    served: true       # is this version reachable at /apis/example.com/v1/...
+    storage: true      # exactly one version must be the storage version
+    schema:
+      # The API server VALIDATES against this, the same way it validates a Pod.
+      # It is also what `kubectl explain widget.spec` reads.
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required: ["colour"]
+            properties:
+              colour:
+                type: string
+                enum: ["red", "green", "blue"]
+                description: The widget's colour. Try an invalid one to see the API server reject it.
+              size:
+                type: integer
+                minimum: 1
+                maximum: 100
+                default: 10
+                description: How big the widget is.
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+    # Adds columns to `kubectl get widgets`, just like the built-in kinds have.
+    additionalPrinterColumns:
+    - name: Colour
+      type: string
+      jsonPath: .spec.colour
+    - name: Size
+      type: integer
+      jsonPath: .spec.size
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp

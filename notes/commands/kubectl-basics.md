@@ -602,12 +602,50 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
-## The API behind kubectl
+## Chapter 05-01 — The API behind kubectl
 
 ```bash
-kubectl get pods -v=8 2>&1 | grep -E 'GET|Response Status'   # the REST calls kubectl is making
-kubectl proxy &  ;  curl -s localhost:8001/api/v1/namespaces/default/pods | head   # the API without kubectl
-kubectl api-resources                                          # every kind the API server knows, incl. CRDs
-kubectl api-versions
-kubectl explain pod.spec                                       # the PodSpec, field by field
+# kubectl is an HTTP client. Turn the verbosity up and watch it.
+kubectl get nodes --v=6          # the URL and the status code
+kubectl get nodes --v=7          # adds request HEADERS
+kubectl get pods   --v=8         # adds request and response BODIES (truncated)
+kubectl get pods   --v=9         # the same, UNTRUNCATED
+kubectl get pods --v=8 2>&1 | grep -E 'Request Body|Response Status'
+# the --v=8 body is the smallest working payload for that operation — a better
+# starting point for your own client than the full OpenAPI schema
+
+# What this cluster actually serves
+kubectl api-resources                        # NAME · SHORTNAMES · APIVERSION · NAMESPACED · KIND
+kubectl api-resources --namespaced=false
+kubectl api-resources --api-group=apps
+kubectl api-versions                         # every group/version, incl. anything added by a CRD
+kubectl explain pod.spec                     # reads the OpenAPI schema from THIS server
+kubectl explain pdb --api-version=policy/v1  # pin the version explicitly
+
+# Call the API without kubectl
+kubectl proxy &                              # authenticates with your kubeconfig, serves it on :8001
+curl -s localhost:8001/api/v1/nodes | head                   # core group: /api/v1/...
+curl -s localhost:8001/apis/apps/v1/deployments | head       # named group: /apis/GROUP/VERSION/...
+curl -s localhost:8001/openapi/v2 | head                     # the OpenAPI (Swagger) document
+curl -s localhost:8001/openapi/v3 | head                     # the v3 index, split per group/version
+curl -s localhost:8001/version                               # the server's version
+
+# Authorization mode this API server is running
+kubectl -n kube-system get pod -l component=kube-apiserver -o yaml | grep authorization-mode
+# ...or on a kubeadm control plane: grep authorization-mode /etc/kubernetes/manifests/kube-apiserver.yaml
+# DEFAULTS TO AlwaysAllow if the flag is absent. Real clusters use Node,RBAC.
+kubectl auth can-i --list                    # what the authorization stage will allow YOU
+kubectl auth can-i create deployments -n team-a
+
+# Deprecation — the API server warns, and kubectl prints it to STDERR
+kubectl apply -f old-manifest.yaml 2>&1 | grep -i 'Warning.*deprecated'
+kubectl convert -f old-ingress.yaml --output-version networking.k8s.io/v1   # kubectl-convert plugin
+# missing version after an upgrade → "no matches for kind ... in version ..."
+
+# CRDs extend all of the above
+kubectl get crds
+kubectl get crd widgets.example.com -o yaml
+kubectl api-resources --api-group=example.com
 ```
+
+Three stages every request passes: **authentication** (modules in sequence until one succeeds; fail → **401**) → **authorization** (**any** module allows → proceed; all deny → **403**) → **admission control** (**any** controller rejects → rejected; mutating then validating; **never on reads**) → validation → etcd. Paths: **core/legacy `/api/v1`** (`apiVersion: v1`) and **named `/apis/GROUP/VERSION`** (`apiVersion: GROUP/VERSION`).

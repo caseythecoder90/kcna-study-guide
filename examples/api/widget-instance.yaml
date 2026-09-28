@@ -1,0 +1,27 @@
+# An instance of the custom kind defined by widget-crd.yaml.
+#
+# Note the apiVersion: it is the REST path written into the object, exactly as
+# with any built-in. This object is served at
+#   /apis/example.com/v1/namespaces/default/widgets/my-widget
+#
+# Try breaking it to see the API server's schema validation reject the request
+# at the VALIDATION stage, after authn/authz/admission have all passed:
+#
+#   kubectl apply -f - <<'YAML'
+#   apiVersion: example.com/v1
+#   kind: Widget
+#   metadata: {name: bad-widget}
+#   spec: {colour: purple}
+#   YAML
+#   # Error: spec.colour: Unsupported value: "purple": supported values: "red", "green", "blue"
+#
+# And omit `size` to watch the schema default fill it in:
+#   kubectl get widget my-widget -o jsonpath='{.spec.size}{"\n"}'
+
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: my-widget
+spec:
+  colour: blue
+  # size omitted on purpose — the CRD schema defaults it to 10
