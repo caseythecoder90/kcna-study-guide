@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The life of an API version, and what each stage promises you
+
+rectangle "ALPHA · v1alpha1" <<groupBad>> as alpha {
+  rectangle "DISABLED by default — must be explicitly enabled on the API server\n<size:11>“May contain bugs. Support may be DROPPED AT ANY TIME WITHOUT NOTICE.</size>\n<size:11>The API may change in incompatible ways in a later release without notice.”</size>\n\n<size:11>Removal notice required: NONE — Rule #4a says alpha versions</size>\n<size:11>may be removed in any release without prior deprecation notice.</size>\n\n<size:11>Recommended for SHORT-LIVED TESTING CLUSTERS only.</size>" <<bad>> as a
+}
+
+rectangle "BETA · v2beta3" <<group>> as beta {
+  rectangle "DISABLED by default since 1.22\n<size:11>(betas introduced BEFORE 1.22 were enabled by default — that is why</size>\n<size:11>older clusters served things like batch/v1beta1 with no flag)</size>\n\n<size:11>“The software is WELL TESTED. Enabling a feature is considered SAFE.</size>\n<size:11>Support for a feature will not be dropped, though the details may change.”</size>\n\n<size:11>BUT: “the schema and/or semantics may change IN INCOMPATIBLE WAYS in a</size>\n<size:11>subsequent beta or stable version” — upgrades can need edits or re-creation.</size>\n\n<size:11>Lifetime: max 9 months or 3 minor releases from introduction to deprecation,</size>\n<size:11>then ANOTHER 9 months or 3 releases from deprecation to removal.</size>\n\n<size:11>NOT recommended for production.</size>" <<accent>> as b
+}
+
+rectangle "STABLE / GA · v1 · apps/v1" <<groupGood>> as ga {
+  rectangle "ENABLED and widely supported\n<size:11>“Stable API versions remain available for ALL FUTURE RELEASES within a</size>\n<size:11>Kubernetes MAJOR version, and there are no current plans for a major</size>\n<size:11>version revision of Kubernetes that removes stable APIs.”</size>\n\n<size:11>May still be DEPRECATED — but Rule #4a: must NOT be removed within a</size>\n<size:11>major version, and at minimum 12 months or 3 releases, whichever is longer.</size>\n\n<size:11>This is what you build production on.</size>" <<good>> as g
+}
+
+alpha -down-> beta : promoted
+beta -down-> ga : promoted
+
+rectangle "The two numbers the exam wants" <<group>> as rules {
+  rectangle "Rule #4a — API versions\n<size:11>GA: deprecated, but NOT removed within a major version</size>\n<size:11>     minimum 12 months or 3 releases, whichever is longer</size>\n<size:11>Beta: 9 months or 3 minor releases from deprecation to removal</size>\n<size:11>Alpha: may be removed in ANY release, no notice</size>" <<good>> as r1
+  rectangle "Rule #7 — features and behaviours\n<size:11>“Deprecated behaviors must function for NO LESS THAN 1 YEAR</size>\n<size:11>after their announced deprecation.”</size>\n<size:11>This is the one the study tips quote directly.</size>" <<accent>> as r2
+  rectangle "Rule #3 / Rule #8 — never downhill\n<size:11>An API version may not be deprecated in favour of a LESS STABLE one.</size>\n<size:11>GA can replace beta; beta cannot replace GA.</size>" <<plain>> as r3
+  r1 -[hidden]down-> r2
+  r2 -[hidden]down-> r3
+}
+
+beta -[hidden]right-> rules
+
+caption <i>The name tells you the contract. v1alpha1 can vanish next release; v2beta3 is safe to use but its shape may change and it has a removal clock running; v1 is a promise for the lifetime of Kubernetes 1.x.</i>\n<i>Read an apiVersion in a manifest as a risk statement, not just a path — that is the habit the CKAD and the KCNA are both testing.</i>
+@enduml

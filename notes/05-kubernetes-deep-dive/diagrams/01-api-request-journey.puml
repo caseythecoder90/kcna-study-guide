@@ -1,0 +1,33 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Every request to Kubernetes, and the three gates it must pass
+
+rectangle "Everything that touches the cluster arrives here\n<size:11>kubectl · Helm · client libraries · Prometheus · metrics-server</size>\n<size:11>every controller in the controller-manager · the scheduler · every kubelet</size>\n<size:11>HTTPS to the API server on :6443 — there is no other door in</size>" <<muted>> as clients
+
+rectangle "TLS is established" <<plain>> as tls
+
+rectangle "1 · AUTHENTICATION — who are you?" <<group>> as authn {
+  rectangle "Modules are tried IN SEQUENCE UNTIL ONE SUCCEEDS\n<size:11>client certificates · bearer tokens · bootstrap tokens · JWTs for ServiceAccounts</size>\n<size:11>output: a username, and sometimes groups</size>\n\n<size:11>Kubernetes has NO User object — it never stores users. Identity comes from</size>\n<size:11>a certificate or a token issued elsewhere.</size>\n\n<size:11>FAILS → HTTP 401 Unauthorized</size>" <<accent>> as a1
+}
+
+rectangle "2 · AUTHORIZATION — may you do this?" <<group>> as authz {
+  rectangle "Set by ~-~-authorization-mode: an ORDERED LIST of plug-ins\n<size:11>Node · RBAC · ABAC · Webhook · AlwaysAllow · AlwaysDeny</size>\n<size:11>DEFAULTS TO AlwaysAllow if not set — a cluster with no flag authorizes everything</size>\n\n<size:11>Asks: this username, this verb, this resource, this namespace?</size>\n<size:11>IF ANY MODULE ALLOWS, the request proceeds.</size>\n\n<size:11>ALL modules deny → HTTP 403 Forbidden</size>" <<accent>> as a2
+}
+
+rectangle "3 · ADMISSION CONTROL — should this be allowed, and is it complete?" <<groupBad>> as adm {
+  rectangle "Called IN ORDER — and the logic INVERTS here\n<size:11>IF ANY CONTROLLER REJECTS, the request is immediately rejected</size>\n<size:11>(authentication and authorization needed only ONE module to say yes)</size>\n\n<size:11>MUTATING controllers run first and can CHANGE the object — inject a sidecar,</size>\n<size:11>apply LimitRange defaults, add a ServiceAccount token</size>\n<size:11>VALIDATING controllers then accept or reject — ResourceQuota, PodSecurity</size>\n\n<size:11>Acts only on create, modify, delete and connect. NEVER on reads.</size>" <<bad>> as a3
+}
+
+rectangle "4 · Validation, then the object store\n<size:11>the API object's own validation routines run, then it is written to etcd</size>\n<size:11>the API server is the ONLY component that talks to etcd (chapter 04-01)</size>" <<good>> as store
+
+rectangle "Response returned to the caller\n<size:11>and every watcher — the scheduler, the controllers, the kubelets — sees the change</size>" <<good>> as resp
+
+clients -down-> tls
+tls -down-> authn
+authn -down-> authz
+authz -down-> adm
+adm -down-> store
+store -down-> resp
+
+caption <i>The study tips ask for “the main three stages”: AUTHENTICATION, AUTHORIZATION, ADMISSION CONTROL. The asymmetry between them is the detail worth carrying — the first two pass if any one module says yes,</i>\n<i>while admission fails if any one module says no. A read request stops after stage 2, because admission controllers never run on reads.</i>
+@enduml
