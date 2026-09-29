@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three ways to prove who you are — and one set of rules afterwards
+
+rectangle "NORMAL USERS — managed OUTSIDE Kubernetes" <<group>> as ext {
+  rectangle "X.509 client certificate\n<size:11>the kubeadm and k3s default, and every lab</size>\n<size:11>CN → username · O → groups</size>\n<size:11>issued by the cluster CA, often via a CertificateSigningRequest</size>\n<size:11>no revocation — valid until it expires</size>" <<accent>> as cert
+  rectangle "OIDC / SSO token — how enterprises actually do it\n<size:11>you run a login command, it talks to the identity provider</size>\n<size:11>(Entra ID, Okta, ADFS, Google) and writes tokens into your kubeconfig</size>\n\n<size:11>auth-provider or exec, holding:</size>\n<size:11>  id-token      a signed JWT — THIS is the identity</size>\n<size:11>  refresh-token used to renew silently when the id-token expires</size>\n<size:11>  idp-issuer-url + client-id   which provider, which application</size>\n\n<size:11>kubectl sends Authorization: Bearer <id-token>. The API server checks</size>\n<size:11>the signature and the expiry, then reads the username and groups</size>\n<size:11>FROM THE JWT'S CLAIMS instead of a certificate Subject.</size>\n\n<size:11>Short-lived by design, which is the answer to “certificates cannot be revoked”.</size>" <<accent>> as oidc
+  cert -[hidden]down-> oidc
+}
+
+rectangle "SERVICE ACCOUNTS — managed BY Kubernetes" <<groupGood>> as sa {
+  rectangle "A real API object: kubectl get serviceaccounts\n<size:11>for APPLICATIONS running inside the cluster, not humans</size>\n<size:11>TIED TO A NAMESPACE · every Pod gets one (default) unless told otherwise</size>\n<size:11>its token is projected into the Pod and used as a bearer token</size>\n<size:11>username is system:serviceaccount:<namespace>:<name></size>\n<size:11>groups include system:serviceaccounts and system:serviceaccounts:<namespace></size>" <<good>> as s
+}
+
+rectangle "AUTHENTICATION produces the same three things, whichever route you took\n<size:11>a USERNAME · a set of GROUPS · (plus system:authenticated, always)</size>" <<accent>> as out
+
+rectangle "AUTHORIZATION — RBAC does not care how you authenticated\n<size:11>Roles and ClusterRoles say WHAT may be done; RoleBindings and ClusterRoleBindings say WHO may do it,</size>\n<size:11>and the WHO is just a subject: User, Group, or ServiceAccount — a STRING.</size>\n<size:11>Swap client certificates for SSO tomorrow and every binding still applies, as long as the names match.</size>\n<size:11>That separation is the authentication/authorization split from chapter 05-01, made concrete.</size>" <<good>> as rbac
+
+ext -down-> out
+sa -down-> out
+out -down-> rbac
+
+caption <i>Two categories of user, and only one of them is a Kubernetes object: “Kubernetes does not have objects which represent normal user accounts. Normal users cannot be added to a cluster through an API call.”</i>\n<i>ServiceAccounts can — which is exactly why they exist. Humans come from a certificate or an identity provider; workloads come from the API.</i>
+@enduml

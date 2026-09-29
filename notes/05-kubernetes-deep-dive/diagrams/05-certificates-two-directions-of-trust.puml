@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two certificates, two directions of trust
+
+rectangle "The cluster's Certificate Authority\n<size:11>created when the cluster was built · a core component</size>\n<size:11>holds a PRIVATE key (kept on the control plane) and a PUBLIC certificate</size>\n<size:11>anything signed by the private key can be verified with the public one</size>" <<accent>> as ca
+
+rectangle "Direction 1 · you verify the SERVER" <<groupGood>> as d1 {
+  rectangle "certificate-authority-data in your kubeconfig\n<size:11>the CA's PUBLIC certificate — safe to share, it verifies but cannot sign</size>\n\n<size:11>The API server presents its own certificate, signed by that CA.</size>\n<size:11>Your client checks the signature against the public cert it already holds.</size>\n\n<size:11>WHY: so you are talking to the GENUINE API server and not an imposter.</size>\n<size:11>This is what protects you from a man-in-the-middle attack.</size>" <<good>> as v1
+}
+
+rectangle "Direction 2 · the server verifies YOU" <<groupGood>> as d2 {
+  rectangle "client-certificate-data + client-key-data in your kubeconfig\n<size:11>a certificate SIGNED BY THE CA, plus YOUR private key (never shared)</size>\n\n<size:11>The API server checks the signature with the CA's public cert.</size>\n<size:11>Valid signature = an identity this cluster issued = authenticated.</size>\n\n<size:11>Both directions at once is MUTUAL TLS — chapter 02-02's mTLS, in your own kubeconfig.</size>" <<good>> as v2
+}
+
+rectangle "And the identity itself is IN the certificate's Subject" <<group>> as subj {
+  rectangle "Subject: O = system:masters, CN = system:admin\n\n<size:11>CN = Common Name = THE USERNAME</size>\n<size:11>O  = Organisation = A GROUP  (repeat O for multiple groups)</size>\n\n<size:11>echo <base64> | base64 -d | openssl x509 -noout -subject</size>\n<size:11>is how you read who a kubeconfig actually is.</size>\n\n<size:11>Every successful authentication also joins the group system:authenticated.</size>" <<accent>> as s
+}
+
+rectangle "The consequence that catches people\n<size:11>Kubernetes has NO User object. A certificate signed by the CA with a CN and an O simply IS a valid</size>\n<size:11>user and group — nothing was created, nothing can be listed, and there is no kubectl delete user.</size>\n<size:11>Worse: Kubernetes does NOT SUPPORT CERTIFICATE REVOCATION. An issued certificate stays valid until it</size>\n<size:11>EXPIRES. Removing access means removing the RBAC bindings, or rotating the CA.</size>" <<bad>> as conseq
+
+ca -down-> d1
+ca -down-> d2
+d2 -down-> subj
+subj -down-> conseq
+
+caption <i>The asymmetry is the whole idea: the PUBLIC certificate goes in your kubeconfig because it can only verify, never sign. The PRIVATE key stays on the control plane. Anything the private key signed,</i>\n<i>the public certificate proves — which is why a file you can safely email around is enough to detect an imposter server, and why your client key must never leave your machine.</i>
+@enduml
