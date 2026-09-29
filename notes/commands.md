@@ -406,6 +406,27 @@ kubectl auth can-i --list ; kubectl auth whoami
 
 **No deny rules — permissions are purely additive.** Roles = **what**, bindings = **who**; a role is inert until bound. Subjects are **User**, **Group** or **ServiceAccount** — the first two are just **strings that need not exist**. **`roleRef` is immutable.** Default user-facing ClusterRoles: **`cluster-admin`, `admin`, `edit`, `view`** (and `view` **cannot read Secrets**).
 
+### 4A-d. The CSR pipeline and namespaced Roles (chapter 05-04)
+
+```bash
+openssl genrsa -out batman.key 4096
+openssl req -new -key batman.key -out batman.csr -subj "/CN=batman/O=cluster-superheroes" -sha256
+CSR_DATA=$(base64 batman.csr | tr -d '\n')          # strip base64's line wraps
+# → CertificateSigningRequest with signerName kubernetes.io/kube-apiserver-client, usages [client auth]
+kubectl apply -f batman-csr-request.yaml ; kubectl get csr        # Pending
+kubectl certificate approve batman                                 # NEVER auto-approved — this is the control
+kubectl get csr batman -o jsonpath='{.status.certificate}' | base64 -d > batman.crt
+KUBECONFIG=batman.config kubectl config set-credentials batman --client-certificate=batman.crt --client-key=batman.key --embed-certs=true
+
+kubectl create clusterrole cluster-watcher --verb=list,get,watch --resource='*'    # read-only everywhere
+kubectl -n gryffindor create role gryffindor-admin --verb='*' --resource='*'       # everything, one namespace
+kubectl -n gryffindor create rolebinding gryffindor-admin --role=gryffindor-admin --group=gryffindor-admins
+kubectl auth can-i '*' '*' --as-group=gryffindor-admins --as=harry                 # no  — cluster-wide
+kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry   # yes — same identity, only -n changed
+```
+
+**`can-i '*' '*'` says no for anything but a true superuser** — `*` is a literal verb. Two dials: the **verb list** narrows *what*, the **binding kind** narrows *where*. A **RoleBinding referencing a ClusterRole** applies it inside one namespace.
+
 ## 5. Observability tooling
 
 _Section 6._

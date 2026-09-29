@@ -7,6 +7,7 @@ Companion script for [`05-02 RBAC part 1`](../../notes/05-kubernetes-deep-dive/0
 | [`create-user-certificate.sh`](create-user-certificate.sh) | Builds a second identity from scratch: private key → CSR → Kubernetes `CertificateSigningRequest` → admin approval → signed certificate → a new kubeconfig context |
 | [`cluster-superhero.yaml`](cluster-superhero.yaml) | Rebuilds the built-in superuser from scratch — a ClusterRole with every verb on every resource, bound to a group that does not exist |
 | [`pod-reader.yaml`](pod-reader.yaml) | The minimum viable grant, and the fix for the deliberate `403` above |
+| [`scoped-roles.yaml`](scoped-roles.yaml) | The two roles that are **not** "everything": a read-only ClusterRole, and a namespaced Role + RoleBinding |
 
 ```bash
 bash create-user-certificate.sh
@@ -92,4 +93,37 @@ Three usernames that exist nowhere, all granted everything — and the same user
 
 ```bash
 kubectl delete -f cluster-superhero.yaml -f pod-reader.yaml
+```
+
+## Part 3 — the two dials
+
+```bash
+kubectl apply -f scoped-roles.yaml
+```
+
+**Dial one: the verb list.** `cluster-watcher` differs from `cluster-superhero` by exactly one field — the verbs. The resource is still `*`.
+
+```bash
+kubectl auth can-i '*' '*'     --as-group=cluster-watchers --as=uatu   # NO
+kubectl auth can-i list pods   --as-group=cluster-watchers --as=uatu   # yes
+kubectl auth can-i delete pods --as-group=cluster-watchers --as=uatu   # no
+kubectl auth can-i --list      --as-group=cluster-watchers --as=uatu
+```
+
+That first `no` is not a bug. **`'*'` is a literal verb being asked about**, and the role grants only `list`, `get` and `watch` — so `*` is not in the set. Only a genuine superuser answers yes to `can-i '*' '*'`. For anything narrower, ask a specific question or use `--list`.
+
+**Dial two: the binding kind.** `gryffindor-admin` grants every verb on every resource — inside one namespace.
+
+```bash
+kubectl auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
+# no
+
+kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
+# yes
+```
+
+**Identical user, identical group, identical role. Only `-n` changed.** Without a namespace the question is cluster-wide, and this identity has no cluster-wide permissions at all.
+
+```bash
+kubectl delete -f scoped-roles.yaml
 ```
