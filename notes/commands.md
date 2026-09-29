@@ -371,6 +371,26 @@ kubectl convert -f old-ingress.yaml --output-version networking.k8s.io/v1
 
 Three stages: **authentication** (401) → **authorization** (403; `--authorization-mode`, **defaults to `AlwaysAllow`**) → **admission control** (mutating then validating; **never on reads**) → validation → etcd. Versions: **alpha** may vanish without notice · **beta** gets 9 months or 3 releases after deprecation · **GA** is not removed within a major version (12 months or 3 releases minimum). **Rule #7: deprecated behaviours must function for no less than 1 year.**
 
+### 4A-b. kubeconfig and identity (chapter 05-02)
+
+```bash
+kubectl config view --raw                    # the real file; `view` alone redacts secrets
+kubectl config get-contexts                  # * marks the current one
+kubectl config use-context prod-east         # switch cluster
+kubectl config set-context --current --namespace=team-a
+kubectl config rename-context <long-generated-name> prod-east      # names are arbitrary labels
+kubectl config set-cluster lab --server=https://10.0.0.10:6443 --certificate-authority=ca.crt --embed-certs=true
+export KUBECONFIG=~/.kube/config:~/.kube/work-config                # colon-separated; SEMICOLON on Windows
+kubectl config view --flatten > merged.yaml                         # one portable file
+
+kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' \
+  | base64 -d | openssl x509 -noout -subject     # CN = username · O = group
+kubectl auth can-i --list ; kubectl auth whoami
+kubectl get csr ; kubectl certificate approve james
+```
+
+A kubeconfig is **`clusters` (where) + `users` (credentials) + `contexts` (cluster + user + namespace) + `current-context`**. `certificate-authority-data` is the **CA public cert — you verify the SERVER**; `client-certificate-data`/`client-key-data` are how the **server verifies YOU**. Together that is **mTLS**.
+
 ## 5. Observability tooling
 
 _Section 6._

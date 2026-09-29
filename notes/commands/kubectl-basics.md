@@ -602,6 +602,72 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-02 — kubeconfig, certificates and identity
+
+```bash
+# The file itself
+kubectl config view                          # secrets REDACTED
+kubectl config view --raw                    # the real thing, base64 blobs included
+kubectl config view --minify                 # only the current context, resolved
+kubectl config view --flatten > merged.yaml  # embed every file reference — one portable file
+
+# Looking around
+kubectl config get-contexts                  # the * marks the current one
+kubectl config get-clusters ; kubectl config get-users
+kubectl config current-context
+kubectl config view --minify -o jsonpath='{.contexts[0].context.namespace}{"\n"}'
+
+# The two you use daily
+kubectl config use-context prod-east                       # switch CLUSTER
+kubectl config set-context --current --namespace=team-a    # switch NAMESPACE
+
+# Making a generated config readable — a context name is just a label
+kubectl config rename-context api.region-a.example.net/user@corp.example.com prod-east
+kubectl config delete-context old-cluster
+kubectl config delete-cluster old-cluster ; kubectl config delete-user old-user
+kubectl config unset users.old-user.password
+
+# Building entries by hand
+kubectl config set-cluster lab --server=https://10.0.0.10:6443 \
+  --certificate-authority=/etc/kubernetes/pki/ca.crt --embed-certs=true
+kubectl config set-credentials alice --client-certificate=alice.crt --client-key=alice.key --embed-certs=true
+kubectl config set-context alice@lab --cluster=lab --user=alice --namespace=dev
+# --embed-certs=true inlines the DATA; without it the file stores PATHS and is not portable
+
+# Several files at once (colon-separated; SEMICOLON on Windows)
+export KUBECONFIG=~/.kube/config:~/.kube/work-config:~/.kube/lab-config
+kubectl config get-contexts                  # merged view of all of them
+
+# Who am I, really? Decode the client certificate
+kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' \
+  | base64 -d | openssl x509 -noout -subject -dates
+# Subject: O = system:masters, CN = system:admin
+#   CN = Common Name = the USERNAME · O = Organisation = a GROUP (repeat O for several)
+kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' \
+  | base64 -d | openssl x509 -noout -text         # the whole certificate
+kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' \
+  | base64 -d | openssl x509 -noout -subject      # the CA's PUBLIC cert — verifies the server
+
+# Requesting a user certificate (the CSR flow)
+openssl genrsa -out james.key 2048
+openssl req -new -key james.key -out james.csr -subj "/CN=James/O=Wales"
+kubectl get csr
+kubectl certificate approve james                # an ADMIN decision, gated by RBAC
+kubectl get csr james -o jsonpath='{.status.certificate}' | base64 -d > james.crt
+
+# Identities the cluster does manage
+kubectl get serviceaccounts                      # or sa — ServiceAccounts ARE API objects
+kubectl get sa default -o yaml
+# username form: system:serviceaccount:<namespace>:<name>
+
+# What does the cluster think I can do?
+kubectl auth can-i --list
+kubectl auth can-i create deployments -n team-a
+kubectl auth whoami                              # the username and groups the API server sees
+```
+
+**No User object exists** — a certificate signed by the cluster CA with a `CN` and an `O` simply *is* a valid user and group, and **certificate revocation is not supported** (valid until expiry). Enterprise clusters use **OIDC** instead: the kubeconfig holds an `id-token` (a JWT — the identity), a `refresh-token` (silent renewal) and `idp-issuer-url`/`client-id`, and the username and groups come from the token's **claims**. **RBAC is identical either way.**
+
 ## Chapter 05-01 — The API behind kubectl
 
 ```bash
