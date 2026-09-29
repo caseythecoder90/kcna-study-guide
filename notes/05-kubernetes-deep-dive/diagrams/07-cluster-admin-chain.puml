@@ -1,0 +1,23 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title How your admin kubeconfig became a superuser — and why your username appears nowhere
+
+rectangle "1 · Your certificate, from chapter 05-02\n<size:11>Subject: O = system:masters, CN = system:admin</size>\n<size:11>CN → the USERNAME system:admin · O → the GROUP system:masters</size>" <<accent>> as cert
+
+rectangle "2 · Authentication produces a username AND a set of groups\n<size:11>username: system:admin</size>\n<size:11>groups:   system:masters, system:authenticated</size>\n<size:11>Nothing was looked up. The certificate ASSERTS the group and the CA's signature makes it credible.</size>" <<plain>> as authn
+
+rectangle "3 · A ClusterRoleBinding that shipped with the cluster\n<size:11>kubectl get clusterrolebindings -o wide</size>\n\n<size:11>NAME            ROLE                        USERS   GROUPS</size>\n<size:11>cluster-admin   ClusterRole/cluster-admin   <b>(empty)</b>  <b>system:masters</b></size>\n\n<size:11>It binds the SUBJECT Group system:masters to the ClusterRole cluster-admin.</size>" <<good>> as crb
+
+rectangle "4 · The ClusterRole it points at\n<size:11>kubectl describe ClusterRole/cluster-admin</size>\n\n<size:11>Resources  Non-Resource URLs  Resource Names  Verbs</size>\n<size:11>*.*        []                 []              [*]</size>\n<size:11>           [*]                []              [*]</size>\n\n<size:11>Every verb on every resource in every API group, plus every non-resource URL.</size>" <<good>> as cr
+
+rectangle "THE POINT: search the USERS column for system:admin and you will not find it." <<groupBad>> as point {
+  rectangle "There is no user of system:admin anywhere in Kubernetes — no object, no binding entry, nothing.\n\n<size:11>The binding names a GROUP. Your certificate claims membership of that group. Permissions given to a</size>\n<size:11>group are received by every user in it, so the username never has to be written down anywhere.</size>\n\n<size:11>“The user doesn't need to be listed in the clusterrolebinding output. If it is referenced in a signed</size>\n<size:11>CA certificate it is classed as in that group.”</size>\n\n<size:11>Which is also why a certificate cannot be revoked out of a group: the group membership IS the certificate.</size>" <<bad>> as p
+}
+
+cert -down-> authn
+authn -down-> crb : groups are the subject RBAC matches on
+crb -down-> cr : roleRef
+cr -down-> point
+
+caption <i>This is the whole of RBAC in one chain, and every link is visible from the command line. It also explains chapter 05-02's warning: removing someone's access means removing the BINDING, because you cannot</i>\n<i>take the group out of a certificate you already signed. Bind to groups and the identity provider controls membership; bind to users and you are maintaining a list by hand.</i>
+@enduml

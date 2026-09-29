@@ -1,0 +1,49 @@
+# The minimum viable grant — and the fix for the deliberate 403 at the end of
+# create-user-certificate.sh.
+#
+#   bash create-user-certificate.sh                 # creates the james identity
+#   kubectl --context=james@<cluster> get pods      # Error ... Forbidden
+#   kubectl apply -f pod-reader.yaml
+#   kubectl --context=james@<cluster> get pods      # now it works
+#
+# Nothing about the certificate changed. Authentication was always succeeding;
+# only the AUTHORIZATION stage's answer moved. That is the two-stage split from
+# chapter 05-01, demonstrated in two commands.
+#
+# Compare the two subjects below: binding the USER pins the grant to one person,
+# binding the GROUP lets the identity provider decide who gets it. Prefer groups.
+#
+#   kubectl auth can-i list pods --as=james
+#   kubectl auth can-i list pods --as=anyone --as-group=developers
+#   kubectl auth can-i delete pods --as=james        # no — the role grants no delete
+#
+#   kubectl delete -f pod-reader.yaml
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-reader
+rules:
+- apiGroups: [""]              # "" is the CORE group — Pods live at /api/v1
+  resources: ["pods", "pods/log"]    # subresources use a slash
+  verbs: ["get", "list", "watch"]    # reads only; no create/update/patch/delete
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pod-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pod-reader
+subjects:
+# The CN from the certificate created by create-user-certificate.sh
+- kind: User
+  name: james
+  apiGroup: rbac.authorization.k8s.io
+# The O from that same certificate — this is the one that scales
+- kind: Group
+  name: developers
+  apiGroup: rbac.authorization.k8s.io
