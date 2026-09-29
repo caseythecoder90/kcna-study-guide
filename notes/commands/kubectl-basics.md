@@ -602,6 +602,79 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-04 — the CSR pipeline, and namespaced Roles
+
+```bash
+# STAGE A — on your machine. Kubernetes is not involved yet.
+openssl genrsa -out batman.key 4096
+openssl req -new -key batman.key -out batman.csr -subj "/CN=batman/O=cluster-superheroes" -sha256
+openssl req -in batman.csr -noout -subject            # read back what you asked for
+
+# STAGE B — hand it to Kubernetes
+CSR_DATA=$(base64 batman.csr | tr -d '\n')            # tr strips base64's 76-char line wraps
+CSR_USER=batman
+cat <<EOF > batman-csr-request.yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: ${CSR_USER}
+spec:
+  request: ${CSR_DATA}
+  signerName: kubernetes.io/kube-apiserver-client     # the signer for humans; NEVER auto-approved
+  usages:
+  - client auth                                       # required by that signer
+EOF
+kubectl apply -f batman-csr-request.yaml
+kubectl get csr                                       # CONDITION Pending · REQUESTOR is YOU
+
+# STAGE C — approval: the actual control
+kubectl certificate approve batman
+kubectl get csr batman                                # CONDITION Approved,Issued
+kubectl certificate deny batman                       # the other option
+
+# STAGE D — collect the signed certificate
+kubectl get csr batman -o jsonpath='{.status.certificate}' | base64 -d > batman.crt
+openssl x509 -in batman.crt -noout -subject -issuer -dates
+
+# STAGE E — build the kubeconfig: copy, strip the identity, KEEP the cluster block
+cp ~/.kube/config batman.config
+KUBECONFIG=batman.config kubectl config unset users.default
+KUBECONFIG=batman.config kubectl config delete-context default
+KUBECONFIG=batman.config kubectl config unset current-context
+KUBECONFIG=batman.config kubectl config set-credentials batman \
+  --client-certificate=batman.crt --client-key=batman.key --embed-certs=true
+KUBECONFIG=batman.config kubectl config set-context batman --cluster=default --user=batman
+KUBECONFIG=batman.config kubectl config use-context batman
+KUBECONFIG=batman.config kubectl get nodes            # try it
+
+kubectl delete csr batman                             # the CSR object is disposable once issued
+
+# Automating the whole thing
+git clone https://github.com/spurin/kubeconfig-creator.git
+cd kubeconfig-creator && ./kubeconfig_creator.sh -u superman -g cluster-superheroes
+
+# NARROWING THE PERMISSIONS
+kubectl create clusterrole cluster-watcher --verb=list,get,watch --resource='*'   # read-only, everywhere
+kubectl create clusterrolebinding cluster-watcher --clusterrole=cluster-watcher --group=cluster-watchers
+kubectl auth can-i '*' '*'   --as-group=cluster-watchers --as=uatu    # NO — '*' is a literal verb being asked about
+kubectl auth can-i list pods --as-group=cluster-watchers --as=uatu    # yes
+kubectl auth can-i --list    --as-group=cluster-watchers --as=uatu    # ask this instead
+
+# NAMESPACED — Role and RoleBinding both live IN the namespace, so -n is not optional
+kubectl create namespace gryffindor
+kubectl -n gryffindor create role gryffindor-admin --verb='*' --resource='*'
+kubectl -n gryffindor create rolebinding gryffindor-admin --role=gryffindor-admin --group=gryffindor-admins
+kubectl -n gryffindor create rolebinding x --clusterrole=view --group=team   # a ClusterRole scoped to ONE namespace
+
+# The demonstration: one question, two answers
+kubectl auth can-i '*' '*' --as-group=gryffindor-admins --as=harry                # no  (cluster-wide)
+kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry  # yes (inside the namespace)
+
+kubectl -n gryffindor get roles,rolebindings
+```
+
+**`kubectl auth can-i '*' '*'` only says yes for a genuine superuser** — `*` is a literal verb, not a wildcard match. **Role/RoleBinding are namespaced; ClusterRole/ClusterRoleBinding are cluster-wide**, and **a RoleBinding referencing a ClusterRole scopes it to that one namespace — the BINDING decides the scope, not the role.**
+
 ## Chapter 05-03 — ClusterRoles and ClusterRoleBindings
 
 ```bash

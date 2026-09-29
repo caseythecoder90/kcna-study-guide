@@ -1,0 +1,90 @@
+# The two roles that are NOT "everything": a read-only ClusterRole, and a
+# namespaced Role. Between them they show the two independent dials —
+# the VERB list narrows WHAT, the BINDING KIND narrows WHERE.
+#
+#   kubectl apply -f scoped-roles.yaml
+#
+# 1. READ-ONLY, EVERYWHERE — and why `can-i '*' '*'` says no:
+#
+#   kubectl auth can-i '*' '*'  --as-group=cluster-watchers --as=uatu   # NO
+#   kubectl auth can-i list pods   --as-group=cluster-watchers --as=uatu   # yes
+#   kubectl auth can-i get nodes   --as-group=cluster-watchers --as=uatu   # yes
+#   kubectl auth can-i delete pods --as-group=cluster-watchers --as=uatu   # no
+#   kubectl auth can-i --list      --as-group=cluster-watchers --as=uatu   # the whole picture
+#
+#   The first `no` is NOT a mistake. `'*'` is a literal verb being asked about,
+#   and this role grants only list/get/watch. Only a genuine superuser answers
+#   yes to `can-i '*' '*'`.
+#
+# 2. EVERYTHING, IN ONE NAMESPACE — the demonstration worth doing slowly:
+#
+#   kubectl auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
+#   # no       <- no namespace given, so the question is CLUSTER-WIDE
+#
+#   kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
+#   # yes      <- same user, same group, same verbs. Only -n changed.
+#
+#   kubectl delete -f scoped-roles.yaml
+
+---
+# ---------- Cluster-wide, read-only ----------
+# Compare with cluster-superhero.yaml: the ONLY difference is the verb list.
+# resources is still "*" — the constraint is which ACTIONS, not which objects.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-watcher
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["list", "get", "watch"]     # reads only. No create/update/patch/delete.
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-watcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-watcher
+subjects:
+- kind: Group
+  name: cluster-watchers
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ---------- Namespaced, unrestricted within that namespace ----------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gryffindor
+
+---
+# A Role, not a ClusterRole — note metadata.namespace. Everything it grants
+# stops at the namespace boundary.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gryffindor-admin
+  namespace: gryffindor
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]                        # every verb — but only HERE
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gryffindor-admin
+  namespace: gryffindor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role                          # could also be ClusterRole — a RoleBinding
+  name: gryffindor-admin              # referencing a ClusterRole scopes it to
+                                      # THIS namespace. The BINDING decides scope.
+subjects:
+- kind: Group
+  name: gryffindor-admins
+  apiGroup: rbac.authorization.k8s.io

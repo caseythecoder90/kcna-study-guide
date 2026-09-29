@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The same permission, two scopes — and the one command that proves it
+
+rectangle "CLUSTER-WIDE · ClusterRole + ClusterRoleBinding" <<groupBad>> as cw {
+  rectangle "kubectl create clusterrole cluster-watcher ~-~-verb=list,get,watch ~-~-resource='*'\nkubectl create clusterrolebinding cluster-watcher ~-~-clusterrole=cluster-watcher ~-~-group=cluster-watchers\n\n<size:11>Read-only, everywhere. Note what changed from cluster-superhero: only the VERB list.</size>\n<size:11>Resource is still '*' — the constraint is which ACTIONS, not which objects.</size>" <<bad>> as cw1
+  rectangle "kubectl auth can-i '*' '*' ~-~-as-group=cluster-watchers ~-~-as=uatu\n<size:11>→ NO</size>\n\n<size:11>Not a mistake: the question asks for the '*' VERB, and this role grants only</size>\n<size:11>list, get and watch. Ask a question it can answer and it says yes:</size>\n<size:11>kubectl auth can-i list pods ~-~-as-group=cluster-watchers ~-~-as=uatu  → yes</size>\n<size:11>kubectl auth can-i delete pods ~-~-as-group=cluster-watchers ~-~-as=uatu → no</size>" <<plain>> as cw2
+  cw1 -down-> cw2
+}
+
+rectangle "NAMESPACED · Role + RoleBinding" <<groupGood>> as ns {
+  rectangle "kubectl create namespace gryffindor\nkubectl -n gryffindor create role gryffindor-admin ~-~-verb='*' ~-~-resource='*'\nkubectl -n gryffindor create rolebinding gryffindor-admin \\\n  ~-~-role=gryffindor-admin ~-~-group=gryffindor-admins\n\n<size:11>Every verb on every resource — but ONLY inside the gryffindor namespace.</size>\n<size:11>Both objects live in that namespace; -n is not optional.</size>" <<good>> as ns1
+  rectangle "THE DEMONSTRATION — one question, two answers\n<size:11>kubectl auth can-i '*' '*' ~-~-as-group=gryffindor-admins ~-~-as=harry</size>\n<size:11>→ NO      (no namespace given, so the question is cluster-wide)</size>\n\n<size:11>kubectl -n gryffindor auth can-i '*' '*' ~-~-as-group=gryffindor-admins ~-~-as=harry</size>\n<size:11>→ YES     (the same identity, the same verbs, asked INSIDE the namespace)</size>\n\n<size:11>Identical user, identical group, identical role. Only -n changed.</size>" <<accent>> as ns2
+  ns1 -down-> ns2
+}
+
+rectangle "The four objects, as the lecture's table puts them" <<group>> as tbl {
+  rectangle "Role               Namespace     grants permissions to resources WITHIN a specific namespace\nRoleBinding        Namespace     binds users/groups/service accounts to a Role WITHIN a namespace\nClusterRole        Cluster-Wide  grants permissions across the ENTIRE cluster, regardless of namespace\nClusterRoleBinding Cluster-Wide  binds subjects to a ClusterRole, giving them permissions across the cluster\n\n<size:11>And the combination that is neither row: a ROLEBINDING referencing a CLUSTERROLE grants that</size>\n<size:11>ClusterRole's rules INSIDE ONE NAMESPACE — how the built-in view/edit/admin are reused per team.</size>\n<size:11>The BINDING decides the scope, not the role.</size>" <<accent>> as t
+}
+
+cw -[hidden]down-> ns
+ns -[hidden]down-> tbl
+
+caption <i>Two independent dials: the VERB list narrows what may be done, the BINDING KIND narrows where. cluster-watcher shows the first, gryffindor-admin shows the second, and cluster-superhero from chapter 05-03 turned both off.</i>\n<i>Least privilege is just choosing a real value for each instead of leaving them at '*'.</i>
+@enduml
