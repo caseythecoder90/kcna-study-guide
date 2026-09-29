@@ -1,0 +1,74 @@
+# The lecture's superuser, as declarative manifests rather than two imperative
+# commands. Equivalent to:
+#
+#   kubectl create clusterrole cluster-superhero --verb='*' --resource='*'
+#   kubectl create clusterrolebinding cluster-superhero \
+#     --clusterrole=cluster-superhero --group=cluster-superheroes
+#
+#   kubectl apply -f cluster-superhero.yaml
+#   kubectl get clusterrolebindings -o wide | egrep 'NAME|^cluster-'
+#   kubectl describe clusterrole/cluster-superhero      # compare with cluster-admin
+#   kubectl describe clusterrole/cluster-admin
+#
+# THE EXPERIMENT — the username does not matter, only the group:
+#
+#   kubectl auth can-i '*' '*'                                                      # yes: that is you
+#   kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="batman"       # yes
+#   kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="superman"     # yes
+#   kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="wonder-woman" # yes
+#   kubectl auth can-i '*' '*' --as="batman"                                        # NO — no group
+#
+# None of batman, superman or wonder-woman exists anywhere. Neither does the
+# group. The binding names a GROUP, and group membership arrives in the
+# credential (a certificate's O, or a JWT claim) — never from Kubernetes.
+#
+#   kubectl delete -f cluster-superhero.yaml
+
+---
+# WHAT may be done. Inert on its own — nobody holds these permissions until a
+# binding attaches subjects. Non-namespaced: there is no metadata.namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-superhero
+rules:
+# Every verb, on every resource, in every API group.
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+# ...and every NON-resource endpoint too (/healthz, /metrics, /version).
+# Only a ClusterRole can grant these — a namespaced Role cannot.
+- nonResourceURLs: ["*"]
+  verbs: ["*"]
+
+---
+# WHO may do it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-superhero
+roleRef:
+  # IMMUTABLE once created — changing it means deleting and recreating the
+  # binding, so a binding can never be quietly repointed at a broader role.
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-superhero
+subjects:
+# A GROUP. It does not exist and cannot exist — groups are strings that arrive
+# in a credential. This is exactly how cluster-admin is bound to system:masters.
+- kind: Group
+  name: cluster-superheroes
+  apiGroup: rbac.authorization.k8s.io
+
+# The other two subject kinds, for comparison. Uncomment to try them.
+#
+# A USER — also just a string, also need not exist:
+# - kind: User
+#   name: batman
+#   apiGroup: rbac.authorization.k8s.io
+#
+# A SERVICEACCOUNT — the only subject that MUST be a real object, and the only
+# one that carries a namespace:
+# - kind: ServiceAccount
+#   name: builder
+#   namespace: ci

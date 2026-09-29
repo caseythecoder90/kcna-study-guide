@@ -5,6 +5,8 @@ Companion script for [`05-02 RBAC part 1`](../../notes/05-kubernetes-deep-dive/0
 | File | What it does |
 |---|---|
 | [`create-user-certificate.sh`](create-user-certificate.sh) | Builds a second identity from scratch: private key → CSR → Kubernetes `CertificateSigningRequest` → admin approval → signed certificate → a new kubeconfig context |
+| [`cluster-superhero.yaml`](cluster-superhero.yaml) | Rebuilds the built-in superuser from scratch — a ClusterRole with every verb on every resource, bound to a group that does not exist |
+| [`pod-reader.yaml`](pod-reader.yaml) | The minimum viable grant, and the fix for the deliberate `403` above |
 
 ```bash
 bash create-user-certificate.sh
@@ -56,3 +58,38 @@ kubectl config view -o jsonpath='{.users[0].user}' | python -m json.tool
 ```
 
 That is the OIDC/SSO shape — an `id-token` carrying the identity in its JWT claims rather than a certificate Subject.
+
+## Part 2 — turning the 403 into a 200
+
+```bash
+kubectl apply -f pod-reader.yaml
+kubectl --context=james@<cluster> get pods      # now it works
+```
+
+**Nothing about the certificate changed.** Authentication was always succeeding; only the authorization stage's answer moved. That is the two-stage split from chapter 05-01 in two commands.
+
+The manifest binds both the **User** `james` (the certificate's `CN`) and the **Group** `developers` (its `O`). Try each in turn:
+
+```bash
+kubectl auth can-i list pods --as=james                          # yes, via the User subject
+kubectl auth can-i list pods --as=anyone --as-group=developers   # yes, via the Group subject
+kubectl auth can-i delete pods --as=james                        # no — the role grants no delete
+```
+
+## The superhero demonstration
+
+```bash
+kubectl apply -f cluster-superhero.yaml
+kubectl get clusterrolebindings -o wide | egrep 'NAME|^cluster-'
+
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="batman"       # yes
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="superman"     # yes
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="wonder-woman" # yes
+kubectl auth can-i '*' '*' --as="batman"                                        # NO
+```
+
+Three usernames that exist nowhere, all granted everything — and the same username **without** the group granted nothing. **The binding names a group, and group membership arrives in the credential.** That is precisely how `system:admin` inherits `cluster-admin` through `system:masters` without appearing in any binding.
+
+```bash
+kubectl delete -f cluster-superhero.yaml -f pod-reader.yaml
+```

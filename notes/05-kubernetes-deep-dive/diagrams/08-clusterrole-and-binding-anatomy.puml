@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two objects, two questions — WHAT may be done, and WHO may do it
+
+rectangle "ClusterRole — WHAT\n<size:11>a set of RULES · non-namespaced · grants nothing on its own</size>" <<groupGood>> as role {
+  rectangle "rules:\n<size:11>- apiGroups: [ ]           ← an EMPTY string is the CORE group (Pods, Services, Secrets)</size>\n<size:11>  resources: [pods, pods/log]   ← plural names, as in kubectl api-resources</size>\n<size:11>  verbs: [get, list, watch]</size>\n\n<size:11>VERBS: get · list · watch · create · update · patch · delete · deletecollection</size>\n<size:11>Also available: resourceNames (specific objects) · nonResourceURLs (/healthz)</size>\n\n<size:11>PERMISSIONS ARE PURELY ADDITIVE — there are NO deny rules.</size>\n<size:11>You cannot subtract; you can only choose not to grant.</size>" <<good>> as r
+}
+
+rectangle "ClusterRoleBinding — WHO\n<size:11>a roleRef plus a list of SUBJECTS · non-namespaced</size>" <<groupGood>> as bind {
+  rectangle "roleRef:\n<size:11>  kind: ClusterRole · name: cluster-superhero     ← IMMUTABLE once created</size>\n\n<size:11>subjects:      three kinds, and only three:</size>\n<size:11>- kind: User             name: batman</size>\n<size:11>- kind: Group            name: cluster-superheroes</size>\n<size:11>- kind: ServiceAccount   name: builder    namespace: ci</size>\n\n<size:11>Users and Groups are just STRINGS — they need not exist anywhere (they cannot,</size>\n<size:11>chapter 05-02). A ServiceAccount subject must name a real object and its namespace.</size>" <<good>> as b
+}
+
+rectangle "Building a superuser, the two-command version\n<size:11>kubectl create clusterrole cluster-superhero ~-~-verb='*' ~-~-resource='*'</size>\n<size:11>kubectl create clusterrolebinding cluster-superhero ~-~-clusterrole=cluster-superhero ~-~-group=cluster-superheroes</size>\n\n<size:11>That is a functional equivalent of the built-in cluster-admin: every verb, every resource,</size>\n<size:11>granted to everyone in the group cluster-superheroes.</size>" <<accent>> as build
+
+rectangle "Proving it without logging in as anyone" <<group>> as test {
+  rectangle "kubectl auth can-i '*' '*'                                                → yes   (that is YOU)\n<size:11>kubectl auth can-i '*' '*' ~-~-as-group=cluster-superheroes ~-~-as=batman        → yes</size>\n<size:11>kubectl auth can-i '*' '*' ~-~-as-group=cluster-superheroes ~-~-as=superman      → yes</size>\n<size:11>kubectl auth can-i '*' '*' ~-~-as-group=cluster-superheroes ~-~-as=wonder-woman  → yes</size>\n\n<size:11>Three different usernames, all yes — because the binding names the GROUP.</size>\n<size:11>THE USERNAME DOES NOT MATTER as long as it carries that group.</size>\n\n<size:11>~-~-as / ~-~-as-group is IMPERSONATION: you ask the API server “what would this identity be</size>\n<size:11>allowed to do?” without needing their credentials. It is itself an RBAC-gated privilege.</size>" <<accent>> as t
+}
+
+role -[hidden]right-> bind
+bind -down-> build
+build -down-> test
+
+caption <i>A ClusterRole is inert — it is a named list of permissions that nobody holds until a binding attaches subjects to it. That separation is what makes roles reusable: one “cluster-superhero” definition, bound</i>\n<i>to as many groups, users and ServiceAccounts as you like. And because roleRef is immutable, changing which role a binding grants means deleting and recreating the binding.</i>
+@enduml

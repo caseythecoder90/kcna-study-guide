@@ -391,6 +391,21 @@ kubectl get csr ; kubectl certificate approve james
 
 A kubeconfig is **`clusters` (where) + `users` (credentials) + `contexts` (cluster + user + namespace) + `current-context`**. `certificate-authority-data` is the **CA public cert — you verify the SERVER**; `client-certificate-data`/`client-key-data` are how the **server verifies YOU**. Together that is **mTLS**.
 
+### 4A-c. ClusterRoles and ClusterRoleBindings (chapter 05-03)
+
+```bash
+kubectl get clusterrolebindings -o wide            # cluster-admin binds ClusterRole/cluster-admin to GROUP system:masters
+kubectl describe clusterrole/cluster-admin         # *.* verbs [*] + all non-resource URLs
+kubectl create clusterrole cluster-superhero --verb='*' --resource='*'
+kubectl create clusterrolebinding cluster-superhero --clusterrole=cluster-superhero --group=cluster-superheroes
+kubectl create clusterrole pod-reader --verb=get,list,watch --resource=pods
+kubectl create clusterrolebinding x --clusterrole=pod-reader --user=james        # or --group= / --serviceaccount=ns:name
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="batman"        # IMPERSONATION — yes
+kubectl auth can-i --list ; kubectl auth whoami
+```
+
+**No deny rules — permissions are purely additive.** Roles = **what**, bindings = **who**; a role is inert until bound. Subjects are **User**, **Group** or **ServiceAccount** — the first two are just **strings that need not exist**. **`roleRef` is immutable.** Default user-facing ClusterRoles: **`cluster-admin`, `admin`, `edit`, `view`** (and `view` **cannot read Secrets**).
+
 ## 5. Observability tooling
 
 _Section 6._

@@ -602,6 +602,53 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-03 — ClusterRoles and ClusterRoleBindings
+
+```bash
+# Take apart the superuser you already are
+kubectl get clusterrolebindings -o wide            # NAME · ROLE · USERS · GROUPS · SERVICEACCOUNTS
+kubectl get clusterrolebindings -o wide | egrep 'NAME|^cluster-'
+kubectl describe clusterrolebinding/cluster-admin  # subject: Group system:masters — USERS is EMPTY
+kubectl describe clusterrole/cluster-admin         # *.* with verbs [*], plus all non-resource URLs
+kubectl get clusterroles                           # dozens ship with the cluster
+kubectl get clusterroles | grep -v '^system:'      # the user-facing four: cluster-admin, admin, edit, view
+
+# Build an equivalent from scratch
+kubectl create clusterrole cluster-superhero --verb='*' --resource='*'
+kubectl create clusterrolebinding cluster-superhero --clusterrole=cluster-superhero --group=cluster-superheroes
+
+# More realistic ClusterRoles
+kubectl create clusterrole pod-reader --verb=get,list,watch --resource=pods
+kubectl create clusterrole pod-reader --verb=get --resource=pods --resource-name=readablepod   # specific objects
+kubectl create clusterrole foo --verb=get,list,watch --resource=replicasets.apps               # a NAMED api group
+kubectl create clusterrole foo --verb=get,list,watch --resource=pods,pods/status               # a SUBRESOURCE
+kubectl create clusterrole foo --verb=get --non-resource-url=/healthz                          # ClusterRole only
+kubectl create clusterrole pod-reader --verb=get,list,watch --resource=pods --dry-run=client -o yaml | tee cr.yaml
+
+# Bind it — three subject kinds, and only three
+kubectl create clusterrolebinding x --clusterrole=pod-reader --user=james
+kubectl create clusterrolebinding x --clusterrole=pod-reader --group=developers
+kubectl create clusterrolebinding x --clusterrole=pod-reader --serviceaccount=ci:builder
+
+# Check and IMPERSONATE — the fastest way to test a binding
+kubectl auth can-i '*' '*'                                      # yes, if you are cluster-admin
+kubectl auth can-i --list                                       # everything YOU can do
+kubectl auth can-i create deployments -n team-a
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="batman"       # yes
+kubectl auth can-i '*' '*' --as-group="cluster-superheroes" --as="superman"     # yes — the USERNAME does not matter
+kubectl auth can-i '*' '*' --as="batman"                                        # no — without the group, nothing
+kubectl auth can-i --list --as=system:serviceaccount:default:default
+kubectl auth whoami                                             # the username and groups the server sees
+
+# Who has what?
+kubectl get clusterrolebindings -o json | jq -r '.items[] | select(.subjects[]?.name=="system:masters") | .metadata.name'
+kubectl describe clusterrole/view | head -30                    # note: view CANNOT read secrets
+
+kubectl delete clusterrolebinding cluster-superhero ; kubectl delete clusterrole cluster-superhero
+```
+
+**Permissions are purely additive — there are NO deny rules.** Roles say **what**, bindings say **who**, and a role grants nothing until a binding attaches subjects. **`roleRef` is immutable.** `apiGroups: [""]` is the **core** group; resources are **plural**; subresources use a slash. A **ClusterRole** additionally covers **cluster-scoped resources**, **non-resource URLs** and **all namespaces**.
+
 ## Chapter 05-02 — kubeconfig, certificates and identity
 
 ```bash
