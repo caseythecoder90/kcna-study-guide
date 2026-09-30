@@ -1,6 +1,6 @@
 # 04 — RBAC part 3: the CSR-to-kubeconfig pipeline, and namespaced Roles
 
-Chapter 05-02 described the certificate flow as six boxes on a slide. Chapter 05-03 built the permissions but had no real user to give them to. This chapter closes the loop: **every command, in order, from an empty directory to a working kubeconfig** — then automates it, then narrows the permissions down from "everything" to something you would actually grant.
+Chapter 05-02 described the certificate flow as six boxes on a slide. Chapter 05-03 built the permissions but had no real user to give them to. This chapter closes the loop: **every command, in order, from an empty directory to a working kubeconfig** — then automates it, then narrows the permissions down from "everything" to something you would actually grant. The course's further-study page on **ServiceAccounts** — the third subject kind, and the only one that is a real Kubernetes object — closes the chapter.
 
 ---
 
@@ -271,6 +271,161 @@ Putting the three roles from these chapters side by side makes the model obvious
 
 ---
 
+## 4. Further study: ServiceAccounts
+
+Everything so far was about **normal users** — identities Kubernetes does not store, cannot list, and cannot delete. ServiceAccounts are the opposite, and they are the third subject kind a binding accepts.
+
+> A service account is a type of **non-human account** that, in Kubernetes, provides a **distinct identity in a Kubernetes cluster**.
+
+![A Pod always has an identity](./diagrams/11-serviceaccount-identity.svg)
+
+### 4.1 The fact the exam wants
+
+**Every Pod in Kubernetes is automatically associated with a ServiceAccount.** If the Pod spec does not name one, it is assigned the **`default` ServiceAccount of its own namespace**.
+
+That association is what determines the permissions the processes inside the Pod have against the Kubernetes API. And the `default` account is deliberately powerless:
+
+> The `default` service accounts in each namespace **get no permissions by default** other than the default API discovery permissions that Kubernetes grants to all authenticated principals.
+
+So an unmodified Pod can reach the API server and be told who it is — and essentially nothing else. **Least privilege is the default**, which is why you do not need a custom ServiceAccount unless the Pod genuinely needs to act on the cluster (create a Pod, read a Secret, list Deployments).
+
+Two more behaviours worth knowing:
+
+- **Every namespace gets a `default` ServiceAccount when the namespace is created.**
+- **Deleting it does not work** — the control plane replaces it with a new one.
+
+### 4.2 ServiceAccount versus User
+
+| | ServiceAccount | User or Group |
+|---|---|---|
+| **Where it lives** | **The Kubernetes API** — a real `ServiceAccount` object | **External** — a string in a certificate or token |
+| **Scope** | **Namespaced** | Cluster-wide strings, not scoped to anything |
+| **Intended use** | **Workloads and automation** | **People** |
+| **Can you create one?** | **Yes** — `kubectl create serviceaccount` | No. There is no `kubectl create user` (chapter 05-02) |
+| **As a binding subject** | **Must exist**, and must carry a `namespace` | Just a string; need not exist |
+| **Authorization** | RBAC | RBAC |
+
+The last row is the point: **once authentication is done, RBAC treats them identically.** A ServiceAccount authenticates with a token instead of a certificate, but what comes out the other side is the same username-plus-groups pair from chapter 05-02:
+
+```
+username: system:serviceaccount:<namespace>:<name>
+groups:   system:serviceaccounts
+          system:serviceaccounts:<namespace>
+          system:authenticated
+```
+
+### 4.3 How a Pod gets the credential
+
+You never mount the token yourself. Setting **`spec.serviceAccountName`** is enough:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: robot
+spec:
+  serviceAccountName: build-robot
+  containers:
+  - name: app
+    image: nginx
+```
+
+(**`spec.serviceAccount`** is a deprecated alias for the same field — you will still see it in older manifests and in `kubectl get pod -o yaml` output.)
+
+The kubelet then provides the credential as a **projected volume** at a fixed path:
+
+```
+/var/run/secrets/kubernetes.io/serviceaccount/
+├── token        # a signed JWT
+├── ca.crt       # the cluster CA, so the Pod can verify the API server
+└── namespace    # which namespace this Pod is in
+```
+
+Those three files are the in-cluster equivalent of a kubeconfig: `token` is the `users` block, `ca.crt` is half the `clusters` block, and `namespace` is the context's namespace. Every official client library looks in exactly this directory when it detects it is running inside a cluster.
+
+**Token lifetime changed, and the versions are exam material:**
+
+| Version | Behaviour |
+|---|---|
+| **Before v1.22** | A **long-lived, static** token, delivered as a **Secret** |
+| **v1.22 and later** | A **short-lived, automatically rotating** token obtained through the **`TokenRequest` API** and mounted as a **projected volume**. The kubelet rotates it before it expires |
+| **Before v1.24** | A **permanent token Secret was auto-created for every ServiceAccount** |
+| **v1.24 and later** | That auto-creation stopped. Long-lived token Secrets can still be created by hand, and are **not recommended** |
+
+The v1.22 tokens are **bound tokens**: the token is tied to the lifetime of the object using it. Delete the Pod and the cluster invalidates its token immediately.
+
+To opt out entirely — a Pod that never talks to the API server has no business holding a credential:
+
+```yaml
+spec:
+  automountServiceAccountToken: false
+```
+
+The field can be set on the **Pod** or on the **ServiceAccount** itself; the Pod's setting wins.
+
+For an identity used from **outside** the cluster (a CI/CD pipeline, say), request a token explicitly:
+
+```bash
+kubectl create serviceaccount build-robot
+kubectl create token build-robot
+kubectl create token build-robot --duration=10m
+```
+
+### 4.4 Giving one permissions
+
+Identical to everything in section 3 — only the subject kind changes:
+
+```bash
+kubectl create serviceaccount build-robot
+
+kubectl create role pod-reader --verb=get,list,watch --resource=pods
+kubectl create rolebinding robot-reader \
+  --role=pod-reader --serviceaccount=default:build-robot
+```
+
+Note the `namespace:name` form. In YAML it is spelled out:
+
+```yaml
+subjects:
+- kind: ServiceAccount
+  name: build-robot
+  namespace: default
+```
+
+And testing it uses the same impersonation flag, with the full username:
+
+```bash
+kubectl auth can-i list pods --as=system:serviceaccount:default:build-robot   # yes
+kubectl auth can-i list pods --as=system:serviceaccount:default:default       # no
+```
+
+### 4.5 Seeing it from inside a Pod
+
+The demonstration that ties this to the `403` from chapter 05-02:
+
+```bash
+kubectl run -it --rm robot --image=curlimages/curl --restart=Never -- sh
+
+# inside the Pod
+SA=/var/run/secrets/kubernetes.io/serviceaccount
+cat $SA/namespace
+curl -s --cacert $SA/ca.crt -H "Authorization: Bearer $(cat $SA/token)" \
+  https://kubernetes.default.svc/api/v1/namespaces/default/pods
+```
+
+```json
+"message": "pods is forbidden: User \"system:serviceaccount:default:default\"
+            cannot list resource \"pods\" in API group \"\" in the namespace \"default\""
+```
+
+**Authentication succeeded** — the API server names the identity precisely, in the `system:serviceaccount:<ns>:<name>` form. **Authorization denied**, because nothing binds that account to anything. The two-stage split from chapter 05-01, seen from inside a container.
+
+`kubernetes.default.svc` is the ClusterIP Service in the `default` namespace that fronts the API server — the one exception from the namespaces chapter. That is how a Pod reaches the control plane without knowing its address.
+
+Re-run it with `serviceAccountName: build-robot` after the RoleBinding above, and the same `curl` returns a Pod list.
+
+---
+
 ## Exam angle
 
 - **The CSR pipeline:** generate a **private key**, create a **CSR** whose `-subj` sets **`CN` (username)** and **`O` (group)**, base64 it into a **`CertificateSigningRequest`** object with **`signerName: kubernetes.io/kube-apiserver-client`** and **`usages: [client auth]`**, have an admin **approve** it, then extract **`.status.certificate`** and build a kubeconfig.
@@ -282,6 +437,12 @@ Putting the three roles from these chapters side by side makes the model obvious
 - **Role and RoleBinding are namespaced; ClusterRole and ClusterRoleBinding are cluster-wide.** The same `auth can-i` question answers **no** without `-n` and **yes** with it, when the grant came from a RoleBinding.
 - **A RoleBinding referencing a ClusterRole** applies that ClusterRole's rules **within one namespace only** — **the binding decides the scope, not the role**.
 - **Two dials:** the **verb list** constrains what may be done; the **binding kind** constrains where.
+- **Every Pod is automatically associated with a ServiceAccount.** If the spec does not name one, the Pod gets the **`default` ServiceAccount of its own namespace** — the single most likely ServiceAccount question on the exam.
+- **The `default` ServiceAccount has no permissions** beyond the API discovery endpoints granted to every authenticated principal. You only need a custom ServiceAccount when the Pod must act on the cluster.
+- **A ServiceAccount is a real, namespaced Kubernetes object** — the only one of the three subject kinds that is. Users and Groups are external strings.
+- **The ServiceAccount username is `system:serviceaccount:<namespace>:<name>`**, with groups `system:serviceaccounts` and `system:serviceaccounts:<namespace>`.
+- **The token is mounted at `/var/run/secrets/kubernetes.io/serviceaccount/`** as `token`, `ca.crt` and `namespace`. Set **`automountServiceAccountToken: false`** to suppress it.
+- **Since v1.22** the token is **short-lived and automatically rotated** via the **`TokenRequest` API**, mounted as a **projected volume**. Before that it was a long-lived Secret, and **before v1.24** one was auto-created for every ServiceAccount.
 
 ## References
 
@@ -289,3 +450,5 @@ Putting the three roles from these chapters side by side makes the model obvious
 - [Certificates and Certificate Signing Requests](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/) — the end-to-end task version of this pipeline
 - [Using RBAC Authorization](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) — Role versus ClusterRole and the binding combinations
 - [spurin/kubeconfig-creator](https://github.com/spurin/kubeconfig-creator) — the course's script automating the whole pipeline
+- [Service Accounts](https://kubernetes.io/docs/concepts/security/service-accounts/) — what they are, the `default` account, and how tokens are issued
+- [Configure Service Accounts for Pods](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) — `serviceAccountName`, `automountServiceAccountToken`, `kubectl create token`
