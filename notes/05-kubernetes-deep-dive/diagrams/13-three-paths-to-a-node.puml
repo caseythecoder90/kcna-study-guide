@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two fields in the Pod spec decide who places it — and one of them skips the whole system
+
+rectangle "PATH A · the default — you set neither field" <<groupGood>> as a {
+  rectangle "spec.schedulerName defaults to <b>default-scheduler</b>  ·  spec.nodeName is empty\n<size:11>kube-scheduler picks the Pod up, filters, scores and binds.</size>\n\n<size:11>STEER IT WITHOUT REPLACING IT — all of these are INPUTS to filtering and scoring:</size>\n<size:11>  nodeSelector               match node LABELS, e.g. kubernetes.io/hostname: worker-1</size>\n<size:11>  nodeAffinity               the same idea with required/preferred and operators</size>\n<size:11>  podAffinity / antiAffinity place near, or away from, OTHER Pods</size>\n<size:11>  tolerations                accept nodes carrying a matching taint</size>\n<size:11>  topologySpreadConstraints  balance across zones, regions or nodes</size>\n\n<size:11>The scheduler still makes the decision. You are narrowing what it may choose.</size>" <<good>> as a1
+}
+
+rectangle "PATH B · your own scheduler — you set schedulerName" <<group>> as b {
+  rectangle "spec.schedulerName: <b>my-scheduler</b>\n<size:11>kube-scheduler sees a name that is not its own and LEAVES THE POD ALONE.</size>\n<size:11>The Pod sits Pending until something claiming that name acts.</size>\n\n<size:11>A scheduler is just an API client. The entire contract is three steps:</size>\n<size:11>  1. watch for Pods where spec.schedulerName is mine AND spec.nodeName is null</size>\n<size:11>  2. decide a node, by whatever rule you like</size>\n<size:11>  3. POST a Binding object naming that Pod and that Node</size>\n\n<size:11>spurin/simple-kubernetes-scheduler-example does all three in about 40 lines of bash,</size>\n<size:11>picking a node at RANDOM. It uses kubectl CREATE, not apply — Binding is a special</size>\n<size:11>resource that is written once, not reconciled.</size>\n\n<size:11>If nothing is running under that name, the Pod stays Pending forever.</size>" <<accent>> as b1
+}
+
+rectangle "PATH C · no scheduler at all — you set nodeName" <<groupBad>> as c {
+  rectangle "spec.nodeName: <b>worker-1</b>\n<size:11>If nodeName is not empty, the SCHEDULER IGNORES THE POD and the kubelet on the named</size>\n<size:11>node tries to place it. nodeName OVERRULES nodeSelector, affinity and anti-affinity —</size>\n<size:11>none of them are consulted.</size>\n\n<size:11>Which means nothing checks the decision for you:</size>\n<size:11>  · the named node does not exist  → the Pod will not run, and may be deleted automatically</size>\n<size:11>  · the named node lacks resources → the Pod FAILS, with a reason of OutOfcpu or OutOfmemory</size>\n<size:11>  · node names in cloud environments are not always predictable or stable</size>\n\n<size:11>Intended for custom schedulers and advanced cases. For targeting, prefer nodeSelector.</size>" <<bad>> as c1
+}
+
+a -[hidden]down-> b
+b -[hidden]down-> c
+
+caption <i>The scheduler is a replaceable component, not a fixed part of the cluster: it is opt-in per Pod via schedulerName, and skippable entirely via nodeName.</i>\n<i>Every path ends the same way — a Pod with spec.nodeName set, and the kubelet on that node starting the containers.</i>
+@enduml
