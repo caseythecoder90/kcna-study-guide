@@ -602,6 +602,59 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-05 — the kube-scheduler
+
+```bash
+# Where the decision is recorded, and what made it
+kubectl get pods -o wide                             # the NODE column is spec.nodeName
+kubectl get pod nginx -o jsonpath='{.spec.schedulerName}'   # default-scheduler
+kubectl get pod nginx -o jsonpath='{.spec.nodeName}'
+kubectl describe pod nginx | grep -A5 Events         # 'Scheduled' — or FailedScheduling
+
+kubectl explain pod.spec.schedulerName
+kubectl explain pod.spec.nodeName
+kubectl explain pod.spec.nodeSelector
+
+# The inputs to filtering
+kubectl describe node/worker-1 | more                # Labels, Taints, Allocatable, Allocated resources
+kubectl get nodes --show-labels
+kubectl top nodes                                    # live usage — NOT what the scheduler reads
+
+# PATH B — a custom scheduler. kube-scheduler ignores this Pod entirely.
+#   spec:
+#     schedulerName: my-scheduler
+kubectl get pods --all-namespaces -o json | jq -r '.items[]
+  | select(.spec.schedulerName=="my-scheduler" and .spec.nodeName==null)
+  | .metadata.namespace + "/" + .metadata.name'      # what a scheduler watches for
+
+# Be the scheduler: one Binding object is the whole of Pod placement.
+# NOTE: create, not apply — Binding is written once, never reconciled.
+kubectl create -f - <<EOF
+apiVersion: v1
+kind: Binding
+metadata:
+  name: nginx
+  namespace: default
+target:
+  apiVersion: v1
+  kind: Node
+  name: worker-1
+EOF
+
+# PATH C — no scheduler at all
+#   spec:
+#     nodeName: worker-1        # scheduler IGNORES the Pod; the kubelet on worker-1 gets it
+#                               # overrules nodeSelector and affinity
+#                               # bad node -> the Pod FAILS with OutOfcpu / OutOfmemory
+
+# PATH A, steered — a constraint the scheduler applies during FILTERING
+#   spec:
+#     nodeSelector:
+#       kubernetes.io/hostname: worker-1
+```
+
+**Filtering then scoring, then binding.** No feasible node means the Pod stays **`Pending`** — it never fails and never gets placed anyway. **`schedulerName` chooses who decides** (default `default-scheduler`), and **`nodeName` means nobody decides**: the scheduler skips the Pod and the named node's kubelet is handed it directly.
+
 ## Chapter 05-04 — the CSR pipeline, and namespaced Roles
 
 ```bash

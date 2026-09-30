@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What actually happens between "kubectl run" and a container starting
+
+rectangle "1 · A Pod is created with spec.nodeName EMPTY" <<accent>> as created
+
+rectangle "2 · The scheduler is WATCHING for exactly that\n<size:11>A scheduler watches for newly created Pods that have no Node assigned.</size>\n<size:11>Nothing pushed this to it — it is a watch on the API server (chapter 05-01).</size>" <<plain>> as watch
+
+rectangle "3 · FILTERING — which nodes COULD run this?\n<size:11>Every node is tested against the Pod's requirements. What survives is the set of FEASIBLE nodes.</size>\n<size:11>A node with less allocatable memory than the Pod REQUESTS is filtered out. So is a node with a</size>\n<size:11>taint the Pod does not tolerate, an unsatisfiable node affinity, or a node that is not Ready.</size>" <<plain>> as filt
+
+rectangle "If the feasible list is EMPTY, the Pod is not schedulable.\nIt stays <b>Pending</b> until something changes.\n<size:11>kubectl describe pod → Events → FailedScheduling, with the reason per node.</size>\n<size:11>The single most common cause of a Pod that never starts.</size>" <<bad>> as pending
+
+rectangle "4 · SCORING — which feasible node is BEST?\n<size:11>Each surviving node is given a score by the active scoring rules. The highest score wins,</size>\n<size:11>and ties are broken AT RANDOM. Filtering is a yes/no question; scoring is a ranking.</size>\n<size:11>'Can run it' and 'is the best place to run it' are two different questions.</size>" <<plain>> as score
+
+rectangle "5 · BINDING — record the decision on the API server\n<size:11>The scheduler writes a Binding object naming the Pod and the target Node.</size>\n<size:11>That is the whole of what a scheduler does to place a Pod.</size>\n\n<size:11>apiVersion: v1 · kind: Binding</size>\n<size:11>metadata: name: nginx, namespace: default</size>\n<size:11>target:   apiVersion: v1, kind: Node, name: worker-1</size>\n\n<size:11>The Pod's spec.nodeName is now set, and the scheduler's job is over.</size>" <<good>> as bind
+
+rectangle "6 · The KUBELET on that node starts the Pod" <<accent>> as kubelet
+
+rectangle "The scheduler never contacts a node, never pulls an image and never starts a container.\nIt makes one decision and records it. Everything after that is the kubelet." <<muted>> as note
+
+created -down-> watch
+watch -down-> filt
+filt -[#DC2626]right-> pending : no feasible node
+filt -down-> score
+score -down-> bind
+bind -down-> kubelet
+kubelet -down-> note
+
+caption <i>Two steps of decision — filtering, then scoring — and one step of recording it: binding. "Scheduling" in Kubernetes means ASSIGNING a Pod to a Node, not starting it.</i>
+@enduml

@@ -441,6 +441,29 @@ kubectl exec -it <pod> -- ls /var/run/secrets/kubernetes.io/serviceaccount   # t
 
 **Every Pod is automatically assigned a ServiceAccount — the namespace's `default` one if the spec does not name another** — and `default` holds **no permissions beyond API discovery**. Since **v1.22** the token is short-lived, auto-rotating and mounted as a projected volume.
 
+### 4A-f. The kube-scheduler (chapter 05-05)
+
+```bash
+kubectl get pod nginx -o jsonpath='{.spec.schedulerName}'   # default-scheduler
+kubectl describe pod nginx | grep -A5 Events                # Scheduled, or FailedScheduling
+kubectl describe node/worker-1 | more                       # Labels, Taints, Allocatable
+kubectl get nodes --show-labels
+
+# spec.schedulerName: my-scheduler   -> kube-scheduler ignores the Pod; yours must bind it
+# spec.nodeName: worker-1            -> NO scheduler at all; the kubelet on worker-1 is handed the Pod
+# spec.nodeSelector: {kubernetes.io/hostname: worker-1}  -> a constraint applied during FILTERING
+
+# The whole of Pod placement, by hand. create, not apply: Binding is never reconciled.
+kubectl create -f - <<EOF
+apiVersion: v1
+kind: Binding
+metadata: {name: nginx, namespace: default}
+target: {apiVersion: v1, kind: Node, name: worker-1}
+EOF
+```
+
+**Filtering → scoring → binding.** No feasible node leaves the Pod **`Pending`**, never failed and never placed anyway. **The scheduler assigns; the kubelet starts.**
+
 ## 5. Observability tooling
 
 _Section 6._

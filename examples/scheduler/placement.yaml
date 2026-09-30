@@ -1,0 +1,72 @@
+# The three paths to a node, as three Pods.
+#
+#   kubectl apply -f placement.yaml
+#   kubectl get pods -o wide
+#
+# Replace worker-1 below with a real node name from `kubectl get nodes`.
+---
+# PATH A — the default. No schedulerName, no nodeName.
+# kube-scheduler filters, scores and binds.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sched-default
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+---
+# PATH A, steered. nodeSelector is a CONSTRAINT the scheduler applies during
+# filtering -- the Pod still goes through the normal pipeline, so an impossible
+# request waits Pending with a FailedScheduling event rather than failing.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sched-nodeselector
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: worker-1
+  containers:
+  - name: nginx
+    image: nginx
+---
+# A nodeSelector that nothing can satisfy. This Pod stays Pending forever.
+#   kubectl describe pod sched-impossible   ->  Events: FailedScheduling
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sched-impossible
+spec:
+  nodeSelector:
+    disktype: unobtainium
+  containers:
+  - name: nginx
+    image: nginx
+---
+# PATH B — a scheduler that is not running.
+# kube-scheduler sees a name that is not its own and leaves the Pod alone.
+# It will sit Pending until something claiming the name my-scheduler binds it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sched-custom
+spec:
+  schedulerName: my-scheduler
+  containers:
+  - name: nginx
+    image: nginx
+---
+# PATH C — no scheduler at all.
+# The scheduler IGNORES this Pod; the kubelet on worker-1 is handed it directly.
+# nodeName overrules nodeSelector and affinity, and nothing validates the choice:
+# a node that does not exist means the Pod never runs, and a node without the
+# resources means the Pod FAILS with OutOfcpu or OutOfmemory.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sched-nodename
+spec:
+  nodeName: worker-1
+  containers:
+  - name: nginx
+    image: nginx
