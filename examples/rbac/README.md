@@ -8,6 +8,7 @@ Companion script for [`05-02 RBAC part 1`](../../notes/05-kubernetes-deep-dive/0
 | [`cluster-superhero.yaml`](cluster-superhero.yaml) | Rebuilds the built-in superuser from scratch — a ClusterRole with every verb on every resource, bound to a group that does not exist |
 | [`pod-reader.yaml`](pod-reader.yaml) | The minimum viable grant, and the fix for the deliberate `403` above |
 | [`scoped-roles.yaml`](scoped-roles.yaml) | The two roles that are **not** "everything": a read-only ClusterRole, and a namespaced Role + RoleBinding |
+| [`serviceaccount-demo.yaml`](serviceaccount-demo.yaml) | The third subject kind: the `default` ServiceAccount a Pod gets for free, a custom one that was actually granted something, and one with no token at all |
 
 ```bash
 bash create-user-certificate.sh
@@ -126,4 +127,51 @@ kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
 
 ```bash
 kubectl delete -f scoped-roles.yaml
+```
+
+## Further study — ServiceAccounts
+
+```bash
+kubectl apply -f serviceaccount-demo.yaml
+```
+
+Three Pods, one image, one command. The only difference is which identity each one carries.
+
+```bash
+# The Pod that said nothing about identity
+kubectl get pod robot-default -o jsonpath='{.spec.serviceAccountName}'   # default
+
+kubectl exec -it robot-default -- sh -c '
+  SA=/var/run/secrets/kubernetes.io/serviceaccount
+  curl -s --cacert $SA/ca.crt -H "Authorization: Bearer $(cat $SA/token)"     https://kubernetes.default.svc/api/v1/namespaces/default/pods | head -5'
+```
+
+```
+"message": "pods is forbidden: User \"system:serviceaccount:default:default\" cannot
+            list resource \"pods\" in API group \"\" in the namespace \"default\""
+```
+
+**Authentication succeeded.** The API server names the identity exactly — `system:serviceaccount:default:default`, the `default` ServiceAccount of the Pod's own namespace, assigned automatically because the spec never mentioned one. Authorization denied, because that account is bound to nothing.
+
+The same command in `robot-granted` returns a Pod list. Nothing about the image, the command or the network changed — only the RoleBinding.
+
+```bash
+kubectl exec -it robot-no-token -- ls /var/run/secrets/kubernetes.io/serviceaccount
+# No such file or directory
+```
+
+`automountServiceAccountToken: false` removes the credential altogether. A Pod that never calls the API server should not be carrying one.
+
+Impersonate the accounts to see the difference without a Pod at all:
+
+```bash
+kubectl auth can-i list pods --as=system:serviceaccount:default:build-robot   # yes
+kubectl auth can-i list pods --as=system:serviceaccount:default:default       # no
+kubectl auth can-i --list    --as=system:serviceaccount:default:default
+```
+
+That last one is worth reading: the `default` ServiceAccount's entire permission set is the API discovery endpoints every authenticated principal gets. **That is the least-privilege default, and the reason most Pods need no ServiceAccount configuration at all.**
+
+```bash
+kubectl delete -f serviceaccount-demo.yaml
 ```

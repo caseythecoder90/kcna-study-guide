@@ -427,6 +427,20 @@ kubectl -n gryffindor auth can-i '*' '*' --as-group=gryffindor-admins --as=harry
 
 **`can-i '*' '*'` says no for anything but a true superuser** — `*` is a literal verb. Two dials: the **verb list** narrows *what*, the **binding kind** narrows *where*. A **RoleBinding referencing a ClusterRole** applies it inside one namespace.
 
+### 4A-e. ServiceAccounts (chapter 05-04 further study)
+
+```bash
+kubectl get pod <name> -o jsonpath='{.spec.serviceAccountName}'   # 'default' if the spec never said
+kubectl create serviceaccount build-robot
+kubectl create rolebinding robot-reader --role=pod-reader --serviceaccount=default:build-robot
+kubectl create token build-robot --duration=10m                   # a token for something OUTSIDE the cluster
+kubectl auth can-i list pods --as=system:serviceaccount:default:build-robot
+kubectl exec -it <pod> -- ls /var/run/secrets/kubernetes.io/serviceaccount   # token  ca.crt  namespace
+# spec.serviceAccountName: build-robot  ·  spec.automountServiceAccountToken: false
+```
+
+**Every Pod is automatically assigned a ServiceAccount — the namespace's `default` one if the spec does not name another** — and `default` holds **no permissions beyond API discovery**. Since **v1.22** the token is short-lived, auto-rotating and mounted as a projected volume.
+
 ## 5. Observability tooling
 
 _Section 6._

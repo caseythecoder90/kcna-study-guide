@@ -675,6 +675,46 @@ kubectl -n gryffindor get roles,rolebindings
 
 **`kubectl auth can-i '*' '*'` only says yes for a genuine superuser** — `*` is a literal verb, not a wildcard match. **Role/RoleBinding are namespaced; ClusterRole/ClusterRoleBinding are cluster-wide**, and **a RoleBinding referencing a ClusterRole scopes it to that one namespace — the BINDING decides the scope, not the role.**
 
+## Chapter 05-04 further study — ServiceAccounts
+
+```bash
+# Every namespace has one, created automatically and recreated if deleted
+kubectl get serviceaccounts -A | head
+kubectl -n default get serviceaccount default -o yaml
+
+# A Pod that never mentioned identity still has one
+kubectl run robot --image=nginx
+kubectl get pod robot -o jsonpath='{.spec.serviceAccountName}'      # default
+
+# Create one, grant it something, assign it
+kubectl create serviceaccount build-robot
+kubectl create role pod-reader --verb=get,list,watch --resource=pods
+kubectl create rolebinding robot-reader --role=pod-reader --serviceaccount=default:build-robot
+#                                                         ^^^^^^^^ namespace:name — mandatory for a ServiceAccount
+
+# spec.serviceAccountName: build-robot     (spec.serviceAccount is a DEPRECATED alias)
+# spec.automountServiceAccountToken: false (no credential mounted at all)
+
+# Test it without a Pod — impersonate the full username
+kubectl auth can-i list pods --as=system:serviceaccount:default:build-robot   # yes
+kubectl auth can-i list pods --as=system:serviceaccount:default:default       # no
+kubectl auth can-i --list    --as=system:serviceaccount:default:default       # API discovery, and nothing else
+
+# A standalone token for something OUTSIDE the cluster (CI/CD)
+kubectl create token build-robot
+kubectl create token build-robot --duration=10m
+
+# What the kubelet mounts inside the Pod
+kubectl exec -it robot -- ls /var/run/secrets/kubernetes.io/serviceaccount
+# token  ca.crt  namespace
+
+kubectl exec -it robot -- sh -c 'SA=/var/run/secrets/kubernetes.io/serviceaccount;
+  curl -s --cacert $SA/ca.crt -H "Authorization: Bearer $(cat $SA/token)"     https://kubernetes.default.svc/api/v1/namespaces/default/pods'
+# pods is forbidden: User "system:serviceaccount:default:default" cannot list resource "pods"
+```
+
+**A Pod with no `serviceAccountName` gets the `default` ServiceAccount of its own namespace**, and that account holds **no permissions beyond API discovery**. The token lives at **`/var/run/secrets/kubernetes.io/serviceaccount/`** and, since **v1.22**, is a **short-lived, auto-rotating projected token** from the `TokenRequest` API rather than the long-lived Secret of earlier versions (auto-created for every ServiceAccount until **v1.24**).
+
 ## Chapter 05-03 — ClusterRoles and ClusterRoleBindings
 
 ```bash
