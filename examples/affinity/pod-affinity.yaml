@@ -1,0 +1,69 @@
+# Inter-pod affinity and anti-affinity: rules about the labels of PODS ALREADY
+# RUNNING, not node labels.
+#
+#   kubectl apply -f pod-affinity.yaml
+#   kubectl get pods -o wide        # watch which NODE column each one lands in
+---
+# The Pod everything else has an opinion about. Note `role: backend` -- that is
+# the label the selectors below match on.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-affinity-backend
+  labels:
+    run: pod-affinity-backend
+    role: backend
+spec:
+  containers:
+  - image: redis
+    name: redis
+---
+# podAffinity: "put me WHERE the backend already is."
+#
+# Read the rule as a sentence: place this Pod only in a topology domain that
+# already contains a Pod labelled role=backend. topologyKey decides what
+# "domain" means -- here, one node.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-affinity-frontend
+  labels:
+    run: pod-affinity-frontend
+spec:
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:                        # selects PODS, not nodes
+          matchExpressions:
+          - key: role
+            operator: In
+            values:
+            - backend
+        topologyKey: kubernetes.io/hostname   # REQUIRED. "same WHAT?" -> same node
+  containers:
+  - image: nginx
+    name: nginx
+---
+# podAntiAffinity: "keep me AWAY from the backend."
+# Identical structure, opposite answer. On a two-worker cluster this lands on
+# whichever node the backend did not.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-antiaffinity-batch
+  labels:
+    run: pod-antiaffinity-batch
+spec:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: role
+            operator: In
+            values:
+            - backend
+        topologyKey: kubernetes.io/hostname
+  containers:
+  - image: nginx
+    name: nginx

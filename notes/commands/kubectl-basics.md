@@ -602,6 +602,69 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-07 — affinity and anti-affinity
+
+```bash
+# Node labels are the raw material for nodeAffinity
+kubectl label node/worker-1 disktype=ssd
+kubectl label node/worker-2 disktype=nvme
+kubectl get nodes --show-labels
+kubectl get nodes -L disktype -L topology.kubernetes.io/zone    # as columns
+kubectl label node/worker-1 disktype-                            # remove
+
+# IgnoredDuringExecution: relabelling moves NOTHING that is already running.
+# replace --force deletes and recreates, forcing a fresh scheduling decision.
+kubectl replace --force -f node-affinity.yaml
+kubectl get pods -o wide
+
+# Why it will not schedule — the message names WHICH rule rejected each node
+kubectl describe pod node-affinity | grep -A6 Events
+#   node(s) didn't match Pod's node affinity/selector
+#   node(s) didn't match pod affinity rules
+#   node(s) didn't match pod anti-affinity rules
+#   node(s) didn't satisfy existing pods anti-affinity rules   <- SOMEONE ELSE'S rule
+
+# Does the Pod a podAffinity rule is looking for actually exist?
+kubectl get pods -o wide -l role=backend --all-namespaces
+
+kubectl explain pod.spec.affinity --recursive | head -40
+```
+
+```yaml
+# NODE AFFINITY — reads NODE labels
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:   # FILTER -> Pending if no match
+        nodeSelectorTerms:                              # terms are ORed
+        - matchExpressions:                             # expressions are ANDed
+          - {key: disktype, operator: In, values: [ssd]}
+      preferredDuringSchedulingIgnoredDuringExecution:  # SCORE BOOST -> schedules anyway
+      - weight: 20                                      # 1-100
+        preference:                                     # NOT nodeSelectorTerms
+          matchExpressions:
+          - {key: disktype, operator: In, values: [nvme]}
+# Operators: In · NotIn · Exists · DoesNotExist  (+ Gt · Lt, nodeAffinity ONLY)
+# NotIn / DoesNotExist = node anti-affinity. There is no nodeAntiAffinity field.
+
+# POD AFFINITY — reads the labels of PODS ALREADY RUNNING
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:                                  # selects PODS
+          matchExpressions:
+          - {key: role, operator: In, values: [backend]}
+        topologyKey: kubernetes.io/hostname             # MANDATORY. "same WHAT?"
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:                                # NOT 'preference'
+          labelSelector:
+            matchLabels: {app: web}
+          topologyKey: kubernetes.io/hostname
+```
+
+**`required` filters (no match leaves the Pod `Pending`); `preferred` only adds a weight to the node's score (the Pod schedules anyway).** Both are **`IgnoredDuringExecution`** — changing labels never moves a running Pod. **`nodeAffinity` reads node labels; `podAffinity`/`podAntiAffinity` read the labels of Pods already running**, and need a **`topologyKey`** to say what counts as the same place.
+
 ## Chapter 05-06 — taints and tolerations
 
 ```bash

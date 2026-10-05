@@ -489,6 +489,33 @@ spec:
 
 **Taints repel (nodes), tolerations permit (Pods).** `operator` is a field whose values are **`Equal`** (default) and **`Exists`**; `effect` is a separate field. **`NoSchedule` blocks new Pods only; `NoExecute` also evicts running ones.** A toleration allows scheduling without causing it.
 
+### 4A-h. Affinity and anti-affinity (chapter 05-07)
+
+```bash
+kubectl label node/worker-1 disktype=ssd ; kubectl get nodes --show-labels
+kubectl get nodes -L disktype -L topology.kubernetes.io/zone
+kubectl replace --force -f node-affinity.yaml     # IgnoredDuringExecution: relabelling moves nothing
+kubectl describe pod <name> | grep -A6 Events     # which rule rejected which nodes
+```
+
+```yaml
+spec:
+  affinity:
+    nodeAffinity:                                       # reads NODE labels
+      requiredDuringSchedulingIgnoredDuringExecution:   # FILTER  -> Pending if nothing matches
+        nodeSelectorTerms:                              # terms ORed, matchExpressions ANDed
+        - matchExpressions: [{key: disktype, operator: In, values: [ssd]}]
+      preferredDuringSchedulingIgnoredDuringExecution:  # SCORE   -> schedules anyway
+      - weight: 20                                      # 1-100
+        preference: {matchExpressions: [{key: disktype, operator: In, values: [nvme]}]}
+    podAffinity:                                        # reads labels of PODS ALREADY RUNNING
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector: {matchLabels: {role: backend}}
+        topologyKey: kubernetes.io/hostname             # MANDATORY -- "the same WHAT?"
+```
+
+**`required` = mandatory (filters, leaves the Pod `Pending`); `preferred` = best effort (scores, schedules anyway).** Both are **`IgnoredDuringExecution`** — a label change never moves a running Pod. Operators: `In`/`NotIn`/`Exists`/`DoesNotExist`, plus `Gt`/`Lt` for `nodeAffinity` only.
+
 ## 5. Observability tooling
 
 _Section 6._

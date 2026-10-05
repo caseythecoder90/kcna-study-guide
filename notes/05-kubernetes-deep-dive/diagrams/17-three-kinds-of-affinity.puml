@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three rules, and the only question that separates them: whose labels am I reading?
+
+rectangle "nodeAffinity — reads NODE labels" <<groupGood>> as na {
+  rectangle "<b>Which nodes should my Pod be scheduled to, based on NODE LABELS?</b>\n<size:11>spec.affinity.nodeAffinity · a more expressive nodeSelector</size>\n\n<size:11>kubectl label node/worker-1 disktype=ssd</size>\n<size:11>→ the Pod lands on worker-1 because the NODE carries that label.</size>\n\n<size:11>Needs: matchExpressions. No topologyKey — the node IS the unit.</size>\n<size:11>Operators: In · NotIn · Exists · DoesNotExist · Gt · Lt</size>\n<size:11>NotIn and DoesNotExist are how you express node ANTI-affinity. There is no</size>\n<size:11>separate nodeAntiAffinity field — taints are the other way to repel (chapter 05-06).</size>" <<good>> as na1
+}
+
+rectangle "podAffinity — reads POD labels, and answers 'put me WITH them'" <<groupGood>> as pa {
+  rectangle "<b>Constrains which nodes my Pod can be scheduled on based on the labels of</b>\n<b>PODS ALREADY RUNNING on that node.</b>  Co-location. The best friend you want nearby.\n\n<size:11>spec.affinity.podAffinity</size>\n<size:11>  requiredDuringSchedulingIgnoredDuringExecution:</size>\n<size:11>  - labelSelector:              ← selects OTHER PODS, not nodes</size>\n<size:11>      matchExpressions:</size>\n<size:11>      - {key: role, operator: In, values: [backend]}</size>\n<size:11>    topologyKey: kubernetes.io/hostname    ← REQUIRED. 'Same WHAT?'</size>\n\n<size:11>Reads: place me in a topology domain that already contains a Pod labelled role=backend.</size>\n<size:11>Typical use: a frontend that talks to its backend constantly, kept on the same host.</size>" <<good>> as pa1
+}
+
+rectangle "podAntiAffinity — reads POD labels, and answers 'keep me AWAY from them'" <<groupBad>> as pan {
+  rectangle "<b>Certain Pods MUST NOT (required) or SHOULD NOT (preferred) be scheduled into a</b>\n<b>topology domain that already holds a matching Pod.</b>  Separation.\n\n<size:11>spec.affinity.podAntiAffinity — identical structure, opposite answer.</size>\n\n<size:11>Distribute replicas across nodes · remove a single point of failure · balance load.</size>\n<size:11>The classic use: a Deployment's own Pods anti-affine to their OWN label, so three</size>\n<size:11>replicas land on three different nodes instead of stacking on one.</size>\n\n<size:11>With REQUIRED anti-affinity, the LimitPodHardAntiAffinityTopology admission plugin</size>\n<size:11>restricts topologyKey to kubernetes.io/hostname unless an admin changes it.</size>" <<bad>> as pan1
+}
+
+rectangle "What they share" <<group>> as sh {
+  rectangle "All three take <b>required</b> (a filter) and <b>preferred</b> (a weighted score boost),\nand all three are <b>IgnoredDuringExecution</b> — none of them ever moves a running Pod.\n\n<size:11>Pod affinity and anti-affinity are evaluated against the CURRENT cluster state, which makes</size>\n<size:11>them expensive: 'require substantial amounts of processing which can slow down scheduling in</size>\n<size:11>large clusters significantly. We do not recommend using them in clusters larger than several</size>\n<size:11>hundred nodes.' Node affinity carries no such warning — node labels are cheap to read.</size>\n\n<size:11>Pod affinity/anti-affinity support In · NotIn · Exists · DoesNotExist only. Gt and Lt are nodeAffinity-only.</size>" <<accent>> as sh1
+}
+
+na -down-> pa
+pa -down-> pan
+pan -down-> sh
+
+caption <i>nodeAffinity asks a question about the node. podAffinity and podAntiAffinity ask a question about the Pods already there — which is why they, and only they, need a topologyKey to say what "already there" means.</i>
+@enduml
