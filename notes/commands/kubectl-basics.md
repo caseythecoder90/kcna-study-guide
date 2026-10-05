@@ -602,6 +602,56 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-06 — taints and tolerations
+
+```bash
+# What is already tainted. kubeadm taints the control plane; k3s/MicroK8s/kind do not.
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+kubectl describe node control-plane | grep -i -A3 taint
+#   node-role.kubernetes.io/control-plane:NoSchedule
+
+# Add a taint:  KEY=VALUE:EFFECT
+kubectl taint nodes worker-2 custom-taint1=lenient:NoSchedule
+kubectl taint nodes worker-2 custom-taint2=strict:NoExecute     # ALSO evicts running Pods
+kubectl taint nodes worker-2 gpu=true:PreferNoSchedule          # soft — "try to avoid"
+kubectl taint nodes worker-2 maintenance:NoSchedule             # the value is optional
+
+# Remove a taint: the SAME string with a TRAILING DASH
+kubectl taint nodes worker-2 custom-taint1=lenient:NoSchedule-
+kubectl taint nodes worker-2 custom-taint2=strict:NoExecute-
+
+# Taint every node at once
+kubectl taint nodes --all custom-taint1=lenient:NoSchedule
+
+# Why a Pod will not schedule — the event names BOTH filters
+kubectl describe pod -l app=test-taint | grep -A5 Events
+#   FailedScheduling  0/3 nodes are available:
+#     1 node(s) had untolerated taint {custom-taint1: lenient},
+#     2 node(s) didn't match Pod's node affinity/selector.
+```
+
+```yaml
+# In the Pod spec. operator is a FIELD; Equal and Exists are its VALUES.
+# effect is a DIFFERENT field: NoSchedule / PreferNoSchedule / NoExecute.
+spec:
+  nodeSelector:                      # ATTRACTION — which node do I want
+    kubernetes.io/hostname: worker-2
+  tolerations:                       # PERMISSION — which node will have me
+  - key: "custom-taint1"
+    operator: "Exists"               # any value for this key; NO value field allowed
+    effect: "NoSchedule"
+  - key: "custom-taint2"
+    operator: "Equal"                # the DEFAULT; the value must match exactly
+    value: "strict"
+    effect: "NoExecute"
+    tolerationSeconds: 3600          # only meaningful with NoExecute
+  # Special cases:
+  #   - operator: "Exists"                      -> tolerate EVERY taint on EVERY node
+  #   - operator: "Exists", effect: NoSchedule  -> all keys/values, that one effect
+```
+
+**Taints repel, tolerations permit** — and a toleration **allows** scheduling without **causing** it, so `nodeSelector` plus an untolerated taint leaves the Pod **`Pending`**. **`NoSchedule` only blocks new Pods; `NoExecute` also evicts running ones.** Removing a taint is the same command with a **trailing dash**.
+
 ## Chapter 05-05 — the kube-scheduler
 
 ```bash

@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three words the exam deliberately confuses — operator, Equal/Exists, and effect
+
+rectangle "ON THE NODE — a taint, written KEY=VALUE:EFFECT" <<groupBad>> as n {
+  rectangle "kubectl taint nodes worker-2 custom-taint2=strict:NoExecute\n\n<size:11>  custom-taint2   the KEY</size>\n<size:11>  strict          the VALUE   (optional — key:NoSchedule is legal)</size>\n<size:11>  NoExecute       the EFFECT  (what happens to Pods that do NOT tolerate it)</size>\n\n<size:11>Remove it by repeating the command with a TRAILING DASH:</size>\n<size:11>kubectl taint nodes worker-2 custom-taint2=strict:NoExecute-</size>" <<bad>> as n1
+}
+
+rectangle "ON THE POD — a toleration, written as FOUR separate fields" <<groupGood>> as p {
+  rectangle "tolerations:\n<size:11>- key:      custom-taint2     ← must equal the taint's key</size>\n<size:11>  operator: Equal             ← the FIELD NAME. Its values are Equal and Exists.</size>\n<size:11>  value:    strict            ← only used when operator is Equal</size>\n<size:11>  effect:   NoExecute         ← must equal the taint's effect</size>\n\n<size:11>operator is NOT an effect, and Equal/Exists are NOT effects. They are the two</size>\n<size:11>VALUES of the operator field. The effect field is a different field entirely.</size>" <<good>> as p1
+}
+
+rectangle "WHEN DOES A TOLERATION MATCH A TAINT?" <<group>> as m {
+  rectangle "The keys are the same AND the effects are the same AND:\n<size:11>  · operator is Exists  — no value should be specified; any value matches</size>\n<size:11>  · operator is Equal   — the values must be equal.  Equal is the DEFAULT.</size>\n\n<size:11>Two special cases:</size>\n<size:11>  · an EMPTY KEY requires operator Exists, and matches ALL keys and values</size>\n<size:11>    (the effect must still match)</size>\n<size:11>  · an EMPTY EFFECT matches ALL effects for that key</size>\n<size:11>  · empty key + Exists + empty effect = tolerate every taint on every node</size>" <<accent>> as m1
+}
+
+rectangle "THE THREE EFFECTS — and the one distinction the study tips call out" <<group>> as e {
+  rectangle "NoSchedule        No NEW Pods scheduled here without a matching toleration.\n<size:11>                  Pods ALREADY RUNNING on the node are NOT evicted.</size>\n\nPreferNoSchedule  The soft version. The control plane will TRY to avoid the node,\n<size:11>                  but it is not guaranteed.</size>\n\nNoExecute         Blocks scheduling AND affects Pods already running:\n<size:11>                  · Pods that do not tolerate it are EVICTED IMMEDIATELY</size>\n<size:11>                  · Pods that tolerate it with no tolerationSeconds stay forever</size>\n<size:11>                  · Pods that tolerate it WITH tolerationSeconds stay that long,</size>\n<size:11>                    then the controller evicts them</size>" <<plain>> as e1
+}
+
+n -down-> p : repels unless tolerated
+p -down-> m
+m -down-> e
+
+caption <i>Tolerations allow scheduling; they do not guarantee it. A toleration removes one objection — it is not an attraction, and it does not send a Pod anywhere.</i>\n<i>To steer a Pod TOWARDS a node you still need nodeSelector or node affinity. Taints and tolerations only answer "is this Pod allowed here".</i>
+@enduml

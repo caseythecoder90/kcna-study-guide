@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One Deployment, four states — what each toleration actually bought
+
+rectangle "STATE 1 · nodeSelector alone is not enough" <<groupBad>> as s1 {
+  rectangle "NODE worker-2 taints:  custom-taint1=lenient:NoSchedule\nPOD tolerations:       none\nPOD nodeSelector:      kubernetes.io/hostname: worker-2\n\n<b>STATUS: Pending   NODE: none</b>\n\n<size:11>nodeSelector narrowed the candidates to exactly one node. The taint then removed</size>\n<size:11>that one node. Two INDEPENDENT filters, and the Pod has to pass both.</size>\n<size:11>kubectl describe pod → FailedScheduling: 1 node(s) had untolerated taint</size>" <<bad>> as s1a
+}
+
+rectangle "STATE 2 · add a NoSchedule toleration" <<groupGood>> as s2 {
+  rectangle "POD tolerations:\n<size:11>- key: custom-taint1 · operator: Exists · effect: NoSchedule</size>\n\n<b>STATUS: Running   NODE: worker-2</b>\n\n<size:11>Nothing attracted the Pod to worker-2 — nodeSelector had already done that and was</size>\n<size:11>being blocked. The toleration only REMOVED THE OBJECTION. operator: Exists means</size>\n<size:11>'any value for this key', so the taint's value never had to be written down.</size>" <<good>> as s2a
+}
+
+rectangle "STATE 3 · a second taint, this time NoExecute" <<groupBad>> as s3 {
+  rectangle "kubectl taint node worker-2 custom-taint2=strict:NoExecute\n\nNODE worker-2 taints:  custom-taint1=lenient:NoSchedule   ← still tolerated\n                       custom-taint2=strict:NoExecute    ← NOT tolerated\n\n<b>The RUNNING Pod is EVICTED. Its replacement is Pending.</b>\n\n<size:11>This is the NoSchedule / NoExecute difference, live: NoSchedule would have left the</size>\n<size:11>running Pod alone and only blocked new ones. NoExecute does both — and the Deployment</size>\n<size:11>dutifully creates a replacement that cannot be placed either.</size>" <<bad>> as s3a
+}
+
+rectangle "STATE 4 · add the second toleration" <<groupGood>> as s4 {
+  rectangle "POD tolerations:\n<size:11>- key: custom-taint1 · operator: Exists · effect: NoSchedule</size>\n<size:11>- key: custom-taint2 · operator: Equal  · value: strict · effect: NoExecute</size>\n\n<b>STATUS: Running   NODE: worker-2</b>\n\n<size:11>operator: Equal needs the VALUE spelled out — 'strict' — where Exists did not.</size>\n<size:11>One toleration per taint: the filter leaves nothing un-ignored, so nothing objects.</size>" <<good>> as s4a
+}
+
+rectangle "THE FILTER, AS THE DOCUMENTATION STATES IT" <<group>> as f {
+  rectangle "Start with ALL of a node's taints, then IGNORE the ones the Pod has a matching\ntoleration for. The remaining UN-IGNORED taints have the indicated effects:\n\n<size:11>  at least one un-ignored NoSchedule        → will NOT schedule onto that node</size>\n<size:11>  no NoSchedule but one PreferNoSchedule   → will TRY not to schedule there</size>\n<size:11>  at least one un-ignored NoExecute        → EVICTED if already running there,</size>\n<size:11>                                              and will not be scheduled there</size>\n\n<size:11>A toleration does not cancel a taint for everyone — it excuses ONE Pod from ONE taint.</size>" <<accent>> as f1
+}
+
+s1 -down-> s2 : add toleration 1
+s2 -down-> s3 : admin taints the node again
+s3 -down-> s4 : add toleration 2
+s4 -down-> f
+
+caption <i>State 1 is the one worth predicting before running it: nodeSelector points the Pod at the node, and the taint still refuses it. The result is Pending, not Failed — the scheduler keeps retrying forever.</i>\n<i>Every state above is one line of YAML or one kubectl command apart from the next.</i>
+@enduml

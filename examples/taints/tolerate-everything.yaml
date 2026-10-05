@@ -1,0 +1,53 @@
+# The special-case matching rules, as three Pods.
+#
+# Apply these against a node carrying any taints at all and compare where they
+# land. Useful for seeing that "empty" means "match all", not "match nothing".
+---
+# EMPTY KEY + Exists: matches ALL keys and values.
+# The effect still has to match, so this tolerates every NoSchedule taint in
+# the cluster -- including node-role.kubernetes.io/control-plane:NoSchedule,
+# which is how this Pod reaches a kubeadm control-plane node.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tolerate-all-noschedule
+spec:
+  tolerations:
+  - operator: "Exists"
+    effect: "NoSchedule"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# EMPTY KEY + EMPTY EFFECT + Exists: tolerates EVERY taint on EVERY node.
+# This is the DaemonSet-style blanket toleration. It is also a good way to
+# accidentally schedule onto a node that was tainted for a real reason.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tolerate-everything
+spec:
+  tolerations:
+  - operator: "Exists"
+  containers:
+  - name: nginx
+    image: nginx
+---
+# tolerationSeconds: only meaningful with NoExecute.
+# If custom-taint2=strict:NoExecute is applied while this Pod is running, it
+# stays bound for 60 more seconds and is then evicted. Remove the taint before
+# the time elapses and it is not evicted at all.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tolerate-for-a-minute
+spec:
+  tolerations:
+  - key: "custom-taint2"
+    operator: "Equal"
+    value: "strict"
+    effect: "NoExecute"
+    tolerationSeconds: 60
+  containers:
+  - name: nginx
+    image: nginx

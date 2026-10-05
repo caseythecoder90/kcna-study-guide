@@ -1,0 +1,49 @@
+# The lecture's Deployment, with BOTH tolerations present.
+#
+# Run it as a four-state experiment by commenting the tolerations out and
+# adding them back one at a time -- see README.md. Replace worker-2 with a
+# real node name from `kubectl get nodes`.
+#
+#   kubectl taint nodes worker-2 custom-taint1=lenient:NoSchedule
+#   kubectl taint nodes worker-2 custom-taint2=strict:NoExecute
+#   kubectl apply -f test-taint.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: test-taint
+  name: test-taint
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-taint
+  template:
+    metadata:
+      labels:
+        app: test-taint
+    spec:
+      # ATTRACTION. This narrows the candidate nodes to exactly one.
+      # It does nothing about whether that node will accept the Pod.
+      nodeSelector:
+        kubernetes.io/hostname: worker-2
+
+      # PERMISSION. Each entry excuses THIS Pod from ONE taint.
+      # Comment both out and the Pod stays Pending: nodeSelector sent it to a
+      # node that refuses it, and the two filters are independent.
+      tolerations:
+      # operator Exists -- matches any value for this key, so 'lenient' never
+      # has to appear here. No `value` field is allowed with Exists.
+      - key: "custom-taint1"
+        operator: "Exists"
+        effect: "NoSchedule"
+      # operator Equal (the default) -- the value must be spelled out and must
+      # match exactly. Without this entry, applying the NoExecute taint EVICTS
+      # the running Pod and leaves its replacement Pending.
+      - key: "custom-taint2"
+        operator: "Equal"
+        value: "strict"
+        effect: "NoExecute"
+      containers:
+      - image: nginx
+        name: nginx
