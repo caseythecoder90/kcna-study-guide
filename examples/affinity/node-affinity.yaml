@@ -1,0 +1,112 @@
+# Node affinity: rules about NODE labels.
+#
+# Setup:
+#   kubectl label node/worker-1 disktype=ssd
+#   kubectl label node/worker-2 disktype=nvme
+#   kubectl get nodes --show-labels
+#
+# Remember: affinity is IgnoredDuringExecution, so relabelling a node does
+# NOTHING to a Pod already running. Use `kubectl replace --force -f` to force a
+# fresh scheduling decision.
+---
+# REQUIRED -- a FILTER. Nodes that do not match are removed from the feasible
+# set. No match anywhere means the Pod stays Pending forever.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-required
+  labels:
+    run: affinity-required
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:          # a LIST of terms -- ORed together
+        - matchExpressions:         # expressions inside one term -- ANDed
+          - key: disktype
+            operator: In
+            values:
+            - ssd
+  containers:
+  - image: nginx
+    name: nginx
+---
+# The same rule asking for a label nothing carries. This Pod stays Pending.
+#   kubectl describe pod affinity-impossible | grep -A4 Events
+#   -> node(s) didn't match Pod's node affinity/selector
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-impossible
+  labels:
+    run: affinity-impossible
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - unobtainium
+  containers:
+  - image: nginx
+    name: nginx
+---
+# PREFERRED -- a SCORE BOOST. Every weight a node satisfies is added to its
+# score, and the total competes with the scheduler's other scoring functions.
+# Preference order here: nvme (+20) -> ssd (+10) -> any node (+0).
+#
+# Delete BOTH disktype labels and this Pod still schedules. That is the whole
+# difference from affinity-impossible above.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-preferred
+  labels:
+    run: affinity-preferred
+spec:
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 20                  # 1-100. Higher = stronger.
+        preference:                 # note: 'preference', not 'nodeSelectorTerms'
+          matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - nvme
+      - weight: 10
+        preference:
+          matchExpressions:
+          - key: disktype
+            operator: In
+            values:
+            - ssd
+  containers:
+  - image: nginx
+    name: nginx
+---
+# Node ANTI-affinity. There is no nodeAntiAffinity field -- the negative
+# operators are how you express it. This Pod will go anywhere EXCEPT a node
+# labelled disktype=nvme.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-not-nvme
+  labels:
+    run: affinity-not-nvme
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: disktype
+            operator: NotIn
+            values:
+            - nvme
+  containers:
+  - image: nginx
+    name: nginx

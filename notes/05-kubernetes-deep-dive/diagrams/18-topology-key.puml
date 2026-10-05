@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title topologyKey — the word "same" has to mean something, and this is where you say what
+
+rectangle "The sentence every pod affinity rule is really making" <<group>> as s {
+  rectangle "<b>This Pod should (or should not) run in an  X  if that  X  is already running one or</b>\n<b>more Pods that meet rule  Y .</b>\n\n<size:11>  Y  is the labelSelector — WHICH Pods am I talking about?</size>\n<size:11>  X  is the topologyKey — what counts as the SAME PLACE as those Pods?</size>\n\n<size:11>Without X the rule is meaningless: 'schedule me with the backend' — in the same what?</size>\n<size:11>The same machine? The same rack? The same region? They are very different instructions.</size>\n<size:11>That is why <b>topologyKey is required and may never be empty.</b></size>" <<accent>> as s1
+}
+
+rectangle "It is a NODE LABEL KEY, not a value" <<group>> as k {
+  rectangle "<b>topologyKey names the node label whose VALUE defines the grouping.</b>\n\n<size:11>Two nodes are in the same topology domain when they carry the SAME VALUE for that key.</size>\n\n<size:11>  topologyKey: kubernetes.io/hostname</size>\n<size:11>     node-1 has kubernetes.io/hostname=node-1  ·  node-2 has =node-2</size>\n<size:11>     Every node is its own domain, because every value is different.</size>\n<size:11>     'Same domain' therefore means 'same machine'.</size>\n\n<size:11>  topologyKey: topology.kubernetes.io/zone</size>\n<size:11>     node-1 and node-2 both have =us-east-1a  →  ONE domain</size>\n<size:11>     node-3 and node-4 both have =us-east-1b  →  a second domain</size>\n<size:11>     'Same domain' now means 'same availability zone', across two machines.</size>" <<plain>> as k1
+}
+
+rectangle "The nesting, widest to narrowest" <<group>> as n {
+  rectangle "topology.kubernetes.io/region   →   topology.kubernetes.io/zone   →   kubernetes.io/hostname\n<size:11>geographic region                    availability zone                    a single server</size>\n\n<size:11><b>The narrower the scope, the more precise the placement control.</b></size>\n\n<size:11>podAffinity + hostname  = same physical host. Fastest communication, worst blast radius.</size>\n<size:11>podAffinity + zone      = same AZ. Low latency and no cross-zone egress, still two machines.</size>\n<size:11>podAntiAffinity + hostname = one replica per node.</size>\n<size:11>podAntiAffinity + zone     = one replica per zone, which survives losing a whole AZ.</size>\n\n<size:11>Same rule, same labelSelector — only the topologyKey changed, and the guarantee changed with it.</size>" <<good>> as n1
+}
+
+rectangle "The trap" <<groupBad>> as t {
+  rectangle "<b>Pod anti-affinity requires nodes to be CONSISTENTLY LABELLED</b> — every node in the\ncluster must carry a label matching the topologyKey.\n\n<size:11>If some or all nodes are missing that label, it can lead to unintended behaviour: a node with</size>\n<size:11>no value for the key is not in any domain, so the rule cannot reason about it.</size>\n\n<size:11>kubernetes.io/hostname is safe — the kubelet sets it on every node (chapter 05-05).</size>\n<size:11>topology.kubernetes.io/zone is set by cloud providers, and is usually absent on a bare-metal</size>\n<size:11>or k3s lab cluster, so a zone-scoped rule there may silently do nothing useful.</size>\n\n<size:11>Check before relying on it:  kubectl get nodes -L topology.kubernetes.io/zone</size>" <<bad>> as t1
+}
+
+s -down-> k
+k -down-> n
+n -down-> t
+
+caption <i>topologyKey is the one field in this topic that has no equivalent anywhere else in Kubernetes scheduling, which is exactly why it is the part people do not remember.</i>\n<i>Read it as the answer to a question the rule cannot answer on its own: "the same WHAT?"</i>
+@enduml

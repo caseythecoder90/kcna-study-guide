@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The two affinity types are the two halves of scheduling
+
+rectangle "Both live under spec.affinity.nodeAffinity" <<group>> as top {
+  rectangle "Scheduling is FILTERING then SCORING (chapter 05-05), and the two affinity types are not\ntwo strengths of one thing — <b>they plug into DIFFERENT STAGES.</b>\n\n<size:11>Which is why only one of them has a weight, and why only one of them can leave a Pod Pending.</size>" <<accent>> as top1
+}
+
+rectangle "requiredDuringSchedulingIgnoredDuringExecution — a FILTER" <<groupBad>> as req {
+  rectangle "<b>A HARD RULE.</b> The scheduler cannot schedule the Pod unless the rule is met.\n\n<size:11>Nodes that do not match are REMOVED from the feasible set. If that empties the set,</size>\n<size:11>the Pod stays Pending forever — exactly like an impossible nodeSelector.</size>\n\n<size:11>affinity:</size>\n<size:11>  nodeAffinity:</size>\n<size:11>    requiredDuringSchedulingIgnoredDuringExecution:</size>\n<size:11>      nodeSelectorTerms:          ← a LIST of terms, ORed together</size>\n<size:11>      - matchExpressions:        ← expressions within one term are ANDed</size>\n<size:11>        - key: disktype</size>\n<size:11>          operator: In</size>\n<size:11>          values: [ssd]</size>\n\n<size:11>No weight field exists here. There is nothing to rank — a node either qualifies or it does not.</size>" <<bad>> as r1
+}
+
+rectangle "preferredDuringSchedulingIgnoredDuringExecution — a SCORE BOOST" <<groupGood>> as pref {
+  rectangle "<b>A SOFT RULE.</b> The scheduler TRIES to find a node that meets it. If no matching\nnode is available, <b>the scheduler still schedules the Pod.</b>\n\n<size:11>Every node that survived filtering gets scored. For each preferred rule a node satisfies,</size>\n<size:11>its WEIGHT is added to that node's sum, and the sum joins the other scoring functions.</size>\n\n<size:11>    preferredDuringSchedulingIgnoredDuringExecution:</size>\n<size:11>    - weight: 20                 ← 1 to 100. Higher = stronger.</size>\n<size:11>      preference:                ← note: 'preference', not 'nodeSelectorTerms'</size>\n<size:11>        matchExpressions:</size>\n<size:11>        - {key: disktype, operator: In, values: [nvme]}</size>\n<size:11>    - weight: 10</size>\n<size:11>      preference:</size>\n<size:11>        matchExpressions:</size>\n<size:11>        - {key: disktype, operator: In, values: [ssd]}</size>\n\n<size:11>Preference order: nvme (+20)  →  ssd (+10)  →  ANY node (+0, still schedulable)</size>\n<size:11>A preferred rule can still LOSE: it only adds to a score other functions also contribute to.</size>" <<good>> as p1
+}
+
+rectangle "...IgnoredDuringExecution — the half of the name nobody reads" <<group>> as ign {
+  rectangle "<b>If the node labels change AFTER the Pod is scheduled, the Pod continues to run.</b>\n\n<size:11>Affinity is evaluated ONCE, at scheduling time. Remove the label that got a Pod placed and</size>\n<size:11>nothing happens to it — unlike a NoExecute taint (chapter 05-06), which does evict.</size>\n<size:11>Only on the NEXT scheduling decision — a delete, a restart, a kubectl replace --force — is</size>\n<size:11>the rule re-evaluated, and that is when the Pod may land somewhere else or go Pending.</size>\n\n<size:11>A RequiredDuringExecution variant was designed but has never been implemented.</size>" <<plain>> as i1
+}
+
+top -down-> req
+req -down-> pref
+pref -down-> ign
+
+caption <i>required = mandatory, preferred = best effort. The giveaway in a question is what happens when NOTHING matches: required leaves the Pod Pending, preferred schedules it anyway.</i>\n<i>And both names end in IgnoredDuringExecution, so neither one will ever move a Pod that is already running.</i>
+@enduml

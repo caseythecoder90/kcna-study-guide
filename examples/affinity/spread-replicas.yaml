@@ -1,0 +1,73 @@
+# The most common real use of podAntiAffinity: stop a Deployment stacking its
+# own replicas on one node.
+#
+#   kubectl apply -f spread-replicas.yaml
+#   kubectl get pods -o wide -l app=spread
+#
+# The trick is that the labelSelector matches the Deployment's OWN Pod label,
+# so each replica repels the next one.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread-hard
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: spread
+      mode: hard
+  template:
+    metadata:
+      labels:
+        app: spread
+        mode: hard
+    spec:
+      affinity:
+        podAntiAffinity:
+          # REQUIRED: one replica per node, full stop. On a cluster with fewer
+          # nodes than replicas, the surplus Pods stay Pending:
+          #   node(s) didn't match pod anti-affinity rules
+          #
+          # The LimitPodHardAntiAffinityTopology admission plugin restricts
+          # REQUIRED anti-affinity to topologyKey kubernetes.io/hostname.
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                mode: hard
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - image: nginx
+        name: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread-soft
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: spread
+      mode: soft
+  template:
+    metadata:
+      labels:
+        app: spread
+        mode: soft
+    spec:
+      affinity:
+        podAntiAffinity:
+          # PREFERRED: spread if you can, double up if you must. With 5 replicas
+          # on 2 workers every Pod runs -- the scheduler just prefers to even
+          # them out. Compare the Pending Pods from spread-hard above.
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:          # note the field name: NOT 'preference'
+              labelSelector:
+                matchLabels:
+                  mode: soft
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - image: nginx
+        name: nginx
