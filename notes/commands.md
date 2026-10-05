@@ -464,6 +464,31 @@ EOF
 
 **Filtering → scoring → binding.** No feasible node leaves the Pod **`Pending`**, never failed and never placed anyway. **The scheduler assigns; the kubelet starts.**
 
+### 4A-g. Taints and tolerations (chapter 05-06)
+
+```bash
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+kubectl describe node control-plane | grep -i -A3 taint   # node-role.kubernetes.io/control-plane:NoSchedule
+
+kubectl taint nodes worker-2 custom-taint1=lenient:NoSchedule    # KEY=VALUE:EFFECT
+kubectl taint nodes worker-2 custom-taint2=strict:NoExecute      # also EVICTS running Pods
+kubectl taint nodes worker-2 custom-taint1=lenient:NoSchedule-   # TRAILING DASH removes it
+kubectl taint nodes --all maintenance:NoSchedule                 # value is optional
+
+kubectl describe pod -l app=x | grep -A5 Events   # "had untolerated taint" vs "didn't match selector"
+```
+
+```yaml
+spec:
+  nodeSelector: {kubernetes.io/hostname: worker-2}   # attraction
+  tolerations:                                       # permission
+  - {key: custom-taint1, operator: Exists, effect: NoSchedule}
+  - {key: custom-taint2, operator: Equal, value: strict, effect: NoExecute, tolerationSeconds: 3600}
+  # - {operator: Exists}    # empty key + empty effect = tolerate every taint everywhere
+```
+
+**Taints repel (nodes), tolerations permit (Pods).** `operator` is a field whose values are **`Equal`** (default) and **`Exists`**; `effect` is a separate field. **`NoSchedule` blocks new Pods only; `NoExecute` also evicts running ones.** A toleration allows scheduling without causing it.
+
 ## 5. Observability tooling
 
 _Section 6._
