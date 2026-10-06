@@ -516,6 +516,24 @@ spec:
 
 **`required` = mandatory (filters, leaves the Pod `Pending`); `preferred` = best effort (scores, schedules anyway).** Both are **`IgnoredDuringExecution`** — a label change never moves a running Pod. Operators: `In`/`NotIn`/`Exists`/`DoesNotExist`, plus `Gt`/`Lt` for `nodeAffinity` only.
 
+```yaml
+# The THIRD placement mechanism: podAffinity packs, podAntiAffinity repels, this BALANCES
+spec:
+  topologySpreadConstraints:
+  - maxSkew: 1                        # REQUIRED, > 0.  skew = Pods here - global minimum
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule  # DEFAULT, a filter -> Pending.  ScheduleAnyway = a score
+    labelSelector: {matchLabels: {app: web}}
+```
+
+```bash
+kubectl explain pod.spec.topologySpreadConstraints --recursive
+kubectl get pods -o wide -l app=web --sort-by=.spec.nodeName
+kubectl describe pod <name> | grep -A6 Events   # node(s) didn't match pod topology spread constraints
+```
+
+**Cluster defaults apply with no config (v1.24+): `maxSkew: 3` over hostname, `maxSkew: 5` over zone, both `ScheduleAnyway`.** Constraints are checked only at scheduling time, so scaling *down* can leave a Deployment imbalanced.
+
 ## 5. Observability tooling
 
 _Section 6._

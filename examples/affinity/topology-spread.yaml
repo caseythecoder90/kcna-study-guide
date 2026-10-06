@@ -1,0 +1,87 @@
+# Topology spread constraints: the thing podAntiAffinity could not express.
+#
+# anti-affinity is yes/no -- required means ONE Pod per domain, preferred means
+# no guarantee at all. Neither can say "spread them, but two per node is fine".
+# maxSkew is that number.
+#
+#   kubectl apply -f topology-spread.yaml
+#   kubectl get pods -o wide -l app=spreadtest --sort-by=.spec.nodeName
+#
+# Run this NEXT TO spread-replicas.yaml and compare: same goal, three mechanisms.
+---
+# HARD spread. skew = Pods in this domain - the global minimum across domains.
+# With 5 replicas over 2 workers, maxSkew 1 permits 3+2 and forbids 4+1.
+#
+# Compare with spread-hard in spread-replicas.yaml: REQUIRED anti-affinity would
+# have left 3 of these 5 Pods Pending, because it allows only ONE per node.
+# This places all five and simply refuses to let them get lopsided.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread-maxskew
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: spreadtest
+      mode: maxskew
+  template:
+    metadata:
+      labels:
+        app: spreadtest
+        mode: maxskew          # the Pod MATCHES ITS OWN selector below --
+    spec:                      # a Pod that does not becomes a "ghost pod"
+      topologySpreadConstraints:
+      - maxSkew: 1             # required, must be > 0
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule    # the DEFAULT. A filter -> Pending.
+        labelSelector:
+          matchLabels:
+            mode: maxskew
+      containers:
+      - image: nginx
+        name: nginx
+---
+# SOFT spread, two constraints at once.
+#
+# Only ONE constraint is allowed per (topologyKey, whenUnsatisfiable) pair, so
+# the same key may appear twice only with different whenUnsatisfiable values.
+# Here: hard per node, soft per zone.
+#
+# On a lab cluster with no zone labels, the second constraint produces
+#   node(s) didn't match pod topology spread constraints (missing required label)
+# unless you fake the labels:
+#   kubectl label node/worker-1 topology.kubernetes.io/zone=lab-a
+#   kubectl label node/worker-2 topology.kubernetes.io/zone=lab-b
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread-two-levels
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: spreadtest
+      mode: twolevel
+  template:
+    metadata:
+      labels:
+        app: spreadtest
+        mode: twolevel
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule      # hard: never lopsided per node
+        labelSelector:
+          matchLabels:
+            mode: twolevel
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway     # soft: prefer even zones, but run
+        labelSelector:
+          matchLabels:
+            mode: twolevel
+      containers:
+      - image: nginx
+        name: nginx

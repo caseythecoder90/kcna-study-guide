@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Topology spread constraints — anti-affinity could only say "none here"; this says "how many"
+
+rectangle "WHY ANTI-AFFINITY WAS NOT ENOUGH" <<groupBad>> as why {
+  rectangle "<b>podAntiAffinity is a yes/no rule, and neither answer is what you usually want.</b>\n\n<size:11>required  → only ONE Pod per topology domain, ever. Replica four on a three-node</size>\n<size:11>            cluster is Pending forever, even though a second Pod per node is fine.</size>\n<size:11>preferred → you lose the ability to ENFORCE anything at all. Five replicas may</size>\n<size:11>            still end up 4 + 1 if the scores happen to fall that way.</size>\n\n<size:11>There is no way to say 'spread them, but up to two per node is acceptable'.</size>\n<size:11>That number is exactly what topology spread constraints add.</size>" <<bad>> as w1
+}
+
+rectangle "THE FIELD — spec.topologySpreadConstraints" <<group>> as f {
+  rectangle "topologySpreadConstraints:\n<size:11>- maxSkew: 1                               ← REQUIRED, must be > 0. The allowed imbalance.</size>\n<size:11>  topologyKey: kubernetes.io/hostname      ← the same idea as pod affinity's topologyKey</size>\n<size:11>  whenUnsatisfiable: DoNotSchedule         ← DoNotSchedule (the DEFAULT) or ScheduleAnyway</size>\n<size:11>  labelSelector:                           ← which Pods are COUNTED</size>\n<size:11>    matchLabels: {app: web}</size>\n<size:11>  minDomains: 3                            ← optional; DoNotSchedule only</size>\n<size:11>  nodeAffinityPolicy: Honor                ← optional; Honor (default) or Ignore</size>\n<size:11>  nodeTaintsPolicy: Ignore                 ← optional; Ignore is the default</size>\n\n<size:11>Only ONE constraint per (topologyKey, whenUnsatisfiable) pair. Same key twice is legal</size>\n<size:11>only if the two entries differ in whenUnsatisfiable.</size>" <<accent>> as f1
+}
+
+rectangle "SKEW — the whole idea in one subtraction" <<group>> as s {
+  rectangle "<b>skew  =  matching Pods in THIS domain  −  the GLOBAL MINIMUM across all domains</b>\n\n<size:11>Three zones holding 2, 2 and 1 matching Pods. The global minimum is 1.</size>\n<size:11>  zoneA skew = 2 − 1 = 1      zoneB skew = 2 − 1 = 1      zoneC skew = 1 − 1 = 0</size>\n\n<size:11>With maxSkew: 1 a new Pod may go to any of the three — none would exceed 1.</size>\n<size:11>Put two more into zoneA and it becomes 4, 2, 1: skew 3, which maxSkew: 1 forbids.</size>\n\n<size:11>maxSkew: 1 is 'as even as arithmetic allows'. Larger values buy slack: with 5 Pods</size>\n<size:11>over 2 nodes, maxSkew: 1 permits 3+2 and forbids 4+1.</size>" <<good>> as s1
+}
+
+rectangle "whenUnsatisfiable — the required/preferred distinction, renamed" <<group>> as wu {
+  rectangle "<b>DoNotSchedule</b> (the default)   a FILTER.  The Pod stays Pending rather than break the skew.\n<b>ScheduleAnyway</b>                 a SCORE.   The Pod is placed, preferring domains that reduce skew.\n\n<size:11>Same hard/soft split as requiredDuringScheduling vs preferredDuringScheduling —</size>\n<size:11>filtering versus scoring, one more time (chapter 05-05). Only the spelling changed.</size>" <<plain>> as wu1
+}
+
+rectangle "WHAT YOU GET FOR FREE, AND WHAT BITES" <<groupBad>> as gt {
+  rectangle "<b>Cluster-level defaults apply even if you write nothing</b> (stable since v1.24):\n<size:11>  maxSkew 3 over kubernetes.io/hostname, ScheduleAnyway</size>\n<size:11>  maxSkew 5 over topology.kubernetes.io/zone, ScheduleAnyway</size>\n<size:11>So the scheduler already nudges Pods apart. Spelling a constraint out is how you tighten it.</size>\n\n<b>Known limitations worth remembering:</b>\n<size:11>  · Constraints are checked at SCHEDULING TIME ONLY. Scaling a Deployment DOWN can</size>\n<size:11>    leave the distribution imbalanced, and nothing fixes it (the Descheduler is the tool).</size>\n<size:11>  · The scheduler only knows domains that CURRENTLY HAVE NODES — a node pool scaled</size>\n<size:11>    to zero is not a domain it will try to fill.</size>\n<size:11>  · A Pod whose own labels do not match its labelSelector becomes a 'ghost pod': it does</size>\n<size:11>    not count itself, and such Pods silently pile up. Make the Pod match its own selector.</size>" <<bad>> as g1
+}
+
+why -down-> f
+f -down-> s
+s -down-> wu
+wu -down-> gt
+
+caption <i>podAffinity packs, podAntiAffinity repels, topologySpreadConstraints BALANCE. The first two answer "may this Pod go here"; the third answers "how far out of balance is the cluster allowed to get".</i>\n<i>All three use a topologyKey, and all three are evaluated only when a Pod is scheduled — none of them ever moves a Pod that is already running.</i>
+@enduml
