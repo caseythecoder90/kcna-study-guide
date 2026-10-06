@@ -665,6 +665,37 @@ spec:
 
 **`required` filters (no match leaves the Pod `Pending`); `preferred` only adds a weight to the node's score (the Pod schedules anyway).** Both are **`IgnoredDuringExecution`** — changing labels never moves a running Pod. **`nodeAffinity` reads node labels; `podAffinity`/`podAntiAffinity` read the labels of Pods already running**, and need a **`topologyKey`** to say what counts as the same place.
 
+```bash
+# TOPOLOGY SPREAD CONSTRAINTS — the third placement mechanism
+kubectl explain pod.spec.topologySpreadConstraints --recursive
+kubectl get pods -o wide -l app=web --sort-by=.spec.nodeName   # see the actual distribution
+kubectl get nodes -L topology.kubernetes.io/zone               # do the domains even exist?
+kubectl describe pod <name> | grep -A6 Events
+#   node(s) didn't match pod topology spread constraints
+#   node(s) didn't match pod topology spread constraints (missing required label)
+```
+
+```yaml
+# podAffinity PACKS · podAntiAffinity REPELS · topologySpreadConstraints BALANCE
+spec:
+  topologySpreadConstraints:
+  - maxSkew: 1                             # REQUIRED, > 0.
+                                           # skew = Pods here - global minimum across domains
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule       # DEFAULT. A filter -> Pending.
+                                           # ScheduleAnyway = a score -> placed anyway
+    labelSelector:
+      matchLabels: {app: web}              # which Pods are COUNTED
+    # minDomains: 3                        # optional, DoNotSchedule only
+    # nodeAffinityPolicy: Honor            # optional, Honor is the default
+    # nodeTaintsPolicy: Ignore             # optional, Ignore is the default
+  # Only ONE constraint per (topologyKey, whenUnsatisfiable) pair.
+# Cluster defaults with NO config (v1.24+): maxSkew 3 over hostname and maxSkew 5
+# over zone, both ScheduleAnyway. Writing a constraint TIGHTENS, it does not enable.
+```
+
+**`required` podAntiAffinity allows only ONE Pod per domain and `preferred` enforces nothing — `maxSkew` is the number neither can express.** Spread constraints are checked **only at scheduling time**, so scaling a Deployment *down* can leave it imbalanced.
+
 ## Chapter 05-06 — taints and tolerations
 
 ```bash
