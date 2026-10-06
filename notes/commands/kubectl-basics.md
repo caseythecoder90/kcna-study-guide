@@ -602,6 +602,57 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-08 — Kubernetes storage
+
+```bash
+# The three objects. PV and SC are cluster-scoped; PVC is namespaced.
+kubectl get storageclass                 # sc  — PROVISIONER, RECLAIMPOLICY, VOLUMEBINDINGMODE
+kubectl get pv                           # pv  — CAPACITY, ACCESS MODES, RECLAIM POLICY, STATUS, CLAIM
+kubectl get pvc                          # pvc — STATUS, VOLUME, STORAGECLASS
+kubectl describe pvc dynamic-claim       # "waiting for first consumer to be created before binding"
+kubectl api-resources | grep -i -E "persistentvolume|storageclass|csidriver"
+
+# Ephemeral: emptyDir in RAM
+kubectl exec -it ubuntu -- df -h /cache                       # Filesystem: tmpfs
+kubectl exec -it ubuntu -- dd if=/dev/zero of=/cache/output oflag=sync bs=1024k count=1000
+
+# Does the PV tell the scheduler where it lives?
+kubectl get pv <name> -o jsonpath='{.spec.nodeAffinity}'      # local-path: kubernetes.io/hostname
+                                                              # plain hostPath PV: empty
+
+# Reclaim policy — triggered by deleting the CLAIM, not the Pod
+kubectl delete pvc manual-claim dynamic-claim
+kubectl get pv                                                # Retain -> Released · Delete -> gone
+kubectl patch pv <name> -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+
+# Make a StorageClass the default
+kubectl patch storageclass <name> -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+# Rook-Ceph quickstart
+kubectl create -f crds.yaml -f common.yaml && kubectl create -f operator.yaml && kubectl create -f cluster.yaml
+```
+
+```yaml
+# EPHEMERAL — inline in the Pod spec
+volumes:
+- name: cache-volume
+  emptyDir:
+    medium: Memory          # tmpfs: cleared on node reboot, COUNTS AGAINST the memory limit
+    sizeLimit: 500Mi
+
+# PERSISTENT — the Pod only ever names a CLAIM
+- name: data
+  persistentVolumeClaim:
+    claimName: dynamic-claim
+
+# STATIC: PV + PVC.  hostPath types: DirectoryOrCreate · Directory · FileOrCreate · File ...
+# kind: PersistentVolume  -> no reclaim policy written = Retain
+# kind: PersistentVolumeClaim -> volumeName: manual-pv001   (pre-bind to THAT PV)
+# DYNAMIC: PVC only, storageClassName: local-path -> provisioner creates pvc-<uid>, policy Delete
+```
+
+**Manual PV defaults to `Retain`; a StorageClass defaults to `Delete`.** `ReadWriteOnce` is per **node**, `ReadWriteOncePod` per Pod. With **`WaitForFirstConsumer`**, pin with **`nodeSelector`**, never `nodeName`.
+
 ## Chapter 05-07 — affinity and anti-affinity
 
 ```bash

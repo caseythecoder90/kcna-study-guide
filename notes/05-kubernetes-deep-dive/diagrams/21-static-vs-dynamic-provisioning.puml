@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three objects, two ways to wire them — and only one of them needs an administrator
+
+rectangle "THE THREE OBJECTS" <<group>> as objs {
+  rectangle "<b>StorageClass</b>  (sc · cluster-scoped)\n<size:11>Describes a CLASS of storage an administrator offers.</size>\n<size:11>provisioner · parameters · reclaimPolicy</size>\n<size:11>volumeBindingMode · allowVolumeExpansion</size>" <<plain>> as sc
+  rectangle "<b>PersistentVolume</b>  (pv · cluster-scoped)\n<size:11>A piece of storage that EXISTS — made by an</size>\n<size:11>admin, or dynamically via a StorageClass.</size>\n<size:11>Persists beyond any Pod's lifecycle.</size>" <<plain>> as pv
+  rectangle "<b>PersistentVolumeClaim</b>  (pvc · NAMESPACED)\n<size:11>A REQUEST for storage by a user: how much,</size>\n<size:11>which access mode, which class. Once bound</size>\n<size:11>to a PV, a Pod mounts it BY THE CLAIM'S NAME.</size>" <<accent>> as pvc
+  sc -[hidden]right-> pv
+  pv -[hidden]right-> pvc
+}
+
+rectangle "STATIC — 'manually': the admin creates the PV first" <<group>> as st {
+  rectangle "<b>1.</b> kind: PersistentVolume  name: manual-pv001\n<size:11>   storageClassName: local-path · capacity 10Gi · ReadWriteOnce</size>\n<size:11>   hostPath: /var/lib/rancher/k3s/storage/manual-pv001  (type DirectoryOrCreate)</size>\n<size:11>   no reclaim policy written  →  defaults to <b>Retain</b></size>\n\n<b>2.</b> kind: PersistentVolumeClaim  name: manual-claim\n<size:11>   same storageClassName · 10Gi · ReadWriteOnce</size>\n<size:11>   <b>volumeName: manual-pv001</b>   ← pre-binds to THAT PV. Skip it and Kubernetes finds any match.</size>\n\n<size:11>Two objects, two people's jobs: someone has to know the storage exists before anyone can claim it.</size>" <<plain>> as st1
+}
+
+rectangle "DYNAMIC — create ONLY the claim, name a StorageClass" <<groupGood>> as dy {
+  rectangle "<b>1.</b> kind: PersistentVolumeClaim  name: dynamic-claim\n<size:11>   storageClassName: local-path · 10Gi · ReadWriteOnce   (no volumeName)</size>\n\n<b>2.</b> The StorageClass's PROVISIONER notices and creates the PV for you\n<size:11>   name: pvc-<uid>  ·  reclaimPolicy copied from the class  →  <b>Delete</b> for local-path</size>\n<size:11>   On k3s: provisioner rancher.io/local-path, directory pvc-<uid>_<namespace>_<claim-name></size>\n\n<size:11>One object. Nobody had to pre-create storage or know where it would live.</size>" <<good>> as dy1
+}
+
+rectangle "THE POD NEVER NAMES A PV — only a claim" <<group>> as pod {
+  rectangle "volumes:\n<size:11>- name: manual-volume                 - name: dynamic-volume</size>\n<size:11>  persistentVolumeClaim:                persistentVolumeClaim:</size>\n<size:11>    claimName: manual-claim                claimName: dynamic-claim</size>\n\n<size:11>That indirection is the point: the Pod spec says WHAT it needs, and is portable across clusters</size>\n<size:11>whose storage is completely different. Which PV backs the claim is the cluster's business.</size>" <<accent>> as pod1
+}
+
+objs -down-> st
+st -down-> dy
+dy -down-> pod
+
+caption <i>"These approaches have unique characteristics, specifically with Reclaim Policies" — the manual PV defaults to Retain, the dynamic one inherits Delete from its StorageClass.</i>\n<i>Delete both claims and one directory survives on disk while the other is destroyed. Diagram 22 is what happens next.</i>
+@enduml

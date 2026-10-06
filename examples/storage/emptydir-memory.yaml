@@ -1,0 +1,39 @@
+# Ephemeral storage: an emptyDir backed by RAM.
+#
+#   kubectl apply -f emptydir-memory.yaml
+#   kubectl exec -it ubuntu-cache -- bash
+#     cd /cache && df -h .                      # Filesystem: tmpfs
+#     dd if=/dev/zero of=output oflag=sync bs=1024k count=100
+#
+# medium: Memory mounts a tmpfs. Fast -- but it is cleared on node reboot, and
+# every byte written COUNTS AGAINST THE CONTAINER'S MEMORY LIMIT.
+#
+# Two experiments worth running -- see README.md:
+#   1. crash the container and the file survives  (container restart)
+#   2. delete the Pod and the file is gone         (Pod restart)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-cache
+  labels:
+    run: ubuntu-cache
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    # Exits 1 as soon as /tmp/crash exists, so the kubelet restarts the
+    # CONTAINER while the Pod stays put. (`kill 1` would not work: the kernel
+    # shields a PID namespace's init from signals it has no handler for.)
+    # /tmp is on the writable layer, so the switch itself is wiped by the restart.
+    command: ["/bin/sh", "-c", "while true; do sleep 2; if [ -f /tmp/crash ]; then exit 1; fi; done"]
+    resources:
+      limits:
+        memory: 512Mi          # the tmpfs writes below count against THIS
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir:
+      medium: Memory
+      sizeLimit: 256Mi         # bound it, or a full cache becomes an OOM kill

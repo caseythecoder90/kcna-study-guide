@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Why the lecture pinned the Pod to worker-1 — node-local storage lives on ONE disk
+
+rectangle "NODE-SPECIFIC STORAGE — local-path, hostPath, local" <<groupBad>> as nl {
+  rectangle "worker-1\n<size:11>/var/lib/rancher/k3s/storage/</size>\n<size:11>  manual-pv001/   ← data</size>\n<size:11>  pvc-<uid>_default_dynamic-claim/   ← data</size>" <<bad>> as w1
+  rectangle "worker-2\n<size:11>/var/lib/rancher/k3s/storage/</size>\n<size:11>  (nothing — a different disk)</size>" <<plain>> as w2
+  w1 -[hidden]right-> w2
+}
+
+rectangle "What the scheduler KNOWS about each volume" <<group>> as k {
+  rectangle "<b>dynamic-claim → a PV WITH node affinity</b>\n<size:11>local-path writes kubernetes.io/hostname=worker-1 into the PV. From then on the scheduler</size>\n<size:11>FILTERS every other node out for any Pod using that claim. It cannot be placed wrongly.</size>\n<size:11>k3s docs: this 'does result in permanently binding the pod to the node hosting the volume'.</size>\n\n<b>manual-claim → a hostPath PV with NO node affinity</b>\n<size:11>The scheduler believes it is usable on ANY node. A Pod using only this claim could land on worker-2,</size>\n<size:11>where the kubelet runs DirectoryOrCreate — a brand-new EMPTY directory. The data is not lost,</size>\n<size:11>just on the other machine, and a persistence demo would appear to FAIL.</size>\n\n<size:11>In the lecture's Pod the two are mounted together, so after the FIRST placement the dynamic PV's</size>\n<size:11>affinity would hold the Pod on its node anyway. Nothing holds it there before that.</size>" <<plain>> as k1
+}
+
+rectangle "So: nodeSelector kubernetes.io/hostname: worker-1" <<groupGood>> as fix {
+  rectangle "<b>Not a resource decision — a determinism one.</b> It removes every way the demo could mislead:\n<size:11>· the hostPath PV, which carries NO node affinity of its own, is pinned explicitly from the first run</size>\n<size:11>· the dynamic PV, provisioned WaitForFirstConsumer, is created on that same KNOWN node</size>\n<size:11>· you know exactly which node to ssh into to see both directories on disk</size>\n\n<size:11>And the docs say nodeSelector, NOT nodeName, for this: with WaitForFirstConsumer 'if nodeName</size>\n<size:11>is used, the scheduler will be bypassed and PVC will remain in pending state' (chapter 05-05).</size>" <<good>> as fix1
+}
+
+rectangle "SHARED STORAGE — NFS, Ceph via Rook, cloud block/file" <<groupGood>> as sh {
+  rectangle "<b>Every node reaches the same storage over the network.</b> The Pod can be rescheduled\nanywhere and finds its data waiting.\n\n<size:11>This is the production answer, and the reason node-local provisioners are for labs, caches</size>\n<size:11>and single-node clusters. It is also exactly the gap Rook and Ceph fill (diagram 24).</size>\n<size:11>Note: ReadWriteMany needs storage like this — node-local disk can only ever be on one node.</size>" <<good>> as sh1
+}
+
+nl -down-> k
+k -down-> fix
+fix -down-> sh
+
+caption <i>Persistent does not mean portable. Node-local persistent storage survives the Pod — but only on the node that holds the disk.</i>\n<i>Shared storage survives the Pod AND the node, which is why it is what production stateful workloads actually run on.</i>
+@enduml

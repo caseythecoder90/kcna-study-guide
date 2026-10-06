@@ -1,0 +1,36 @@
+# STATIC provisioning: the administrator creates the PV first.
+#
+# Note what is NOT written: persistentVolumeReclaimPolicy. A manually created
+# PV defaults to RETAIN -- delete the claim and this PV goes to Released with
+# its data intact.
+#
+# hostPath with DirectoryOrCreate: the directory is created on WHICHEVER NODE the
+# Pod lands on. This PV carries NO node affinity, so the scheduler thinks it is
+# usable anywhere -- see README.md for why the Pod is pinned.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: manual-pv001
+spec:
+  storageClassName: local-path
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  hostPath:
+    path: "/var/lib/rancher/k3s/storage/manual-pv001"
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: manual-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+  volumeName: manual-pv001       # pre-bind to THAT PV, not any match
