@@ -1,0 +1,22 @@
+# DYNAMIC provisioning: create ONLY the claim.
+#
+# The local-path StorageClass's provisioner (rancher.io/local-path) creates a PV
+# named pvc-<uid>, copies reclaimPolicy Delete from the class, and writes
+# kubernetes.io/hostname=<node> into the PV's node affinity.
+#
+# Because the class is volumeBindingMode: WaitForFirstConsumer, this claim sits
+# PENDING until a Pod uses it. That is expected:
+#   kubectl describe pvc dynamic-claim
+#   -> waiting for first consumer to be created before binding
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dynamic-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi              # local-path IGNORES this -- no capacity enforcement
+  storageClassName: local-path

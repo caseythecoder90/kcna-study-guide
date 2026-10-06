@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title "Does not survive restarts" — which restart? Four kinds of storage against three events
+
+rectangle "The container's writable layer — no volume at all" <<groupBad>> as wl {
+  rectangle "<b>Dies with the CONTAINER.</b>\n<size:11>Container crashes and the kubelet restarts it   →  GONE. The new container starts from the image again.</size>\n<size:11>Anything an app writes to its own filesystem without a volume is lost on the very first restart (chapter 03).</size>" <<bad>> as wl1
+}
+
+rectangle "emptyDir — EPHEMERAL, tied to the POD" <<group>> as ed {
+  rectangle "<b>Created when the Pod is assigned to a node. Deleted permanently when the Pod leaves that node.</b>\n<size:11>Container crashes and restarts        →  SURVIVES.  'A container crashing does not remove a Pod from a node.'</size>\n<size:11>Pod deleted, evicted or rescheduled   →  GONE, for any reason.</size>\n<size:11>Shared by every container in the Pod, each mounting it at the same or a different path.</size>\n<size:11>Uses: scratch space · checkpointing a long computation · a fast cache · files one container fetches and another serves.</size>" <<plain>> as ed1
+}
+
+rectangle "emptyDir with medium: Memory — EPHEMERAL, and in RAM" <<group>> as mem {
+  rectangle "<b>A tmpfs (RAM-backed filesystem) instead of the node's disk.</b>\n<size:11>Everything emptyDir loses, PLUS: cleared on NODE REBOOT, and every byte written</size>\n<size:11>COUNTS AGAINST THE CONTAINER'S MEMORY LIMIT — fill it and you are OOM-killed.</size>\n\n<size:11>The lecture's proof:  df -h /cache  →  Filesystem: tmpfs     dd 1000 MiB  →  3.5 GB/s</size>\n<size:11>Bound the risk with emptyDir.sizeLimit.</size>" <<accent>> as mem1
+}
+
+rectangle "PersistentVolume via a PVC — PERSISTENT, independent of any Pod" <<groupGood>> as pv {
+  rectangle "<b>Survives container restarts, Pod deletion and Pod rescheduling.</b> The PV is a cluster object\n<b>whose lifecycle is independent of any individual Pod that uses it.</b>\n\n<size:11>What finally ends it is not a Pod event at all — it is deleting the CLAIM, and even then the</size>\n<size:11>RECLAIM POLICY decides: Retain keeps the data, Delete destroys it (diagram 22).</size>\n<size:11>Survives a node reboot too — but if the storage is node-local, only on THAT node (diagram 23).</size>" <<good>> as pv1
+}
+
+wl -down-> ed
+ed -down-> mem
+mem -down-> pv
+
+caption <i>The slide's "ephemeral storage does not survive restarts" means a POD restart — delete and recreate. A CONTAINER restart is exactly what emptyDir exists to survive.</i>\n<i>Get that distinction right and most ephemeral-versus-persistent questions answer themselves.</i>
+@enduml

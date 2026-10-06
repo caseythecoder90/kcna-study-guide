@@ -1,0 +1,35 @@
+# One Pod mounting both claims.
+#
+# The nodeSelector is about DETERMINISM, not resources. Both volumes are
+# node-local: the dynamic PV gets node affinity automatically, but the manual
+# hostPath PV has none, so nothing else guarantees it lands on the node holding
+# its data.
+#
+# nodeSelector, NOT nodeName: with WaitForFirstConsumer, nodeName bypasses the
+# scheduler -- and the scheduler is what triggers provisioning, so the dynamic
+# claim would stay Pending forever.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu
+  labels:
+    run: ubuntu
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: worker-1
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - mountPath: /manual
+      name: manual-volume
+    - mountPath: /dynamic
+      name: dynamic-volume
+  volumes:
+  - name: manual-volume
+    persistentVolumeClaim:
+      claimName: manual-claim
+  - name: dynamic-volume
+    persistentVolumeClaim:
+      claimName: dynamic-claim

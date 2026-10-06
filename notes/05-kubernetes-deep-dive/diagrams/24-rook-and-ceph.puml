@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Rook and Ceph — the operator, and the thing it operates
+
+rectangle "WHAT THE APPLICATION SEES — nothing Ceph-specific" <<group>> as app {
+  rectangle "Pod  →  PersistentVolumeClaim  →  StorageClass\n<size:11>storageClassName: rook-ceph-block</size>\n<size:11>The same three objects as diagram 21. Swap local-path for this class and the Pod spec does not change.</size>" <<accent>> as a1
+}
+
+rectangle "CSI — the plug between Kubernetes and the storage" <<group>> as csi {
+  rectangle "<b>ceph-csi drivers</b>, deployed by Rook\n<size:11>provisioner: rook-ceph.rbd.csi.ceph.com      ← BLOCK  (RBD)</size>\n<size:11>provisioner: rook-ceph.cephfs.csi.ceph.com   ← FILE   (CephFS, supports ReadWriteMany)</size>\n<size:11>The Container Storage Interface from chapter 02-07: create, attach and mount, behind one standard.</size>" <<plain>> as c1
+}
+
+rectangle "ROOK — CNCF GRADUATED (Oct 2020) · a Kubernetes OPERATOR" <<groupGood>> as rook {
+  rectangle "<b>Rook does not provide storage on its own.</b> It deploys and manages a storage system\ninside the cluster, using the OPERATOR PATTERN and CUSTOM RESOURCES (chapter 05-01).\n\n<size:11>'Turns distributed storage systems into self-managing, self-scaling, self-healing storage services.'</size>\n<size:11>Automates the storage administrator's job: deployment, bootstrapping, configuration, provisioning,</size>\n<size:11>scaling, upgrading, migration, disaster recovery, monitoring and resource management.</size>\n\n<size:11>You declare   kind: CephCluster · CephBlockPool · CephFilesystem · CephObjectStore</size>\n<size:11>and the rook-ceph-operator reconciles a running Ceph to match — the same desired-state loop as</size>\n<size:11>a Deployment controller, applied to a storage system.</size>" <<good>> as r1
+}
+
+rectangle "CEPH — the distributed storage platform ITSELF · not a CNCF project" <<group>> as ceph {
+  rectangle "<b>One unified system providing OBJECT, BLOCK and FILE storage.</b>\n<size:11>Widely used as a backend for cloud-native and virtualized workloads. Older than Kubernetes and</size>\n<size:11>notoriously demanding to run by hand — which is precisely the problem Rook exists to remove.</size>\n\n<size:11>  BLOCK  — RBD            → a disk for one Pod at a time (databases)</size>\n<size:11>  FILE   — CephFS         → a shared filesystem, many Pods at once</size>\n<size:11>  OBJECT — RGW, S3-compatible → buckets, via CephObjectStore</size>" <<accent>> as ce1
+}
+
+app -down-> csi
+csi -down-> rook
+rook -down-> ceph : installs, configures, manages
+
+caption <i>The relationship in one line: Rook is designed to ease the orchestration of Ceph in Kubernetes. Ceph stores the data; Rook makes Ceph behave like a Kubernetes-native service.</i>\n<i>The distractor to avoid: "Rook is a storage system". It is an orchestrator — the storage is Ceph.</i>
+@enduml

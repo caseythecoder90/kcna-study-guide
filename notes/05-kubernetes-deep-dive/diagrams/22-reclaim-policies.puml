@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Reclaim policy — what happens to the storage when the CLAIM is deleted
+
+rectangle "The trigger is never a Pod" <<group>> as t {
+  rectangle "kubectl delete pvc <claim>\n<size:11>Deleting the Pod does nothing to a PV. Only releasing the CLAIM asks the question this field answers:</size>\n<size:11>'the user is done with this storage — now what?'  The answer lives on the PV as</size>\n<size:11>spec.persistentVolumeReclaimPolicy, and on a StorageClass as reclaimPolicy.</size>" <<accent>> as t1
+}
+
+rectangle "RETAIN — keep everything, a human decides" <<groupGood>> as r {
+  rectangle "<b>The PV still exists, in phase Released. The data is untouched.</b>\n<size:11>But it is NOT available for another claim — 'the previous claimant's data remains on the volume'.</size>\n\n<size:11>An administrator reclaims it by hand:  delete the PV (the storage asset still exists) → clean up</size>\n<size:11>the data → delete the asset, or create a NEW PV pointing at it to reuse it.</size>\n\n<size:11><b>The DEFAULT for a manually created PV.</b>  The safe choice for anything you cannot afford to lose.</size>" <<good>> as r1
+}
+
+rectangle "DELETE — remove the PV and the storage behind it" <<groupBad>> as d {
+  rectangle "<b>Both the PersistentVolume object AND the associated storage asset are deleted.</b>\n<size:11>The disk, the cloud volume, the directory — gone, along with the data.</size>\n\n<size:11><b>The DEFAULT for a StorageClass</b> when reclaimPolicy is omitted, so it is what most dynamically</size>\n<size:11>provisioned PVs get. A StorageClass may only say Delete or Retain.</size>\n<size:11>An existing PV's policy can be changed afterwards with kubectl patch pv or kubectl edit pv.</size>" <<bad>> as d1
+}
+
+rectangle "RECYCLE — DEPRECATED" <<group>> as rc {
+  rectangle "<b>A basic scrub — rm -rf /thevolume/* — then the PV is Available again for a new claim.</b>\n<size:11>Deprecated in favour of dynamic provisioning. Only nfs and hostPath ever supported it.</size>\n<size:11>Still in the enum, which is why the lecture lists three values. Expect it as a distractor.</size>" <<muted>> as rc1
+}
+
+rectangle "PV PHASES — where the policy shows up in kubectl get pv" <<group>> as ph {
+  rectangle "Available  →  Bound  →  Released  →  (Failed)\n<size:11>Available — free, not yet bound to a claim       Bound — bound to a claim</size>\n<size:11>Released — the claim was deleted, the storage not yet reclaimed     Failed — automated reclamation failed</size>\n<size:11>A Retain PV sits in Released until an admin acts. A Delete PV disappears from the list entirely.</size>" <<plain>> as ph1
+}
+
+t -down-> r
+r -down-> d
+d -down-> rc
+rc -down-> ph
+
+caption <i>Manual PV: Retain by default. Dynamic PV: whatever the StorageClass says, which is Delete unless someone changed it.</i>\n<i>That asymmetry is the one the slide warns about — the convenient path is also the one that destroys data when a claim is deleted.</i>
+@enduml

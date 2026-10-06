@@ -534,6 +534,25 @@ kubectl describe pod <name> | grep -A6 Events   # node(s) didn't match pod topol
 
 **Cluster defaults apply with no config (v1.24+): `maxSkew: 3` over hostname, `maxSkew: 5` over zone, both `ScheduleAnyway`.** Constraints are checked only at scheduling time, so scaling *down* can leave a Deployment imbalanced.
 
+### 4A-i. Kubernetes storage (chapter 05-08)
+
+```bash
+kubectl get sc,pv,pvc                                         # SC and PV cluster-scoped, PVC namespaced
+kubectl describe pvc <claim>                                  # waiting for first consumer ... (WaitForFirstConsumer)
+kubectl get pv <name> -o jsonpath='{.spec.nodeAffinity}'      # is the storage pinned to a node?
+kubectl delete pvc <claim> ; kubectl get pv                   # Retain -> Released · Delete -> gone
+kubectl patch pv <name> -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+kubectl exec <pod> -- df -h /cache                            # emptyDir medium: Memory -> tmpfs
+```
+
+```yaml
+volumes:
+- {name: cache, emptyDir: {medium: Memory, sizeLimit: 500Mi}}       # ephemeral, in RAM
+- {name: data,  persistentVolumeClaim: {claimName: dynamic-claim}}  # persistent: always via a CLAIM
+```
+
+**Reclaim: `Retain` (manual-PV default) keeps data in `Released`; `Delete` (StorageClass default) removes PV and storage; `Recycle` is deprecated.** RWO is per node, RWOP per Pod. **Rook is a CNCF-graduated operator that runs Ceph; Ceph is the storage.**
+
 ## 5. Observability tooling
 
 _Section 6._
