@@ -1,0 +1,65 @@
+# The docs' naming example: three objects, three DIFFERENT names, so every
+# naming formula is visible.
+#
+#   StatefulSet         web    -> Pod names          web-0, web-1, web-2
+#   headless Service    nginx  -> Pod DNS names      web-1.nginx.default.svc.cluster.local
+#   volumeClaimTemplate www    -> PVC names          www-web-0, www-web-1, www-web-2
+#
+# The Service comes FIRST in this file: the API reference says it must exist
+# before the StatefulSet, so Pods that look each other up at startup can.
+#
+#   kubectl apply -f web-statefulset.yaml
+#   kubectl get pods -w          # web-0, then web-1, then web-2 -- one at a time
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  clusterIP: None          # HEADLESS. This is what gives each Pod its own DNS record.
+  selector:
+    app: nginx
+  ports:
+  - name: web
+    port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: nginx       # the governing Service. IMMUTABLE after creation.
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx           # must match the template labels. IMMUTABLE.
+  # podManagementPolicy: Parallel    # uncomment to drop the ordering, keep the identity
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0         # raise to 2 for a canary: only ordinals >= 2 update
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www          # mounts the claim template BY NAME -- no volumes: entry needed
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:      # spec level, beside template. IMMUTABLE.
+  - metadata:
+      name: www
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path    # k3s; omit to use the cluster's default class
+      resources:
+        requests:
+          storage: 1Gi

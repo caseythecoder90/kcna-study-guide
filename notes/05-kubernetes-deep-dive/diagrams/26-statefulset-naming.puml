@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three names, three formulas — the lecture named everything "nginx", so here every object gets its own name
+
+rectangle "THE OBJECTS — deliberately given different names (the docs' own example)" <<group>> as o {
+  rectangle "<b>StatefulSet</b>\nmetadata.name: <b>web</b>\nreplicas: 3" <<accent>> as sts
+  rectangle "<b>Headless Service</b>\nmetadata.name: <b>nginx</b>\nclusterIP: None\n<size:11>StatefulSet points at it with</size>\n<size:11>spec.serviceName: nginx</size>" <<plain>> as svc
+  rectangle "<b>volumeClaimTemplates</b>\n- metadata.name: <b>www</b>\n<size:11>accessModes, storageClassName,</size>\n<size:11>resources.requests.storage</size>" <<plain>> as vct
+  sts -[hidden]right-> svc
+  svc -[hidden]right-> vct
+}
+
+rectangle "1 · POD NAME  =  <statefulset name>-<ordinal>" <<groupGood>> as pn {
+  rectangle "<b>web-0 · web-1 · web-2</b>\n<size:11>Built from the STATEFULSET's name. NOT the Service's name — the lecture's 'nginx-0' came from</size>\n<size:11>a StatefulSet called nginx, which merely happened to share its name with the Service.</size>\n<size:11>Also the Pod's HOSTNAME, and stamped on the Pod as two labels:</size>\n<size:11>  statefulset.kubernetes.io/pod-name: web-1      apps.kubernetes.io/pod-index: 1</size>" <<good>> as pn1
+}
+
+rectangle "2 · POD DNS NAME  =  <pod name>.<service name>.<namespace>.svc.cluster.local" <<groupGood>> as dn {
+  rectangle "<b>web-1.nginx.default.svc.cluster.local</b>\n<size:11>The governing Service supplies the DOMAIN:  nginx.default.svc.cluster.local</size>\n<size:11>Each Pod gets a subdomain of it:            web-1 + that domain</size>\n\n<size:11>REQUIRES a HEADLESS Service (clusterIP: None). A normal ClusterIP Service answers with one virtual IP</size>\n<size:11>and load-balances; a headless one publishes a DNS record PER POD. You must create it yourself —</size>\n<size:11>the StatefulSet never does. Its Endpoints list shows each Pod's hostname alongside its IP.</size>" <<good>> as dn1
+}
+
+rectangle "3 · PVC NAME  =  <template name>-<statefulset name>-<ordinal>" <<groupGood>> as cn {
+  rectangle "<b>www-web-0 · www-web-1 · www-web-2</b>\n<size:11>Read it as <template name>-<POD name>. In the lecture the template AND the StatefulSet were both</size>\n<size:11>called nginx, giving nginx-nginx-0 — which the slide labels '<service>-<instance>'. The first</size>\n<size:11>'nginx' is the volumeClaimTemplate's name, not the Service's.</size>\n\n<size:11>Because the name is deterministic, a recreated web-1 finds www-web-1 waiting and mounts it again.</size>\n<size:11>That is the whole mechanism behind 'stable storage' — no lookup table, just a predictable name.</size>" <<good>> as cn1
+}
+
+o -down-> pn
+pn -down-> dn
+dn -down-> cn
+
+caption <i>Pod name from the StatefulSet. DNS domain from the Service. PVC prefix from the template. Name all three "nginx" and the formulas become impossible to tell apart —</i>\n<i>which is exactly why the documentation's example uses web, nginx and www.</i>
+@enduml

@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Same Pod template, two controllers — interchangeable Pods versus Pods with names
+
+rectangle "DEPLOYMENT — stateless, interchangeable replicas" <<groupBad>> as d {
+  rectangle "Deployment  nginx\n<size:11>  owns a ReplicaSet  nginx-5d9c8b7f4   ← each ReplicaSet has its own ID (pod-template-hash)</size>\n<size:11>  which owns Pods     nginx-5d9c8b7f4-x7k2p · nginx-5d9c8b7f4-q9w4m · nginx-5d9c8b7f4-r2t8n</size>\n\n<size:11><b>Pod names are RANDOMISED</b> and change every time a Pod is replaced. Any replica can serve any request,</size>\n<size:11>so nobody cares which one answered. All created and deleted IN PARALLEL.</size>\n\n<size:11><b>Storage:</b> a PVC in the Pod template is the SAME claim in every replica —</size>\n<size:11>one PersistentVolume SHARED BY ALL PODS in the Deployment.</size>\n<size:11>With ReadWriteOnce, replicas on other nodes cannot even mount it.</size>" <<bad>> as d1
+}
+
+rectangle "STATEFULSET — each Pod keeps a sticky identity" <<groupGood>> as s {
+  rectangle "StatefulSet  nginx      ← <b>no ReplicaSet in between</b>; the controller owns the Pods directly\n<size:11>  Pods  nginx-0 · nginx-1 · nginx-2       ← <b>ordinals</b>, 0 to N-1</size>\n\n<size:11><b>The identity sticks to the Pod</b>, regardless of which node it is (re)scheduled on:</size>\n<size:11>  · the SAME NAME                nginx-1 is recreated as nginx-1, never nginx-7</size>\n<size:11>  · the SAME DNS NAME           nginx-1.nginx.default.svc.cluster.local</size>\n<size:11>  · the SAME STORAGE            its own PVC, reattached wherever it lands</size>\n<size:11>The Pod's IP address CAN change. The name is the stable thing — that is the point.</size>\n\n<size:11><b>Storage:</b> volumeClaimTemplates — each Pod gets its OWN claim, 1:1</size>\n<size:11>  nginx-0 → PVC nginx-nginx-0 → PV    nginx-1 → PVC nginx-nginx-1 → PV    nginx-2 → ...</size>" <<good>> as s1
+}
+
+rectangle "The four things a StatefulSet adds — use one only if you need at least one of them" <<group>> as g {
+  rectangle "<b>1</b>  Stable, unique network identifiers        <b>2</b>  Stable, persistent storage\n<b>3</b>  Ordered, graceful deployment and scaling    <b>4</b>  Ordered, automated rolling updates\n\n<size:11>'Stable' means persistence across Pod (re)scheduling. If an application needs none of these,</size>\n<size:11>the docs say to use a Deployment — it is simpler, faster, and easier to scale.</size>\n<size:11>Typical StatefulSet workloads: databases, Kafka, ZooKeeper, etcd, Elasticsearch — anything clustered</size>\n<size:11>whose members must find each other by name and keep their own data.</size>" <<accent>> as g1
+}
+
+d -down-> s
+s -down-> g
+
+caption <i>Same template, same image, same replica count. The difference is whether a replica is a disposable copy or a named member — "cattle" or "pets", in the older vocabulary.</i>\n<i>A Deployment's Pods are fungible; a StatefulSet's are not, and Kubernetes goes to some trouble to keep it that way.</i>
+@enduml
