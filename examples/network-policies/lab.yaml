@@ -1,0 +1,79 @@
+# The lecture's lab, corrected so it actually allows what it means to.
+#
+#   kubectl apply -f lab.yaml
+#
+# Then, from the two client Pods:
+#   kubectl exec curl     -- curl -s -m 3 nginx     # allowed  (run=curl)
+#   kubectl exec intruder -- curl -s -m 3 nginx     # blocked  (no matching label)
+#
+# Requires a CNI that ENFORCES NetworkPolicy. k3s does (embedded controller);
+# plain Flannel does not, and both requests would succeed.
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    run: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    run: nginx
+  ports:
+  - port: 80
+---
+# The allowed client.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: curl
+  labels:
+    run: curl
+spec:
+  containers:
+  - name: curl
+    image: curlimages/curl
+    command: ["sleep", "infinity"]
+---
+# Identical, but without the label the policy allows.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: intruder
+  labels:
+    run: intruder
+spec:
+  containers:
+  - name: curl
+    image: curlimages/curl
+    command: ["sleep", "infinity"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-nginx-access
+spec:
+  podSelector:              # WHICH Pods are protected (and therefore isolated)
+    matchLabels:
+      run: nginx
+  policyTypes:
+  - Ingress                 # isolates INBOUND only; nginx can still reach anything
+  ingress:
+  - from:
+    - podSelector:          # only Pods labelled run=curl, in THIS namespace
+        matchLabels:
+          run: curl
+    ports:
+    - protocol: TCP
+      port: 80              # the lecture's slide said 6379 (Redis) -- that would
+                            # block curl on 80 too, because from AND ports must match

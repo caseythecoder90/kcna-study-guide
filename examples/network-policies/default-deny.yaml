@@ -1,0 +1,63 @@
+# Default deny, then allow back what is needed.
+#
+# An empty podSelector selects EVERY Pod in the namespace. A policy that selects
+# Pods and allows nothing is a pure deny for the listed directions.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Without this, default-deny egress breaks every Service NAME lookup -- the
+# symptom looks like a broken app, not a policy. CoreDNS Pods carry
+# k8s-app=kube-dns on kubeadm and k3s.
+#
+# Note: namespaceSelector and podSelector are in ONE list item (no dash before
+# podSelector), so they are ANDed: kube-dns Pods INSIDE kube-system.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+---
+# Under default-deny-all, the curl Pod also needs EGRESS to nginx -- both ends
+# of a connection must allow it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-curl-egress-to-nginx
+spec:
+  podSelector:
+    matchLabels:
+      run: curl
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          run: nginx
+    ports:
+    - protocol: TCP
+      port: 80

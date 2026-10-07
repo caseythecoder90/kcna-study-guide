@@ -566,6 +566,23 @@ kubectl rollout history statefulset/nginx ; kubectl get controllerrevisions
 
 **Pod `<sts>-<ordinal>` · DNS `<pod>.<svc>.<ns>.svc.cluster.local` · PVC `<template>-<pod>`.** Requires a **headless** Service; PVCs survive scale-down and deletion; `partition: N` updates only ordinals ≥ N.
 
+### 4A-k. Network policies (chapter 05-10)
+
+```bash
+kubectl get netpol ; kubectl describe networkpolicy <name>     # "Not affecting egress traffic" etc.
+kubectl exec intruder -- curl -s -m 3 nginx                    # blocked = timeout, not refusal
+kubectl get namespaces --show-labels                           # kubernetes.io/metadata.name=<name>
+```
+
+```yaml
+spec:
+  podSelector: {}                      # every Pod in the namespace
+  policyTypes: [Ingress, Egress]       # no rules = default deny both ways (then allow DNS on 53!)
+  # ingress: [{from: [{podSelector: {matchLabels: {run: curl}}}], ports: [{protocol: TCP, port: 80}]}]
+```
+
+**Open by default; selected = isolated; allow-only and additive; both ends must agree; needs an enforcing CNI.** Same list item = AND, extra dash = OR. **Ingress resource = L7 routing into the cluster (API frozen, Gateway API recommended); NetworkPolicy Ingress = L3/4 direction into a Pod.**
+
 ## 5. Observability tooling
 
 _Section 6._

@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title A NetworkPolicy only ever ALLOWS — the deny comes from being selected at all
+
+rectangle "STEP 0 · No policy selects the Pod — the default" <<groupBad>> as s0 {
+  rectangle "<b>Every Pod can talk to every Pod, in every namespace.</b>\n<size:11>'Networking has been open in our Kubernetes cluster.' Fine in a lab, and in some work environments.</size>\n<size:11>A problem for multi-tenancy: one compromised Pod can reach every database in the cluster.</size>" <<bad>> as s0a
+}
+
+rectangle "STEP 1 · A policy SELECTS the Pod (podSelector) for a direction (policyTypes)" <<group>> as s1 {
+  rectangle "<b>The Pod becomes ISOLATED in that direction</b> — everything in that direction is now denied,\n<b>except</b> what some policy explicitly allows.\n\n<size:11>Ingress isolation and egress isolation are INDEPENDENT. A policy with policyTypes: [Ingress]</size>\n<size:11>locks down inbound only; outbound stays wide open.</size>\n<size:11>An empty podSelector {} selects EVERY Pod in the policy's namespace.</size>" <<accent>> as s1a
+}
+
+rectangle "STEP 2 · ingress.from / egress.to rules ALLOW specific traffic back in" <<groupGood>> as s2 {
+  rectangle "<b>Rules are allow-only. There is no 'deny' rule.</b>\n<size:11>Several policies selecting the same Pod do not conflict — the allowed set is their UNION.</size>\n<size:11>Order of evaluation never matters. Adding a policy can only ever allow MORE (or isolate a new direction).</size>\n<size:11>Reply traffic for an allowed connection is allowed automatically — policies are stateful.</size>\n\n<size:11>Each rule allows traffic matching BOTH its peers (from/to) AND its ports.</size>" <<good>> as s2a
+}
+
+rectangle "STEP 3 · A connection needs BOTH ends to agree" <<group>> as s3 {
+  rectangle "curl Pod  — egress → ingress —  nginx Pod\n\n<size:11>The SOURCE Pod's egress policies must allow it out, AND the DESTINATION Pod's ingress policies</size>\n<size:11>must allow it in. If either side does not allow the connection, it does not happen.</size>\n<size:11>Two exceptions that can never be blocked: a Pod reaching ITSELF, and traffic from the Pod's OWN NODE.</size>" <<plain>> as s3a
+}
+
+rectangle "...and none of it works without an enforcing CNI" <<groupBad>> as cni {
+  rectangle "<b>NetworkPolicy is an API object. The network plugin is what enforces it.</b>\n<size:11>'Creating a NetworkPolicy resource without a controller that implements it will have no effect.'</size>\n<size:11>Calico and Cilium enforce. Flannel alone does NOT — and the API server accepts the policy anyway, silently.</size>\n<size:11>k3s pairs Flannel with an embedded policy controller (kube-router's netpol library), so policies DO work there.</size>" <<bad>> as cnia
+}
+
+s0 -down-> s1
+s1 -down-> s2
+s2 -down-> s3
+s3 -down-> cni
+
+caption <i>Default-allow until selected, then default-deny plus explicit allows — per Pod, per direction. That is the whole model.</i>\n<i>It is why "deny everything" is a policy with an empty podSelector and no rules: it selects everyone, and allows nothing.</i>
+@enduml
