@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Five release patterns, two mechanisms — WEIGHTS split traffic, MATCHES select it
+
+rectangle "WEIGHTS · Blue/Green" <<groupGood>> as w {
+  rectangle "<b>Blue/Green</b>   instant switch between versions\n<size:11>backendRefs: [{name: app-v1, weight: 100}, {name: app-v2, weight: 0}]</size>\n<size:11>Flip to 0 / 100 and every new request goes to v2. Flip back to roll back. Both versions stay running.</size>" <<good>> as bg
+}
+rectangle "WEIGHTS · Canary — share = weight / sum of weights" <<groupGood>> as w2 {
+  rectangle "<b>Canary</b>   gradual rollout to a small percentage\n<size:11>backendRefs: [{name: app-v1, weight: 95}, {name: app-v2, weight: 5}]</size>\n<size:11>Then 90/10, 50/50, 0/100 as confidence grows. Weights are proportions, not percentages —</size>\n<size:11>1 and 1 is 50/50; they need not add to 100. Omitted weight = 1. Weight 0 = no traffic.</size>" <<good>> as can
+}
+
+rectangle "MATCHES · A/B testing — the request itself chooses the backend" <<group>> as m {
+  rectangle "<b>A/B testing</b>   route a user SEGMENT by header\n<size:11>- matches: [{headers: [{name: X-Experiment, value: B}]}]   backendRefs: [{name: variant-b}]</size>\n<size:11>- backendRefs: [{name: variant-a}]                              ← everyone else</size>" <<accent>> as ab
+}
+rectangle "MATCHES · Preview routing" <<group>> as m2 {
+  rectangle "<b>Preview routing</b>   reach a new version only on request\n<size:11>- matches: [{headers: [{name: X-Preview, value: 'true'}]}]   backendRefs: [{name: app-v2}]</size>\n<size:11>Production traffic never sees v2; testers add one header. More header matches beat fewer.</size>" <<accent>> as pv
+}
+
+rectangle "FILTER — copy the traffic, keep the answer from v1" <<groupBad>> as f {
+  rectangle "<b>Traffic mirroring (shadow)</b>   test v2 on real traffic with no user impact\n<size:11>backendRefs: [{name: app-v1}]</size>\n<size:11>filters: [{type: RequestMirror, requestMirror: {backendRef: {name: app-v2, port: 80}}}]</size>\n<size:11>100% is served by v1. v2 receives a COPY of each request and its responses are IGNORED.</size>\n<size:11>RequestMirror is an EXTENDED feature — supported by many implementations, not required of all.</size>" <<bad>> as mir
+}
+
+w -[hidden]down-> w2
+w2 -[hidden]down-> m
+m -[hidden]down-> m2
+m2 -[hidden]down-> f
+
+caption <i>All five are plain HTTPRoute fields. With Ingress, each needed controller annotations, a service mesh, or a second Ingress object — and none of it was portable between controllers.</i>\n<i>Weights move a percentage of everyone; matches move a chosen someone; a mirror moves no one and just watches.</i>
+@enduml

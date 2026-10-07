@@ -1,0 +1,43 @@
+# Four backends that answer with their own hostname (spurin/nginx-debug), so
+# every routing decision is visible in the response. nginx-api-v2 is the "new
+# version" used by the weighting and release-pattern labs.
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-frontend, labels: {run: nginx-frontend}}
+spec: {containers: [{name: app, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-api, labels: {run: nginx-api}}
+spec: {containers: [{name: app, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-api-v2, labels: {run: nginx-api-v2}}
+spec: {containers: [{name: app, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-admin, labels: {run: nginx-admin}}
+spec: {containers: [{name: app, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-frontend}
+spec: {selector: {run: nginx-frontend}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-api}
+spec: {selector: {run: nginx-api}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-api-v2}
+spec: {selector: {run: nginx-api-v2}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-admin}
+spec: {selector: {run: nginx-admin}, ports: [{port: 80}]}

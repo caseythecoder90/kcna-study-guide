@@ -1,0 +1,41 @@
+# The CLUSTER OPERATOR's object: an entry point with two listeners.
+#
+# Creating this is what makes NGINX Gateway Fabric provision a dedicated NGINX
+# Deployment + LoadBalancer Service in gateway-system -- the Gateway's address.
+#
+# The https listener needs the Secret first (see README):
+#   kubectl -n gateway-system create secret tls mygateway-app-tls \
+#     --cert=mygateway-app.local.crt --key=mygateway-app.local.key
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: edge-gw
+  namespace: gateway-system
+spec:
+  gatewayClassName: nginx               # the class the controller registered
+  listeners:
+  - name: http                          # routes target this with sectionName: http
+    protocol: HTTP
+    port: 80
+    hostname: mygateway-app.local
+    allowedRoutes:
+      namespaces:
+        from: All                       # default is Same -- routes live in 'default'
+  - name: https
+    protocol: HTTPS
+    port: 443
+    hostname: mygateway-app.local
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate                   # decrypt here; Passthrough needs a TLSRoute
+      certificateRefs:
+      - kind: Secret
+        name: mygateway-app-tls         # same namespace as the Gateway: no ReferenceGrant

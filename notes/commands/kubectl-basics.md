@@ -602,6 +602,62 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-12 — Gateway API
+
+```bash
+# CRDs first (an add-on, not built in), then an implementation
+kubectl get crd | grep gateway.networking.k8s.io
+kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric --create-namespace -n nginx-gateway
+kubectl api-resources --api-group=gateway.networking.k8s.io
+
+kubectl get gatewayclass                         # CONTROLLER, ACCEPTED
+kubectl get gateway -A                           # CLASS, ADDRESS, PROGRAMMED
+kubectl get httproute -A                         # HOSTNAMES
+kubectl describe gateway edge-gw -n gateway-system    # listeners, ResolvedRefs, Conflicted, supported kinds
+kubectl describe httproute mygateway-app         # Status -> Parents -> Accepted / ResolvedRefs
+kubectl -n gateway-system get deploy,svc         # the per-Gateway NGINX data plane the controller provisioned
+
+# TLS lives with the Gateway, so the Secret goes in the GATEWAY's namespace
+kubectl -n gateway-system create secret tls mygateway-app-tls --cert=mygateway-app.local.crt --key=mygateway-app.local.key
+cp mygateway-app.local.crt /usr/local/share/ca-certificates/ && update-ca-certificates   # trust it machine-wide (lab only)
+
+curl    --resolve '*:80:172.18.0.4' --resolve '*:443:172.18.0.4' http://mygateway-app.local    # 301 from RequestRedirect
+curl -L --resolve '*:80:172.18.0.4' --resolve '*:443:172.18.0.4' http://mygateway-app.local/api
+curl -H "X-Preview: true" --resolve '*:443:172.18.0.4' https://mygateway-app.local/api           # header-matched route
+```
+
+```yaml
+# Gateway -- the cluster operator's object
+spec:
+  gatewayClassName: nginx
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes: {namespaces: {from: All}}     # default Same
+  - name: https
+    protocol: HTTPS
+    port: 443
+    tls: {mode: Terminate, certificateRefs: [{name: mygateway-app-tls}]}
+```
+
+```yaml
+# HTTPRoute -- the application team's object
+spec:
+  parentRefs: [{name: edge-gw, namespace: gateway-system, sectionName: https}]
+  hostnames: [mygateway-app.local]
+  rules:
+  - matches: [{path: {type: PathPrefix, value: /api}}]       # Exact | PathPrefix | RegularExpression
+    backendRefs:
+    - {name: nginx-api,    port: 80, weight: 95}             # a proportion; default 1; 0 = none
+    - {name: nginx-api-v2, port: 80, weight: 5}
+# the redirect route, on sectionName: http:
+#   rules: [{filters: [{type: RequestRedirect, requestRedirect: {scheme: https, statusCode: 301}}]}]
+```
+
+**GatewayClass (cluster, which controller) → Gateway (entry point, listeners, TLS) → HTTPRoute (rules, backendRefs).** Routes attach with `parentRefs`; listeners permit with `allowedRoutes` (default `Same`); cross-namespace Service/Secret references need a **ReferenceGrant**. Redirects, weights, header matches and mirroring are **API fields**, not annotations.
+
 ## Chapter 05-11 — Ingress
 
 ```bash

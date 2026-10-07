@@ -597,6 +597,26 @@ curl --cacert app.crt --resolve 'app.local:443:<ip>' https://app.local/api
 
 **Resource = rules, controller = proxy, IngressClass = which controller** (`is-default-class` annotation for the default). **Prefix is element-wise** (`/api` ≠ `/apiary`), **Exact is exact** (`/api` ≠ `/api/`), **longest wins, Exact breaks ties.** TLS on 443, terminated at the controller; HTTP→HTTPS redirect is a controller annotation (`nginx.org/ssl-redirect`, default `true` on F5 NGINX).
 
+### 4A-m. Gateway API (chapter 05-12)
+
+```bash
+kubectl kustomize "https://github.com/nginx/nginx-gateway-fabric/config/crd/gateway-api/standard?ref=v2.3.0" | kubectl apply -f -
+helm install ngf oci://ghcr.io/nginx/charts/nginx-gateway-fabric --create-namespace -n nginx-gateway
+kubectl get gatewayclass ; kubectl get gateway -A ; kubectl get httproute -A
+kubectl describe httproute <name>                       # Accepted / ResolvedRefs per parent
+```
+
+```yaml
+parentRefs: [{name: edge-gw, namespace: gateway-system, sectionName: https}]
+rules:
+- matches: [{path: {type: PathPrefix, value: /api}, headers: [{name: X-Preview, value: "true"}]}]
+  backendRefs: [{name: api-v2, port: 80}]
+- backendRefs: [{name: api, port: 80, weight: 95}, {name: api-v2, port: 80, weight: 5}]
+  filters: [{type: RequestMirror, requestMirror: {backendRef: {name: api-v2, port: 80}}}]
+```
+
+**GatewayClass → Gateway → HTTPRoute**, each owned by a different team. Weights are proportions (default 1, 0 = none); `RequestRedirect` default status 302; no match → 404.
+
 ## 5. Observability tooling
 
 _Section 6._

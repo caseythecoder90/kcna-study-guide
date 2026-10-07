@@ -1,0 +1,21 @@
+# HTTP -> HTTPS as a typed field of the API, not a controller annotation.
+#   no matches     -> defaults to PathPrefix /  -> every request on port 80
+#   no backendRefs -> the redirect answers the client itself
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-filter-redirect
+  namespace: default
+spec:
+  parentRefs:
+  - name: edge-gw
+    namespace: gateway-system
+    sectionName: http
+  hostnames:
+  - mygateway-app.local
+  rules:
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301               # 301, 302 (default), 303, 307, 308

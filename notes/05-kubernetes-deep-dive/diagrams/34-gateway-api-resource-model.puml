@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One Ingress object, split into layers — each owned by the team that actually makes that decision
+
+rectangle "INFRASTRUCTURE PROVIDER / PLATFORM TEAM" <<group>> as l1 {
+  rectangle "<b>GatewayClass</b>   cluster-scoped\n<size:11>Which CONTROLLER implements Gateways of this class. The Ingress-world IngressClass.</size>\n<size:11>  controllerName: gateway.nginx.org/nginx-gateway-controller     (NGINX Gateway Fabric)</size>\n<size:11>Installed with the controller. One cluster can hold many, each backed by a different controller.</size>" <<accent>> as gc
+}
+
+rectangle "CLUSTER OPERATOR / NETWORKING TEAM" <<group>> as l2 {
+  rectangle "<b>Gateway</b>   namespaced (here: gateway-system)\n<size:11>A network ENTRY POINT — usually one load balancer and one address. References a GatewayClass.</size>\n<size:11>Defines LISTENERS:   http · HTTP · 80     https · HTTPS · 443 · tls.certificateRefs → Secret</size>\n<size:11>Decides WHO may attach:   allowedRoutes.namespaces.from:  Same (default) · All · Selector · None</size>" <<good>> as gw
+}
+
+rectangle "APPLICATION TEAMS — in their own namespaces, no cluster-admin needed" <<group>> as l3 {
+  rectangle "<b>HTTPRoute</b>   namespaced (here: default)\n<size:11>The ROUTING RULES: hostnames, path/header/query/method matches, filters, and backendRefs to Services.</size>\n<size:11>Attaches UPWARDS with  parentRefs: [{name: edge-gw, namespace: gateway-system, sectionName: https}]</size>\n<size:11>Siblings: GRPCRoute (GA) · TLSRoute, TCPRoute, UDPRoute (GA in v1.5/v1.6)</size>" <<good>> as hr
+}
+
+rectangle "Service  →  Pods" <<plain>> as svc
+
+rectangle "OPTIONAL — filters and policies" <<group>> as l4 {
+  rectangle "<b>Inline filters</b> on a route rule: RequestRedirect · URLRewrite · Request/ResponseHeaderModifier · RequestMirror · CORS\n<b>Policy attachments</b>: separate CRDs targeting a Gateway, route or Service (auth, rate limits, BackendTLSPolicy)\n<b>ReferenceGrant</b>: lives in the TARGET namespace and permits a cross-namespace reference to a Service or Secret\n<size:11>Owned by a security/policy team where one exists — alongside OPA/Gatekeeper-style admission policy.</size>" <<plain>> as pol
+}
+
+gc -down-> gw : gatewayClassName
+gw -down-> hr : attachment needs BOTH sides to agree:\nthe route's parentRefs AND the listener's allowedRoutes
+hr -down-> svc : backendRefs (weighted)
+svc -down-> l4
+
+caption <i>Ingress put the class, the entry point, the TLS settings and every team's routes into one object — so whoever could edit it could change everything, and features lived in annotations.</i>\n<i>Gateway API gives each decision its own resource, so RBAC can give each team exactly the layer it owns (chapter 05-03).</i>
+@enduml
