@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The lab's final state — two listeners, two routes, and why each route names a sectionName
+
+rectangle "Gateway  edge-gw   (gateway-system)   ADDRESS 172.18.0.4   PROGRAMMED True" <<group>> as gw {
+  rectangle "<b>listener  http</b>\n<size:11>protocol HTTP · port 80</size>\n<size:11>hostname mygateway-app.local</size>\n<size:11>allowedRoutes: from All</size>" <<bad>> as lh
+  rectangle "<b>listener  https</b>\n<size:11>protocol HTTPS · port 443</size>\n<size:11>hostname mygateway-app.local</size>\n<size:11>tls.mode: Terminate</size>\n<size:11>certificateRefs → Secret mygateway-app-tls</size>" <<good>> as ls
+  lh -[hidden]right-> ls
+}
+
+rectangle "HTTPRoute  http-filter-redirect   (default)" <<groupBad>> as rr {
+  rectangle "parentRefs: edge-gw  <b>sectionName: http</b>\n<size:11>rules: one rule, NO matches  →  defaults to PathPrefix /  →  every request</size>\n<size:11>filters: RequestRedirect { scheme: https, statusCode: 301 }</size>\n<size:11>No backendRefs at all: a redirect answers the client itself.</size>" <<bad>> as rr1
+}
+
+rectangle "HTTPRoute  mygateway-app   (default)" <<groupGood>> as mr {
+  rectangle "parentRefs: edge-gw  <b>sectionName: https</b>\n<size:11>/       PathPrefix → nginx-frontend:80</size>\n<size:11>/api    PathPrefix → nginx-api:80  weight 50   +   nginx-api-v2:80  weight 50</size>\n<size:11>/admin  PathPrefix → nginx-admin:80</size>" <<good>> as mr1
+}
+
+rectangle "Why the sectionNames matter" <<group>> as why {
+  rectangle "Without sectionName, a route attaches to EVERY listener that will accept it. If the main route stayed on the\nhttp listener too, then on port 80 /api, /admin and even / would match the MAIN route — /api and /admin\nbecause a longer PathPrefix wins, and / because on an exact tie the OLDEST route wins.\n<size:11>Pinning the redirect to http and the app to https makes port 80 answer only with redirects, and port 443 only with the app.</size>\n\n<size:11>curl http://mygateway-app.local       → 301 Moved Permanently</size>\n<size:11>curl -L http://mygateway-app.local/api → 301 → https → nginx-api or nginx-api-v2, roughly 50/50</size>" <<accent>> as why1
+}
+
+lh -down-> rr
+ls -down-> mr
+rr -down-> why
+mr -down-> why
+
+caption <i>The redirect is a first-class field of the API — RequestRedirect, with a scheme and a status code — where Ingress needed a controller-specific annotation for the same thing.</i>\n<i>Status codes allowed: 301, 302 (the default), 303, 307, 308. The lecture's curl https worked without -k because the self-signed cert was added to the OS trust store.</i>
+@enduml

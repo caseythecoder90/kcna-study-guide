@@ -1,0 +1,28 @@
+# MIRRORING (shadow) -- every /api request is SERVED by nginx-api, and a COPY is
+# sent to nginx-api-v2 whose response is thrown away. Users never see v2.
+# RequestMirror is an EXTENDED feature; NGINX Gateway Fabric supports it.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mygateway-app          # same name as 03-httproute.yaml: applying REPLACES it
+  namespace: default
+spec:
+  parentRefs:
+  - name: edge-gw
+    namespace: gateway-system
+    sectionName: https
+  hostnames:
+  - mygateway-app.local
+  rules:
+  - matches:
+    - path: {type: PathPrefix, value: /}
+    backendRefs:
+    - {name: nginx-frontend, port: 80}
+  - matches:
+    - path: {type: PathPrefix, value: /api}
+    backendRefs:
+    - {name: nginx-api, port: 80}
+    filters:
+    - type: RequestMirror
+      requestMirror:
+        backendRef: {name: nginx-api-v2, port: 80}

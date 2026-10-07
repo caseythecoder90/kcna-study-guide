@@ -1,0 +1,31 @@
+# PREVIEW / A-B -- the REQUEST chooses. With X-Preview: true you get v2;
+# without it, production. Both rules match /api; the one with MORE header
+# matches wins (section 6.3 precedence), so rule order does not matter.
+# For A/B, the same shape with X-Experiment: B -> variant B.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mygateway-app          # same name as 03-httproute.yaml: applying REPLACES it
+  namespace: default
+spec:
+  parentRefs:
+  - name: edge-gw
+    namespace: gateway-system
+    sectionName: https
+  hostnames:
+  - mygateway-app.local
+  rules:
+  - matches:
+    - path: {type: PathPrefix, value: /}
+    backendRefs:
+    - {name: nginx-frontend, port: 80}
+  - matches:
+    - path: {type: PathPrefix, value: /api}
+      headers:
+      - {name: X-Preview, value: "true"}
+    backendRefs:
+    - {name: nginx-api-v2, port: 80}
+  - matches:
+    - path: {type: PathPrefix, value: /api}
+    backendRefs:
+    - {name: nginx-api, port: 80}
