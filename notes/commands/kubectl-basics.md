@@ -602,6 +602,42 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-09 — StatefulSets
+
+```bash
+# No `kubectl create statefulset` -- generate a Deployment and edit it
+kubectl create deployment nginx --image=nginx --replicas=3 --dry-run=client -o yaml > statefulset.yaml
+#   kind: StatefulSet · delete `strategy: {}` · add serviceName · add volumeClaimTemplates
+
+# The headless Service it needs (kubectl expose cannot target a StatefulSet)
+kubectl create service clusterip nginx --clusterip=None --tcp=80:80
+
+kubectl get statefulsets                         # sts
+kubectl get pods -w -l app=nginx                 # nginx-0, then nginx-1, then nginx-2
+kubectl get pvc                                  # <template>-<statefulset>-<ordinal>
+kubectl get endpoints nginx -o yaml              # each address carries a hostname
+kubectl run --rm -i --tty curl --image=curlimages/curl --restart=Never -- sh
+#   curl nginx-1.nginx.default.svc.cluster.local     <pod>.<service>.<namespace>.svc.cluster.local
+
+# Scaling -- ordered, and PVCs are NOT deleted on the way down
+kubectl scale statefulset nginx --replicas=1
+
+# Canary: only ordinals >= partition are updated
+kubectl patch statefulset nginx -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":2}}}}'
+kubectl set image statefulset/nginx nginx=nginx:1.29
+kubectl rollout status statefulset/nginx
+kubectl rollout history statefulset/nginx
+kubectl rollout undo statefulset/nginx --to-revision=1
+kubectl get controllerrevisions                  # StatefulSet history -- not ReplicaSets
+
+# Immutable fields (selector, serviceName, volumeClaimTemplates, podManagementPolicy)
+kubectl delete -f statefulset.yaml && kubectl apply -f statefulset.yaml
+kubectl scale statefulset nginx --replicas=0 && kubectl delete statefulset nginx   # ordered teardown
+kubectl delete pvc -l app=nginx                  # claims carry the StatefulSet's selector labels
+```
+
+**Pod name = `<statefulset>-<ordinal>`; DNS = `<pod>.<service>.<namespace>.svc.cluster.local`; PVC = `<template>-<pod>`.** StatefulSets need a **headless Service you create yourself**. **Rolling updates run highest ordinal first; `partition: N` updates only ordinals ≥ N.**
+
 ## Chapter 05-08 — Kubernetes storage
 
 ```bash

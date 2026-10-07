@@ -553,6 +553,19 @@ volumes:
 
 **Reclaim: `Retain` (manual-PV default) keeps data in `Released`; `Delete` (StorageClass default) removes PV and storage; `Recycle` is deprecated.** RWO is per node, RWOP per Pod. **Rook is a CNCF-graduated operator that runs Ceph; Ceph is the storage.**
 
+### 4A-j. StatefulSets (chapter 05-09)
+
+```bash
+kubectl create deployment nginx --image=nginx --replicas=3 --dry-run=client -o yaml > sts.yaml   # then edit to StatefulSet
+kubectl create service clusterip nginx --clusterip=None --tcp=80:80                            # the headless Service
+kubectl get sts,pods,pvc -l app=nginx
+curl nginx-1.nginx.default.svc.cluster.local                                                   # from inside the cluster
+kubectl patch statefulset nginx -p '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":2}}}}'
+kubectl rollout history statefulset/nginx ; kubectl get controllerrevisions
+```
+
+**Pod `<sts>-<ordinal>` · DNS `<pod>.<svc>.<ns>.svc.cluster.local` · PVC `<template>-<pod>`.** Requires a **headless** Service; PVCs survive scale-down and deletion; `partition: N` updates only ordinals ≥ N.
+
 ## 5. Observability tooling
 
 _Section 6._

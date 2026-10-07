@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Order is a guarantee, not an accident — create up, terminate down, update down
+
+rectangle "CREATE and SCALE UP — ascending, one at a time" <<groupGood>> as up {
+  rectangle "web-0  →  web-1  →  web-2\n<size:11>Created sequentially from 0 to N-1. <b>web-1 is not created until web-0 is Running and Ready.</b></size>\n<size:11>If web-0 fails after web-1 is up, web-2 waits until web-0 is Running and Ready again.</size>\n<size:11>A database primary at ordinal 0 is up before any replica tries to join it.</size>" <<good>> as u1
+}
+
+rectangle "DELETE and SCALE DOWN — descending, one at a time" <<groupBad>> as down {
+  rectangle "web-2  →  web-1  →  web-0\n<size:11>Terminated in reverse, from N-1 to 0. <b>Before a Pod is terminated, all of its successors must be</b></size>\n<size:11><b>completely shut down.</b> Scale 3 → 1 and web-2 goes first; web-1 waits until web-2 is fully gone.</size>\n<size:11>Deleting the StatefulSet object itself gives NO ordering guarantee — scale to 0 first if order matters.</size>" <<bad>> as d1
+}
+
+rectangle "podManagementPolicy — the switch for all of the above (immutable after creation)" <<group>> as pm {
+  rectangle "<b>OrderedReady</b> (default)   the sequencing above\n<b>Parallel</b>                  create or terminate all Pods at once, no waiting on Running and Ready\n<size:11>Parallel relaxes ORDERING only. Names, DNS and storage stay exactly as sticky.</size>" <<plain>> as pm1
+}
+
+rectangle "ROLLING UPDATE with partition: 2 — the canary" <<groupGood>> as part {
+  rectangle "replicas: 3     updateStrategy.rollingUpdate.partition: 2     image nginx:1.27 → nginx:1.29\n\n<size:11>  web-2   ordinal 2 ≥ 2   →  <b>UPDATED</b> to 1.29     ← rolling updates go highest ordinal FIRST</size>\n<size:11>  web-1   ordinal 1 < 2   →  stays on 1.27, and if deleted is RECREATED at 1.27</size>\n<size:11>  web-0   ordinal 0 < 2   →  stays on 1.27</size>\n\n<size:11>Watch web-2. Happy?  Lower the partition to 1, then 0, and the rollout continues one Pod at a time.</size>\n<size:11>Partition greater than replicas  →  template changes reach NO Pods at all: a full pause.</size>\n<size:11>Uses: stage an update, roll out a canary, perform a phased rollout.</size>" <<good>> as p1
+}
+
+rectangle "updateStrategy.type" <<group>> as us {
+  rectangle "<b>RollingUpdate</b> (default)  delete and recreate each Pod, highest ordinal first, waiting for Running and Ready\n<b>OnDelete</b>                   change nothing automatically; a Pod is updated only when YOU delete it\n<size:11>Recreate (delete all, then recreate) exists only as an ALPHA feature gate — not the exam answer.</size>\n<size:11>maxUnavailable (beta, v1.35) lets RollingUpdate replace more than one Pod at a time.</size>" <<plain>> as us1
+}
+
+up -down-> down
+down -down-> pm
+pm -down-> part
+part -down-> us
+
+caption <i>Deployments create, update and delete Pods in parallel because their Pods are interchangeable. A StatefulSet's ordinals mean something to the application — "0 is the primary" — so the order is enforced.</i>\n<i>partition is that ordering turned into a control: update from the top, stop wherever you choose.</i>
+@enduml
