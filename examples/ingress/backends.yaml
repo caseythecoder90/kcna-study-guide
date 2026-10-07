@@ -1,0 +1,39 @@
+# Three backends, each answering with its own hostname and the URL it received
+# (spurin/nginx-debug), so routing is visible in every response.
+#
+# Equivalent to the lecture's imperative commands:
+#   kubectl run nginx-frontend --image=spurin/nginx-debug --port=80
+#   kubectl expose pod/nginx-frontend          # ...and the same for api and admin
+#
+# The Services are plain ClusterIP -- with Ingress, nothing but the controller's
+# own Service needs to be reachable from outside.
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-frontend, labels: {run: nginx-frontend}}
+spec: {containers: [{name: nginx-frontend, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-api, labels: {run: nginx-api}}
+spec: {containers: [{name: nginx-api, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nginx-admin, labels: {run: nginx-admin}}
+spec: {containers: [{name: nginx-admin, image: spurin/nginx-debug, ports: [{containerPort: 80}]}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-frontend}
+spec: {selector: {run: nginx-frontend}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-api}
+spec: {selector: {run: nginx-api}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: nginx-admin}
+spec: {selector: {run: nginx-admin}, ports: [{port: 80}]}

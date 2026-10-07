@@ -1,0 +1,42 @@
+# The same routing, now with TLS terminated at the controller.
+#
+# Before applying, create the certificate and the Secret (see README.md):
+#   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout myingress-app.local.key -out myingress-app.local.crt \
+#     -subj "/CN=myingress-app.local" \
+#     -addext "subjectAltName=DNS:myingress-app.local"
+#   kubectl create secret tls myingress-app-tls \
+#     --cert=myingress-app.local.crt --key=myingress-app.local.key
+#
+# On F5 NGINX, nginx.org/ssl-redirect defaults to "true", so adding tls: alone
+# turns every http:// request into a redirect to https://. The annotations below
+# only make that explicit and change the status code.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: myingress-app
+  annotations:
+    nginx.org/ssl-redirect: "true"         # already the default once tls: is set
+    nginx.org/http-redirect-code: "308"    # 301 by default; 308 keeps POST as POST
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - myingress-app.local                  # must match a host in rules
+    secretName: myingress-app-tls          # type kubernetes.io/tls, same namespace
+  rules:
+  - host: myingress-app.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: {name: nginx-frontend, port: {number: 80}}
+      - path: /api
+        pathType: Prefix
+        backend:
+          service: {name: nginx-api, port: {number: 80}}
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service: {name: nginx-admin, port: {number: 80}}

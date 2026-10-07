@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title TLS at the Ingress — encrypted to the front door, plain HTTP behind it
+
+rectangle "BEFORE ANY REQUEST — three steps, done once" <<group>> as setup {
+  rectangle "<b>1 · make a certificate and key</b>  (self-signed: you are your own CA)\n<size:11>openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\</size>\n<size:11>  -keyout myingress-app.local.key -out myingress-app.local.crt \\</size>\n<size:11>  -subj /CN=myingress-app.local -addext subjectAltName=DNS:myingress-app.local</size>\n\n<b>2 · store them in a Secret</b>  of type kubernetes.io/tls, keys tls.crt and tls.key\n<size:11>kubectl create secret tls myingress-app-tls ~-~-cert=myingress-app.local.crt ~-~-key=myingress-app.local.key</size>\n\n<b>3 · reference it from the Ingress</b>\n<size:11>spec.tls:  - hosts: [myingress-app.local]    secretName: myingress-app-tls</size>\n<size:11>The tls hosts must match a host in rules — TLS cannot work on a host-less catch-all rule.</size>" <<accent>> as su1
+}
+
+rectangle "PLAIN HTTP — port 80 — REDIRECTED" <<groupBad>> as http {
+  rectangle "curl -i http://myingress-app.local/api\n<size:11>HTTP/1.1 301 Moved Permanently</size>\n<size:11>Location: https://myingress-app.local/api</size>\n<size:11>F5 NGINX does this AUTOMATICALLY once an Ingress has a tls section: nginx.org/ssl-redirect defaults to true.</size>\n<size:11>Status code from nginx.org/http-redirect-code (301 default; 302, 307, 308 allowed). curl -L follows it.</size>" <<bad>> as h1
+}
+
+rectangle "HTTPS — port 443 — the handshake" <<groupGood>> as hs {
+  rectangle "<b>a · ClientHello carries SNI</b>: 'I want myingress-app.local'\n<size:11>One IP and one port 443 serve many hostnames; SNI tells the controller which certificate to present.</size>\n<b>b · the controller presents tls.crt</b> and proves it holds tls.key\n<b>c · the client verifies it</b>: is the hostname in the certificate's subjectAltName? is it signed by a CA I trust?\n<size:11>Self-signed fails step c — hence curl -k (skip verification) or curl ~-~-cacert myingress-app.local.crt (trust THIS cert).</size>\n<b>d · keys agreed</b>, and the HTTP request travels inside the encrypted channel" <<good>> as hs1
+}
+
+rectangle "TERMINATION — where the encryption stops" <<group>> as term {
+  rectangle "<b>The controller decrypts.</b> It reads Host and path, routes as before, and forwards PLAIN HTTP\nto Service nginx-api:80 and the Pod.\n<size:11>'The Ingress resource only supports a single TLS port, 443, and assumes TLS termination at the ingress point</size>\n<size:11>(traffic to the Service and its Pods is in plaintext).'  The Pods need no certificates and no changes.</size>\n<size:11>Encrypting the hop behind the controller too needs backend TLS configuration or a service mesh with mTLS (section 7).</size>" <<plain>> as t1
+}
+
+setup -down-> http
+http -down-> hs
+hs -down-> term
+
+caption <i>Why the SAN matters: modern clients ignore the CN for hostname checks and look only at subjectAltName — a certificate with only CN=myingress-app.local fails verification even when trusted.</i>\n<i>In production, cert-manager (CNCF Graduated) obtains real certificates from a CA such as Let's Encrypt and writes them into the same kind of Secret.</i>
+@enduml
