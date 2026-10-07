@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three ways to get Pods off a node — and only one of them asks permission
+
+rectangle "kubectl cordon worker-1 — mark only, move nothing" <<group>> as c {
+  rectangle "<b>Sets spec.unschedulable: true</b> on the Node. STATUS becomes  Ready,SchedulingDisabled.\n<size:11>The scheduler stops placing NEW Pods there (the node.kubernetes.io/unschedulable:NoSchedule taint, chapter 05-06).</size>\n<size:11><b>Pods already running are untouched.</b> Nothing is evicted, nothing restarts. Undo with  kubectl uncordon worker-1.</size>\n<size:11>The lecture: cordon, then delete Pods by hand, and watch the replacements avoid the cordoned node.</size>" <<plain>> as c1
+}
+
+rectangle "kubectl drain worker-1 — cordon, then EVICT everything, then wait" <<groupGood>> as d {
+  rectangle "<b>1.</b> Cordons the node (so evicted Pods cannot land back on it).\n<b>2.</b> <b>Evicts</b> every Pod through the <b>Eviction API</b> — which checks PodDisruptionBudgets.\n<b>3.</b> Waits for graceful termination, and RETRIES refused evictions every 5 seconds until done or ~-~-timeout.\n\n<size:11>Refuses to start without a flag when it finds:</size>\n<size:11>  DaemonSet Pods      → ~-~-ignore-daemonsets    (they are skipped, never deleted: the controller would recreate them)</size>\n<size:11>  emptyDir data       → ~-~-delete-emptydir-data (that data is lost — chapter 05-08)</size>\n<size:11>  unmanaged Pods      → ~-~-force                (no controller will recreate them — they are simply gone)</size>\n<size:11>Mirror (static) Pods are never touched. When maintenance is done:  kubectl uncordon worker-1.</size>" <<good>> as d1
+}
+
+rectangle "kubectl delete pod — straight to DELETE, no questions" <<groupBad>> as x {
+  rectangle "<b>Bypasses PodDisruptionBudgets entirely.</b> So do  kubectl delete deployment  and  kubectl drain ~-~-disable-eviction.\n<size:11>'Not all voluntary disruptions are constrained by Pod Disruption Budgets. For example, deleting deployments or</size>\n<size:11>pods bypasses Pod Disruption Budgets.'  A PDB is only consulted by callers that go through the Eviction API.</size>" <<bad>> as x1
+}
+
+c -down-> d : drain = cordon + evict
+d -down-> x : what a PDB cannot stop
+
+caption <i>cordon answers "no new Pods here"; drain answers "empty this node, politely". The politeness is the Eviction API — and that is the only door a PodDisruptionBudget guards.</i>\n<i>Node repaves, cluster upgrades and autoscaler scale-downs are drains under the hood, which is why a PDB protects you from them.</i>
+@enduml

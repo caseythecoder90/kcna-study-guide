@@ -602,6 +602,44 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-13 — PodDisruptionBudgets, cordon and drain
+
+```bash
+# cordon: no new Pods, nothing moves
+kubectl cordon worker-1
+kubectl get nodes                                  # Ready,SchedulingDisabled
+kubectl get pods -o wide --field-selector spec.nodeName=worker-1
+kubectl uncordon worker-1                          # schedulable again; moves nothing back
+
+# drain: cordon + evict every Pod (Eviction API, respects PDBs) + wait
+kubectl drain worker-2 --ignore-daemonsets --delete-emptydir-data
+kubectl drain worker-2 --ignore-daemonsets --timeout=120s            # 0s (default) = wait forever
+kubectl drain worker-2 --ignore-daemonsets --force                   # also deletes UNMANAGED Pods
+kubectl drain worker-2 --ignore-daemonsets --dry-run=client          # preview
+kubectl drain worker-2 --disable-eviction                            # plain DELETE: BYPASSES PDBs
+
+# PodDisruptionBudgets
+kubectl create pdb nginx --selector=app=nginx --min-available=2
+kubectl create pdb nginx --selector=app=nginx --max-unavailable=1    # recommended: follows replicas
+kubectl get pdb                                    # MIN AVAILABLE, MAX UNAVAILABLE, ALLOWED DISRUPTIONS
+kubectl get pdb nginx -o yaml                      # currentHealthy, desiredHealthy, disruptionsAllowed, expectedPods
+kubectl describe pdb nginx
+#   drain output when blocked:
+#   error when evicting pods/"..." (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+```
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: nginx}
+spec:
+  selector: {matchLabels: {app: nginx}}            # required; same selector as the workload
+  minAvailable: 2                                  # OR maxUnavailable -- never both. Ints or "50%" (rounds UP)
+  unhealthyPodEvictionPolicy: AlwaysAllow          # default IfHealthyBudget can let a crash-looping app block drains
+```
+
+**A PDB limits simultaneous VOLUNTARY disruptions, and only through the Eviction API** — `delete pod`, `delete deployment`, `--disable-eviction` and rolling updates are not limited. Healthy = Ready. `maxUnavailable: 0` / `minAvailable: 100%` makes the node undrainable.
+
 ## Chapter 05-12 — Gateway API
 
 ```bash

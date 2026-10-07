@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title How a PodDisruptionBudget says no — the lecture's numbers
+
+rectangle "The budget" <<group>> as b {
+  rectangle "kubectl create pdb nginx ~-~-selector=app=nginx ~-~-min-available=2\n<size:11>apiVersion: policy/v1 · kind: PodDisruptionBudget</size>\n<size:11>spec: {selector: {matchLabels: {app: nginx}}, minAvailable: 2}</size>\n\n<size:11>The disruption controller keeps the arithmetic in status:</size>\n<size:11>  expectedPods 5   (from the Deployment's replicas)      currentHealthy 5   (Pods that are READY)</size>\n<size:11>  desiredHealthy 2 (minAvailable)                          <b>disruptionsAllowed 3</b>  (5 − 2)</size>" <<accent>> as b1
+}
+
+rectangle "kubectl drain control-plane worker-1 worker-2 — five eviction requests" <<group>> as e {
+  rectangle "<b>POST /api/v1/namespaces/default/pods/<name>/eviction</b>  — one per Pod\n\n<size:11>Eviction 1  →  200 OK      allowed: 5 healthy, 3 disruptions left → 2 left       pod/...-z28qz evicted</size>\n<size:11>Eviction 2  →  200 OK      → 1 left                                               pod/...-xnhzs evicted</size>\n<size:11>Eviction 3  →  200 OK      → 0 left                                               pod/...-bpzrj evicted</size>\n<size:11>Eviction 4  →  <b>429 Too Many Requests</b>   'Cannot evict pod as it would violate the pod's disruption budget.'</size>\n<size:11>Eviction 5  →  <b>429</b>                     drain prints  (will retry after 5s)  and keeps trying</size>" <<plain>> as e1
+}
+
+rectangle "Why it never finishes in the lab — and why it would in production" <<groupGood>> as w {
+  rectangle "Every node is cordoned, so the three replacement Pods sit <b>Pending</b>. They never become Ready, so\ncurrentHealthy stays at 2, disruptionsAllowed stays at 0, and the last two Pods are <b>never evicted</b>.\n<b>The application keeps 2 Pods serving the whole time.</b> Without the PDB the same drain took it to READY 0/5.\n\n<size:11>In a real node repave, new nodes join and replacements start elsewhere. Each one that turns Ready raises</size>\n<size:11>currentHealthy, which re-opens the budget, and the next retry succeeds. The drain proceeds at exactly</size>\n<size:11>the pace the application can absorb — that is the whole point of a PDB.</size>" <<good>> as w1
+}
+
+b -down-> e
+e -down-> w
+
+caption <i>"Healthy" means the Pod's Ready condition is True (chapter 04-14) — the PDB counts readiness, not existence. A Pod that is Running but not Ready does not count towards minAvailable.</i>\n<i>200 = evicted · 429 = budget says not now, try later · 500 = misconfiguration, such as two PDBs selecting the same Pod.</i>
+@enduml

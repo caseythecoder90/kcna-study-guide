@@ -1,0 +1,39 @@
+# Five replicas and a budget that keeps at least two of them serving through
+# any VOLUNTARY disruption that goes through the Eviction API (kubectl drain,
+# the cluster autoscaler, managed node upgrades).
+#
+#   kubectl apply -f nginx-pdb.yaml
+#   kubectl get pdb          # ALLOWED DISRUPTIONS 3  (5 healthy - 2 required)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        readinessProbe:          # the PDB counts READY Pods -- give it a real signal
+          httpGet: {path: /, port: 80}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx                 # the SAME selector as the workload
+  minAvailable: 2                # or maxUnavailable: 1 -- never both
+  # Recommended by the docs: lets a drain evict Pods that are Running but not
+  # Ready (e.g. CrashLoopBackOff) instead of letting them block maintenance.
+  unhealthyPodEvictionPolicy: AlwaysAllow
