@@ -583,6 +583,20 @@ spec:
 
 **Open by default; selected = isolated; allow-only and additive; both ends must agree; needs an enforcing CNI.** Same list item = AND, extra dash = OR. **Ingress resource = L7 routing into the cluster (API frozen, Gateway API recommended); NetworkPolicy Ingress = L3/4 direction into a Pod.**
 
+### 4A-l. Ingress (chapter 05-11)
+
+```bash
+helm install nginx-ingress nginx-stable/nginx-ingress --namespace nginx-ingress --create-namespace
+kubectl get ingressclasses ; kubectl get ingress ; kubectl describe ingress <name>
+kubectl create ingress app --class=nginx --rule="app.local/api*=api:80" --rule="app.local/healthz=admin:80,tls=app-tls"
+#                                                          ^ * = Prefix        ^ no * = Exact
+kubectl create secret tls app-tls --cert=app.crt --key=app.key        # type kubernetes.io/tls: tls.crt + tls.key
+curl --resolve '*:80:<ip>' http://app.local/api                       # or: curl -H "Host: app.local" http://<ip>/api
+curl --cacert app.crt --resolve 'app.local:443:<ip>' https://app.local/api
+```
+
+**Resource = rules, controller = proxy, IngressClass = which controller** (`is-default-class` annotation for the default). **Prefix is element-wise** (`/api` ≠ `/apiary`), **Exact is exact** (`/api` ≠ `/api/`), **longest wins, Exact breaks ties.** TLS on 443, terminated at the controller; HTTP→HTTPS redirect is a controller annotation (`nginx.org/ssl-redirect`, default `true` on F5 NGINX).
+
 ## 5. Observability tooling
 
 _Section 6._

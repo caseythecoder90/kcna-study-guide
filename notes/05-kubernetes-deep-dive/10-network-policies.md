@@ -344,7 +344,21 @@ And for the controller most people associate with Ingress: the community **ingre
 
 ---
 
-## 7. What NetworkPolicy cannot do
+## 7. Three common misreadings
+
+Worth checking your own notes against these — each one is an easy mistake from the lecture's wording:
+
+| Misreading | What is actually true |
+|---|---|
+| "Policies can match **hostnames or wildcards**" | **Core NetworkPolicy cannot.** Its only selectors are **Pod labels, namespace labels and CIDR blocks**, plus ports. Domain-name rules exist only as CNI extensions (see below) |
+| "Policies **allow or deny** communication" | **Allow only.** Denial comes from a Pod being **selected** (section 2.1); no rule can deny. Hence "default deny, then allow" |
+| "`curl <podname>.<namespace>.svc.cluster.local` reaches the Pod" | That name is a **Service** DNS record: **`<service>.<namespace>.svc.cluster.local`**. It worked in the lecture because `kubectl expose pod nginx` creates a Service with the **same name** as the Pod. A Pod's own DNS record is built from its IP — **`10-42-1-5.default.pod.cluster.local`** — and StatefulSet Pods get named records through a headless Service (chapter 05-09) |
+
+And the slide's definition of "ingress" — *managing incoming traffic to services within a cluster* — describes the **Ingress resource** (chapter 05-11). Inside a NetworkPolicy, `Ingress` only means **traffic arriving at the selected Pods**, from anywhere (section 6).
+
+---
+
+## 8. What NetworkPolicy cannot do
 
 The documentation keeps an explicit list. The ones most likely to appear as wrong answers:
 
@@ -353,13 +367,14 @@ The documentation keeps an explicit list. The ones most likely to appear as wron
 | **Anything TLS-related** | A **service mesh** or an **Ingress controller** |
 | **Explicit deny rules** | Not possible — deny comes only from isolation |
 | **Target Services by name** | Select the Pods or namespaces behind them **by label** |
+| **Match hostnames, DNS names or wildcards** (`api.example.com`, `*.example.com`) | CNI-specific policy types — for example Cilium's `CiliumNetworkPolicy` with **`toFQDNs`**. Core NetworkPolicy only knows labels, ports and CIDRs |
 | **Node-specific policies** by node identity | CIDR blocks for node IPs |
 | **Default policies across all namespaces** | Third-party distributions and projects |
 | **Log allowed or blocked connections** | CNI-specific tooling (for example Cilium's Hubble) |
 | **Block a Pod's own loopback, or traffic from its own node** | Not possible |
 | **Force cluster traffic through a common gateway** | A **service mesh** or other proxy |
 
-The recurring answer — service mesh for TLS, identity-based and Layer 7 policy — is where section 7 of the course is heading.
+The recurring answer — service mesh for TLS, identity-based and Layer 7 policy — is where section 7 of the course is heading. The Ingress resource itself is chapter 05-11.
 
 Two behaviour details round it out:
 
@@ -381,7 +396,7 @@ Two behaviour details round it out:
 - **In one `from`/`to` list item, `namespaceSelector` + `podSelector` are ANDed. As two list items they are ORed.**
 - **A default-deny egress policy also blocks DNS** — allow UDP/TCP 53 to `kube-dns`.
 - **The Ingress resource routes external HTTP(S) to Services at Layer 7 and needs an Ingress controller. NetworkPolicy `Ingress` is a direction — traffic entering a Pod — filtered at Layer 3/4 and enforced by the CNI.**
-- **NetworkPolicy cannot do TLS, explicit deny, Service-name targeting or connection logging** — a **service mesh** covers the TLS and Layer 7 cases.
+- **NetworkPolicy cannot do TLS, explicit deny, Service-name targeting, hostname/FQDN matching or connection logging** — a **service mesh** covers the TLS and Layer 7 cases; FQDN rules are CNI extensions such as Cilium's `toFQDNs`.
 - **The Ingress API is frozen; Gateway API (GatewayClass, Gateway, HTTPRoute, GRPCRoute) is the recommended successor.**
 
 ## References

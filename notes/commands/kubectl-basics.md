@@ -602,6 +602,49 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-11 — Ingress
+
+```bash
+# Install a controller (the Ingress API exists already; a controller usually does not)
+helm repo add nginx-stable https://helm.nginx.com/stable && helm repo update
+helm install nginx-ingress nginx-stable/nginx-ingress --namespace nginx-ingress --create-namespace
+kubectl -n nginx-ingress get service,endpointslices,deployment,pods -o wide
+kubectl get ingressclasses                       # nginx   nginx.org/ingress-controller
+kubectl annotate ingressclass nginx ingressclass.kubernetes.io/is-default-class=true
+
+# Backends: ordinary ClusterIP Services
+kubectl run nginx-api --image=spurin/nginx-debug --port=80
+kubectl expose pod/nginx-api
+
+# Generate an Ingress: host/path=svc:port   trailing * = Prefix, no * = Exact
+kubectl create ingress myingress-app --class=nginx \
+  --rule="myingress-app.local/*=nginx-frontend:80" \
+  --rule="myingress-app.local/api*=nginx-api:80" \
+  --rule="myingress-app.local/healthz=nginx-admin:80" \
+  --dry-run=client -o yaml
+kubectl get ingress ; kubectl describe ingress myingress-app
+
+# Test without DNS -- the Host header is what routes
+curl --resolve '*:80:172.18.0.4' http://myingress-app.local/api
+curl -H "Host: myingress-app.local" http://172.18.0.4/api
+echo "172.18.0.4 myingress-app.local" | sudo tee -a /etc/hosts
+
+# TLS: self-signed cert WITH a SAN, a kubernetes.io/tls Secret, then tls: in the Ingress
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout myingress-app.local.key -out myingress-app.local.crt \
+  -subj "/CN=myingress-app.local" -addext "subjectAltName=DNS:myingress-app.local"
+openssl x509 -in myingress-app.local.crt -noout -subject -ext subjectAltName
+kubectl create secret tls myingress-app-tls --cert=myingress-app.local.crt --key=myingress-app.local.key
+kubectl create ingress myingress-app --class=nginx --rule="myingress-app.local/*=nginx-frontend:80,tls=myingress-app-tls"
+
+curl -i  --resolve 'myingress-app.local:80:172.18.0.4'  http://myingress-app.local/     # 301 -> https (F5 default)
+curl -k  --resolve 'myingress-app.local:443:172.18.0.4' https://myingress-app.local/    # skip verification
+curl --cacert myingress-app.local.crt --resolve 'myingress-app.local:443:172.18.0.4' https://myingress-app.local/
+openssl s_client -connect 172.18.0.4:443 -servername myingress-app.local </dev/null    # the cert chosen by SNI
+```
+
+**Ingress = rules; controller = the proxy; IngressClass = which controller.** `pathType` is mandatory: **Exact** (exact, case-sensitive) · **Prefix** (element-wise on `/` — `/api` matches `/api/v1`, not `/apiary`) · **ImplementationSpecific**. Longest match wins, Exact beats Prefix on a tie. **TLS terminates at the controller** on port 443 using a `kubernetes.io/tls` Secret; redirects are controller annotations.
+
 ## Chapter 05-10 — network policies
 
 ```bash

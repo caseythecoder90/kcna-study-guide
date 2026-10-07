@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title pathType — the request path is cut at every "/" and compared PIECE by PIECE, never character by character
+
+rectangle "How Prefix sees a path" <<group>> as how {
+  rectangle "/api/v1/users    →    [ api ] [ v1 ] [ users ]\n<size:11>A rule  path: /api/v1  pathType: Prefix   is the list  [ api ] [ v1 ]</size>\n<size:11>It matches when those elements are the FIRST elements of the request, each one WHOLE and EXACT.</size>\n<size:11>A trailing slash on either side adds an empty element and is ignored.</size>" <<accent>> as h1
+}
+
+rectangle "Prefix   path: /api" <<groupGood>> as pre {
+  rectangle "/api               MATCH     [api]\n/api/              MATCH     trailing slash ignored\n/api/v1/users      MATCH     [api] is the first element — subpaths match\n/apiary            NO        [apiary] is not [api] — NOT a string prefix\n/API               NO        case-sensitive\n/v1/api            NO        must be at the START" <<good>> as p1
+}
+
+rectangle "Exact   path: /api" <<groupBad>> as ex {
+  rectangle "/api               MATCH     character for character\n/api/              NO        the trailing slash makes it a different path\n/api/v1            NO        no subpaths\n/API               NO        case-sensitive" <<bad>> as e1
+}
+
+rectangle "ImplementationSpecific — and the spec versus real controllers" <<group>> as is {
+  rectangle "Matching is up to the IngressClass. A controller may treat it as Prefix, as Exact, or as its own thing\n(regular expressions, for example). <b>F5 NGINX treats it like Prefix</b>, and lets the path be omitted (defaults to /).\n<size:11>Portable manifests use Prefix or Exact. Every path MUST state a pathType — an omitted one fails validation.</size>\n\n<b>Controllers do not all follow the element-wise rule.</b> F5 NGINX turns Prefix /api into an NGINX location /api,\nwhich is a plain STRING prefix — so on the lecture's controller /apiary DOES reach the /api backend.\n<size:11>The exam answer is the Kubernetes definition above. In real clusters, test the edge case on your own controller.</size>" <<plain>> as i1
+}
+
+rectangle "When several paths match: longest wins, then Exact beats Prefix" <<group>> as prec {
+  rectangle "rules for one host:   /  (Prefix)  →  frontend     /api  (Prefix)  →  api     /api/admin  (Prefix)  →  admin\n                       /api  (Exact)   →  api-root\n\n<size:11>/              →  frontend     only / matches</size>\n<size:11>/cart          →  frontend     / is a prefix of everything — the catch-all</size>\n<size:11>/api           →  api-root     /api Exact and /api Prefix tie on length; EXACT wins the tie</size>\n<size:11>/api/v1        →  api          /api is the longest match</size>\n<size:11>/api/admin/x   →  admin        /api/admin is longer than /api</size>\n<size:11>Order in the YAML is irrelevant. Remove the / rule and /cart matches nothing — the controller's default backend answers (usually 404).</size>" <<plain>> as pr1
+}
+
+how -down-> pre
+pre -down-> ex
+ex -down-> is
+is -down-> prec
+
+caption <i>The two traps: Prefix /api does NOT match /apiary (whole elements only), and Exact /api does NOT match /api/ (the slash counts).</i>\n<i>kubectl create ingress encodes it in the rule string: ~-~-rule="host/api*=svc:80" gives Prefix, ~-~-rule="host/api=svc:80" without the star gives Exact.</i>
+@enduml

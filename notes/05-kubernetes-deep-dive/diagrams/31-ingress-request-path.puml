@@ -1,0 +1,35 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One request, end to end — and which object does what along the way
+
+rectangle "1 · The client" <<group>> as c {
+  rectangle "curl http://myingress-app.local/api\n<size:11>DNS (or /etc/hosts, or curl ~-~-resolve) turns myingress-app.local into the controller's address: 172.18.0.4</size>\n<size:11>The request carries   Host: myingress-app.local   and the path   /api   — the two things Ingress routes on.</size>" <<plain>> as c1
+}
+
+rectangle "2 · The controller's own Service — the ONLY thing exposed" <<group>> as svc {
+  rectangle "Service  nginx-ingress-controller   type: LoadBalancer   EXTERNAL-IP 172.18.0.4   80/TCP, 443/TCP\n<size:11>One LoadBalancer for the whole cluster, instead of one per application Service.</size>\n<size:11>That consolidation is the main reason Ingress exists.</size>" <<accent>> as s1
+}
+
+rectangle "3 · The INGRESS CONTROLLER — a real Pod running a reverse proxy" <<groupGood>> as ctl {
+  rectangle "<b>F5 NGINX Ingress Controller</b>   (Deployment in namespace nginx-ingress)\n<size:11>It WATCHES the API for Ingress objects whose ingressClassName points at its IngressClass,</size>\n<size:11>and turns them into NGINX configuration. Here it matches:</size>\n<size:11>    host  myingress-app.local   +   path  /api  (Prefix)   →   Service nginx-api:80</size>\n<size:11>If TLS is configured, THIS is where it ends: the controller decrypts, then forwards plain HTTP.</size>" <<good>> as k1
+}
+
+rectangle "4 · The configuration it read — three API objects, none of which carry traffic" <<group>> as cfg {
+  rectangle "<b>IngressClass</b>  nginx\n<size:11>spec.controller:</size>\n<size:11>  nginx.org/ingress-controller</size>\n<size:11>Says WHICH controller owns</size>\n<size:11>Ingresses of this class</size>" <<plain>> as ic
+  rectangle "<b>Ingress</b>  myingress-app\n<size:11>ingressClassName: nginx</size>\n<size:11>rules: host → paths → backends</size>\n<size:11>tls: hosts + secretName</size>\n<size:11>The routing TABLE, nothing more</size>" <<plain>> as ig
+  rectangle "<b>Secret</b>  type kubernetes.io/tls\n<size:11>tls.crt  — the certificate</size>\n<size:11>tls.key  — the private key</size>\n<size:11>Read by the controller to</size>\n<size:11>terminate HTTPS</size>" <<plain>> as sec
+  ic -[hidden]right-> ig
+  ig -[hidden]right-> sec
+}
+
+rectangle "5 · An ordinary ClusterIP Service, then a Pod" <<group>> as be {
+  rectangle "Service nginx-api (ClusterIP)  →  Pod nginx-api  10.42.0.4:80\n<size:11>The backend Services stay internal — no NodePort, no LoadBalancer. The response comes back the same way.</size>\n<size:11>The nginx-debug image echoes Hostname: nginx-api and URL: /api, which is how the lecture proves the routing.</size>" <<plain>> as b1
+}
+
+c -down-> svc
+svc -down-> ctl
+ctl -down-> cfg : reads
+cfg -down-> be
+
+caption <i>Create an Ingress with no controller installed and nothing happens — the object is stored and ignored. "By default the Ingress API exists, but clusters typically don't ship with an enabled controller."</i>\n<i>The Ingress is configuration; the controller is the proxy. Every Ingress question is easier once those are kept apart.</i>
+@enduml
