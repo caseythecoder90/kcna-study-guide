@@ -602,6 +602,48 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-10 — network policies
+
+```bash
+kubectl get networkpolicies                      # netpol
+kubectl describe networkpolicy allow-nginx-access
+#   Allowing ingress traffic: / Not affecting egress traffic / Policy Types: Ingress
+#   -- the docs' recommended way to check how a policy was interpreted (AND vs OR)
+kubectl api-resources | grep -i networkpolic     # networking.k8s.io/v1, namespaced
+
+# Test from labelled client Pods. A blocked request TIMES OUT -- packets are dropped
+kubectl exec curl     -- curl -s -m 3 nginx
+kubectl exec intruder -- curl -s -m 3 nginx      # curl: (28) ... timed out
+
+# Labels drive everything -- check what a policy will actually match
+kubectl get pods --show-labels
+kubectl get namespaces --show-labels             # kubernetes.io/metadata.name=<name> on every namespace
+kubectl label namespace frontend team=web
+
+# Does the cluster even enforce policies? (k3s: embedded controller; Flannel alone: no)
+kubectl get pods -n kube-system -o wide | grep -i -E "calico|cilium|flannel"
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-nginx-access
+spec:
+  podSelector: {matchLabels: {run: nginx}}   # who is PROTECTED. {} = every Pod in the namespace
+  policyTypes: [Ingress]                     # isolates inbound only. Egress rules here would be IGNORED
+  ingress:
+  - from:
+    - namespaceSelector: {matchLabels: {team: web}}
+      podSelector: {matchLabels: {run: curl}}  # SAME list item -> AND.  Add a dash -> OR (much wider)
+    ports:
+    - {protocol: TCP, port: 80}                # from AND ports must both match
+# Default deny everything:  podSelector: {}  policyTypes: [Ingress, Egress]  (no rules)
+# ...then allow DNS egress: kube-system / k8s-app: kube-dns, UDP+TCP 53
+```
+
+**Selected = isolated; rules only allow; policies are additive.** Both ends of a connection must allow it, and nothing is enforced without a policy-capable CNI. **`kind: Ingress` routes HTTP(S) into the cluster; `policyTypes: Ingress` filters traffic into a Pod.**
+
 ## Chapter 05-09 — StatefulSets
 
 ```bash

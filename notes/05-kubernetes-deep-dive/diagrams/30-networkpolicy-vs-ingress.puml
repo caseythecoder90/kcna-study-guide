@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title "Ingress" means two different things — a routing object, and a direction of traffic
+
+rectangle "INGRESS — the RESOURCE (kind: Ingress)" <<groupGood>> as ing {
+  rectangle "<b>ROUTES</b> HTTP and HTTPS from OUTSIDE the cluster to Services INSIDE it.\n\n<size:11>internet → Ingress controller (Traefik on k3s, NGINX, ...) → Service → Pods</size>\n<size:11>Host- and path-based rules:  shop.example.com/cart → cart-svc:80</size>\n<size:11>Also: externally reachable URLs, load balancing, TLS termination, name-based virtual hosting.</size>\n<size:11>Layer 7. HTTP(S) only — other ports and protocols use a NodePort or LoadBalancer Service.</size>\n<size:11>Needs an Ingress controller; the object alone does nothing.</size>\n\n<size:11><b>The API is FROZEN</b>: still GA and not being removed, but no further changes. Kubernetes</size>\n<size:11>recommends <b>Gateway API</b> (GatewayClass · Gateway · HTTPRoute · GRPCRoute) instead.</size>" <<good>> as ing1
+}
+
+rectangle "NETWORKPOLICY — policyTypes: [Ingress, Egress]" <<groupBad>> as np {
+  rectangle "<b>FILTERS</b> which connections may reach (Ingress) or leave (Egress) the SELECTED PODS.\n\n<size:11>Here 'Ingress' is just a DIRECTION: traffic arriving at a Pod — from another Pod in the</size>\n<size:11>same namespace just as much as from the internet. 'Egress' is traffic the Pod sends out.</size>\n<size:11>Pod, namespace and IP-block peers; ports and protocols.  Layer 3/4 — IPs and ports, not URLs.</size>\n<size:11>Routes nothing. Opens nothing. It can only narrow what is already reachable.</size>\n<size:11>Needs a CNI that enforces it; the object alone does nothing.</size>" <<bad>> as np1
+}
+
+rectangle "They answer different questions — and are often used together" <<group>> as tog {
+  rectangle "Ingress resource:   HOW does outside traffic get to my Service?     → routing, makes things reachable\nNetworkPolicy:      WHICH connections may this Pod accept or make?   → firewalling, makes things unreachable\n\n<size:11>A typical pairing: the Ingress resource sends shop.example.com to the web Pods, and a NetworkPolicy</size>\n<size:11>on those Pods allows ingress ONLY from the Ingress controller's namespace — so nothing else in the</size>\n<size:11>cluster can bypass the front door. The policy has to allow the controller, or the route breaks.</size>" <<accent>> as tog1
+}
+
+ing -down-> np
+np -down-> tog
+
+caption <i>Same word, different layer: kind: Ingress is a Layer 7 router for traffic entering the CLUSTER; policyTypes: Ingress is a Layer 3/4 filter on traffic entering a POD.</i>\n<i>Neither is a Service, and neither does anything until a controller — an Ingress controller or a policy-enforcing CNI — acts on it.</i>
+@enduml

@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Who is allowed — four peer kinds, and one dash that changes AND into OR
+
+rectangle "The four kinds of peer in from: / to:" <<group>> as k {
+  rectangle "<b>podSelector</b>\n<size:11>Pods with these labels, in the</size>\n<size:11>POLICY'S OWN namespace</size>" <<plain>> as k1
+  rectangle "<b>namespaceSelector</b>\n<size:11>ALL Pods in namespaces</size>\n<size:11>with these labels</size>" <<plain>> as k2
+  rectangle "<b>namespaceSelector + podSelector</b>\n<size:11>in ONE entry: these Pods</size>\n<size:11>within those namespaces</size>" <<accent>> as k3
+  rectangle "<b>ipBlock</b>\n<size:11>a CIDR, with optional except.</size>\n<size:11>Meant for IPs OUTSIDE the cluster</size>" <<plain>> as k4
+  k1 -[hidden]right-> k2
+  k2 -[hidden]right-> k3
+  k3 -[hidden]right-> k4
+}
+
+rectangle "ONE list item — AND" <<groupGood>> as and {
+  rectangle "ingress:\n- from:\n<size:12>  <b>- namespaceSelector:</b></size>\n<size:12>      matchLabels: {user: alice}</size>\n<size:12>    <b>podSelector:</b>        ← NO dash: same list item</size>\n<size:12>      matchLabels: {role: client}</size>\n\n<size:11>Allows Pods labelled role=client THAT ARE IN namespaces labelled user=alice.</size>\n<size:11>Both conditions on the SAME peer. Narrow.</size>" <<good>> as and1
+}
+
+rectangle "TWO list items — OR" <<groupBad>> as or {
+  rectangle "ingress:\n- from:\n<size:12>  <b>- namespaceSelector:</b></size>\n<size:12>      matchLabels: {user: alice}</size>\n<size:12>  <b>- podSelector:</b>        ← a DASH: a second list item</size>\n<size:12>      matchLabels: {role: client}</size>\n\n<size:11>Allows ANY Pod in ANY namespace labelled user=alice, OR role=client Pods in the policy's own namespace.</size>\n<size:11>Much wider than it looks. 'When in doubt, use kubectl describe' to see how it was interpreted.</size>" <<bad>> as or1
+}
+
+rectangle "The same rule one level up" <<group>> as up {
+  rectangle "<b>Within one rule:</b>   the peers in from/to are ORed together — then ANDed with ports.\n<b>Between rules:</b>      separate entries under ingress: (or egress:) are ORed.\n<b>Between policies:</b>   ORed as well — the union of everything that selects the Pod.\n\n<size:11>Namespaces cannot be named directly. Select by label — every namespace carries an immutable</size>\n<size:11>kubernetes.io/metadata.name label set by the control plane, so  {kubernetes.io/metadata.name: prod}  works.</size>" <<plain>> as up1
+}
+
+k -down-> and
+and -down-> or
+or -down-> up
+
+caption <i>The only AND anywhere in a NetworkPolicy peer list is two selectors inside a single list item. Everything else is OR.</i>\n<i>That makes one stray dash the most common way to accidentally open a policy far wider than intended.</i>
+@enduml
