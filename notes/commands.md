@@ -617,6 +617,17 @@ rules:
 
 **GatewayClass → Gateway → HTTPRoute**, each owned by a different team. Weights are proportions (default 1, 0 = none); `RequestRedirect` default status 302; no match → 404.
 
+### 4A-n. PodDisruptionBudgets, cordon and drain (chapter 05-13)
+
+```bash
+kubectl cordon <node> ; kubectl uncordon <node>                 # schedulable or not; moves nothing
+kubectl drain <node> --ignore-daemonsets --delete-emptydir-data # cordon + evict all (respects PDBs) + wait
+kubectl create pdb app --selector=app=web --max-unavailable=1   # or --min-available=2
+kubectl get pdb                                                 # ALLOWED DISRUPTIONS
+```
+
+**Involuntary** (hardware, kernel panic, partition) — a PDB can't stop. **Voluntary** (drain, upgrade, autoscaler) — a PDB limits, **via the Eviction API only** (`429` when blocked). `delete pod` and rolling updates bypass it. Healthy = Ready; `maxUnavailable` recommended.
+
 ## 5. Observability tooling
 
 _Section 6._

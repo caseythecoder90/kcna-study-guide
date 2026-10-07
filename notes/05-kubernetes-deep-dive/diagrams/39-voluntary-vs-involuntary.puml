@@ -1,0 +1,23 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What a PodDisruptionBudget covers — voluntary disruptions, and only the ones that ask
+
+rectangle "INVOLUNTARY — unavoidable. A PDB cannot prevent these." <<groupBad>> as inv {
+  rectangle "Hardware failure of the machine behind the node · a VM deleted by mistake · cloud or hypervisor failure\nKernel panic · the node lost to a network partition · eviction because the node ran out of resources\n\n<size:11>They still COUNT against the budget: a Pod lost to a crash leaves fewer allowed voluntary disruptions.</size>\n<size:11>Defences here are different: replicas, resource requests, and spreading with anti-affinity or</size>\n<size:11>topology spread constraints (chapter 05-07).</size>" <<bad>> as inv1
+}
+
+rectangle "VOLUNTARY — initiated by someone. Split by WHO asks and HOW." <<group>> as vol {
+  rectangle "<b>Through the Eviction API — PDB ENFORCED</b>\n<size:11>kubectl drain for repair, upgrade or a node repave</size>\n<size:11>Cluster autoscaler draining a node to scale down</size>\n<size:11>Managed node-pool upgrades and maintenance tooling</size>\n<size:11>Anything that POSTs pods/<name>/eviction</size>" <<good>> as v1
+  rectangle "<b>Direct deletes and rollouts — PDB NOT ENFORCED</b>\n<size:11>kubectl delete pod / delete deployment</size>\n<size:11>drain ~-~-disable-eviction</size>\n<size:11>A Deployment or StatefulSet rolling update — governed</size>\n<size:11>by maxUnavailable / maxSurge / partition instead</size>\n<size:11>(those Pods do count against the budget)</size>" <<bad>> as v2
+  v1 -[hidden]right-> v2
+}
+
+rectangle "Choosing the number — the documentation's patterns" <<groupGood>> as ch {
+  rectangle "<b>Stateless front end</b>        minAvailable: 90%      'don't reduce serving capacity by more than 10%'\n<b>Quorum system</b> (etcd, ZooKeeper)  maxUnavailable: 1  or  minAvailable: quorum (3 of 5)\n<b>Single-instance stateful</b>  no PDB and accept downtime, OR maxUnavailable: 0 and agree out-of-band\n<b>Restartable batch Job</b>     no PDB — the Job controller recreates the Pod\n\n<size:11>maxUnavailable is recommended: it follows replica changes automatically. Percentages round UP.</size>\n<size:11>maxUnavailable: 0 or minAvailable: 100% means ZERO voluntary evictions — every drain blocks forever.</size>" <<good>> as ch1
+}
+
+inv -down-> vol
+vol -down-> ch
+
+caption <i>A PDB is a promise between two roles: the application owner says how much disruption is tolerable, and cluster tooling that uses the Eviction API agrees to respect it.</i>\n<i>It is not a replica count ("pdb != replicas"): replicas say how many Pods should exist, the budget says how many may be taken away on purpose at once.</i>
+@enduml
