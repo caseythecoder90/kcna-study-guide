@@ -1,0 +1,22 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The 4C's of cloud native security — each layer builds on the one outside it
+
+rectangle "CLOUD  — or the co-located servers, or the corporate datacenter" <<group>> as cloud {
+  rectangle "The TRUSTED COMPUTING BASE of the cluster. Provider IAM, network firewalls, encrypted disks, restricting access to\nthe control-plane endpoint and to etcd, node security.  <size:11>If this layer is vulnerable, nothing built on it is guaranteed safe.</size>" <<plain>> as c1
+  rectangle "CLUSTER — the Kubernetes components and the workloads in them" <<group>> as cluster {
+    rectangle "RBAC and API access (layer 1) · admission and Pod Security (layer 2) · NetworkPolicies, Secrets encryption at\nrest, TLS for Ingress/Gateway (layer 4). Kubescape checks this layer against the NSA/CISA hardening guidance." <<plain>> as k1
+    rectangle "CONTAINER — the image and how it runs" <<group>> as container {
+      rectangle "Scan images for vulnerabilities · sign images and verify signatures · minimal base images · do not run as\nroot · runtime fences (securityContext, seccomp, AppArmor, sandboxed runtimes — layer 3) · an SBOM." <<plain>> as ct1
+      rectangle "CODE — the application itself" <<groupGood>> as code {
+        rectangle "The layer you control most directly. TLS for everything the app serves, least-privilege access to other\nsystems, dependency scanning, static analysis, careful secret handling.  <size:11>'Code is the treasure.'</size>" <<good>> as cd1
+      }
+      ct1 -[hidden]down-> code
+    }
+    k1 -[hidden]down-> container
+  }
+  c1 -[hidden]down-> cluster
+}
+
+caption <i>Read from the outside in. "You cannot safeguard against poor security standards in the base layers by addressing security at the Code level" — perfect application code still loses if the cloud account is open.</i>\n<i>A defence-in-depth model: the 4Cs say WHERE controls sit; the four Kubernetes layers in diagram 40 say how the CLUSTER ring is built.</i>
+@enduml

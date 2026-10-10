@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title PSS is the rulebook, PSA is the referee — and namespace labels decide the game
+
+rectangle "POD SECURITY STANDARDS (PSS) — three levels, from open to locked down" <<group>> as pss {
+  rectangle "<b>Privileged</b>\n<size:11>Unrestricted — the widest</size>\n<size:11>possible permissions. Allows</size>\n<size:11>KNOWN privilege escalations.</size>\n<size:11>For trusted system and</size>\n<size:11>infrastructure workloads</size>\n<size:11>(CNI agents, storage drivers).</size>" <<bad>> as p1
+  rectangle "<b>Baseline</b>\n<size:11>Minimally restrictive —</size>\n<size:11>PREVENTS known privilege</size>\n<size:11>escalations, yet allows the</size>\n<size:11>default Pod configuration.</size>\n<size:11>No privileged, no hostNetwork,</size>\n<size:11>no hostPath, no added caps.</size>" <<plain>> as p2
+  rectangle "<b>Restricted</b>\n<size:11>Heavily restricted — current</size>\n<size:11>Pod hardening best practice.</size>\n<size:11>Must run as non-root, drop</size>\n<size:11>ALL capabilities, no privilege</size>\n<size:11>escalation, seccomp</size>\n<size:11>RuntimeDefault or Localhost.</size>" <<good>> as p3
+  p1 -[hidden]right-> p2
+  p2 -[hidden]right-> p3
+}
+
+rectangle "POD SECURITY ADMISSION (PSA) — the built-in admission controller that applies them (GA v1.25)" <<groupGood>> as psa {
+  rectangle "Configured PER NAMESPACE with labels:   pod-security.kubernetes.io/<MODE>: <LEVEL>\n\n<size:11>kubectl label namespace payments \\</size>\n<size:11>    pod-security.kubernetes.io/enforce=restricted \\</size>\n<size:11>    pod-security.kubernetes.io/warn=restricted \\</size>\n<size:11>    pod-security.kubernetes.io/audit=restricted</size>\n\n<b>enforce</b>  a violating Pod is REJECTED\n<b>warn</b>     allowed, but the user sees a warning in kubectl\n<b>audit</b>    allowed, but an annotation is added to the audit log event\n<size:11>Common rollout: warn + audit first to find violations, then enforce. enforce checks Pods only; warn and audit</size>\n<size:11>also check Deployments and other workload templates — so they catch problems before Pods are created.</size>" <<good>> as psa1
+}
+
+rectangle "WHEN THE BUILT-IN ISN'T ENOUGH — webhook admission controllers" <<group>> as wh {
+  rectangle "<b>OPA Gatekeeper</b>  (Open Policy Agent, CNCF Graduated) — policies written in the Rego language\n<b>Kyverno</b>  (CNCF Graduated) — policies written as Kubernetes YAML; can validate, MUTATE and generate resources\n<size:11>Any rule you can express: 'images only from our registry', 'every Pod needs a team label', 'no :latest tags'.</size>" <<accent>> as wh1
+}
+
+rectangle "LEGACY — PodSecurityPolicy (PSP)" <<groupBad>> as psp {
+  rectangle "<b>Deprecated v1.21, REMOVED v1.25</b> — replaced by Pod Security Admission (or a third-party admission plugin).\n<size:11>A cluster-level resource that controlled security-sensitive aspects of Pod specs, granted to users and ServiceAccounts</size>\n<size:11>through RBAC. The study tips' phrasing to recognise: 'Pod Security Policies manage clusters and namespaces at runtime'.</size>\n<size:11>Hard to use correctly — which policy applied depended on RBAC, and mistakes silently over-granted. That is why it was removed.</size>" <<bad>> as psp1
+}
+
+pss -down-> psa : the levels PSA enforces
+psa -down-> wh
+wh -down-> psp
+
+caption <i>Admission is the layer; PSA is one admission controller; PSS is the set of rules it checks. "PSA enforces PSS" is the sentence to remember.</i>\n<i>Unlabelled namespaces are, by default, privileged — nothing is checked until you label them.</i>
+@enduml

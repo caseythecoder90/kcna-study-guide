@@ -1,0 +1,41 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title A container is just a Linux process — these are the fences around it, from the outside in
+
+rectangle "THE PROBLEM" <<groupBad>> as prob {
+  rectangle "Every container on a node shares ONE Linux kernel. A process asks the kernel for everything — open a file,\nopen a socket, load a module, change the clock — through about 300+ SYSTEM CALLS. If an attacker controls the\nprocess, every kernel feature it can reach is attack surface. Each fence below shrinks what the process can ask for.\n<size:11>Namespaces and cgroups (chapter 03) decide what a container can SEE and how much it can USE. These decide what it may DO.</size>" <<bad>> as prob1
+}
+
+rectangle "1 · WHO the process is — securityContext" <<group>> as f1 {
+  rectangle "runAsUser: 1000 · runAsNonRoot: true · allowPrivilegeEscalation: false · readOnlyRootFilesystem: true\n<b>privileged: true</b> turns almost every fence below OFF — the container gets nearly the same access as the host.\n<size:11>hostNetwork / hostPID / hostIPC: true put the container in the HOST's namespaces — it sees every process or interface on the node.</size>" <<plain>> as f1a
+}
+
+rectangle "2 · WHICH root powers it keeps — Linux capabilities" <<group>> as f2 {
+  rectangle "Linux splits 'root' into ~40 separate powers: NET_ADMIN (reconfigure networking), SYS_ADMIN (mount, and much more),\nSYS_TIME (set the clock), NET_BIND_SERVICE (bind ports below 1024)...\n<size:11>capabilities: {drop: [ALL], add: [NET_BIND_SERVICE]}  — so even a process running as root inside the container is</size>\n<size:11>a root with almost no powers. The restricted Pod Security Standard requires drop ALL.</size>" <<plain>> as f2a
+}
+
+rectangle "3 · WHICH system calls it may make — seccomp" <<groupGood>> as f3 {
+  rectangle "<b>Secure computing mode: a kernel filter on system calls.</b> A profile is an allow-list; a forbidden call fails\n(or kills the process) before the kernel does any work.\n<size:11>seccompProfile.type:  RuntimeDefault (the container runtime's sensible default — blocks dozens of risky calls)</size>\n<size:11>                       Localhost (your own profile file on the node) · Unconfined (no filter — the historical default)</size>\n<size:11>Analogy: a bank teller who will only process the 50 transaction types on their list, whatever the customer says.</size>" <<good>> as f3a
+}
+
+rectangle "4 · WHICH files and resources it may touch — AppArmor / SELinux (MAC)" <<groupGood>> as f4 {
+  rectangle "<b>Mandatory Access Control</b>: the KERNEL enforces a policy that even root cannot override — unlike ordinary file\npermissions, which the owner (or root) can change at will.\n<size:11>AppArmor (Ubuntu, Debian, SUSE): a PROFILE of paths — 'may read /etc/nginx, may never write /proc/sys'.</size>\n<size:11>       securityContext.appArmorProfile: {type: RuntimeDefault}  (a field since v1.30; annotations before)</size>\n<size:11>SELinux (RHEL, Fedora): LABELS on every process and file, with rules about which labels may access which.</size>\n<size:11>seccomp asks 'which kernel functions?'; MAC asks 'on which objects?'. They are layered, not alternatives.</size>" <<good>> as f4a
+}
+
+rectangle "5 · WHO root really is — user namespaces" <<group>> as f5 {
+  rectangle "spec.hostUsers: false — UID 0 INSIDE the container is mapped to an unprivileged UID (say 165536) on the HOST.\n<size:11>The process still believes it is root, and can do root things inside its own namespace — but if it escapes the container,</size>\n<size:11>it lands on the node as a nobody. Alpha v1.28 → beta v1.30 → stable v1.36.</size>" <<plain>> as f5a
+}
+
+rectangle "6 · WHOSE kernel it uses — sandboxed runtimes (gVisor, Kata Containers)" <<groupGood>> as f6 {
+  rectangle "<b>gVisor</b> (runsc) puts a user-space 'application kernel' between the container and the host kernel, intercepting\nsystem calls itself. <b>Kata Containers</b> runs each Pod inside a lightweight VM with its own kernel.\n<size:11>Selected per Pod with a RuntimeClass:  spec.runtimeClassName: gvisor.  Stronger isolation for untrusted code,</size>\n<size:11>at a cost in performance and compatibility — so it is used selectively, not everywhere.</size>" <<good>> as f6a
+}
+
+prob -down-> f1
+f1 -down-> f2
+f2 -down-> f3
+f3 -down-> f4
+f4 -down-> f5
+f5 -down-> f6
+
+caption <i>No single fence is enough, and each one covers a gap in the others: a non-root user with no capabilities, a syscall allow-list, a file-access policy, a fake root,</i>\n<i>and — for untrusted workloads — a separate kernel. The restricted Pod Security Standard is, in effect, a checklist of fences 1 to 3.</i>
+@enduml
