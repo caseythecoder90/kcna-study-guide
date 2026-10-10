@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Why the old Pod is stuck in Terminating — and the four ways out
+
+rectangle "Graceful deletion is a two-step handshake" <<group>> as h {
+  rectangle "<b>1 · The API server</b> sets metadata.deletionTimestamp. The object stays in etcd; kubectl shows <b>Terminating</b>.\n<b>2 · The kubelet on that node</b> runs preStop, sends SIGTERM, waits for the grace period, stops the containers,\n     then tells the API server the Pod is gone — <b>only then</b> is the object removed.\n<size:11>With the kubelet unreachable, step 2 never happens. Nothing in the control plane talks to containerd directly — the kubelet is the only path to a node's containers.</size>" <<plain>> as h1
+}
+
+rectangle "What each workload does while the old Pod is Terminating" <<group>> as w {
+  rectangle "<b>Deployment / ReplicaSet</b>\nDoes not count Pods with a deletionTimestamp.\nCreates a replacement <b>immediately</b>.\n<size:11>Two copies may run for a while.</size>" <<good>> as w1
+  rectangle "<b>StatefulSet</b>\nThe replacement needs the <b>same name</b> (web-0),\nand the old web-0 still exists. It <b>waits</b>.\n<size:11>At most one web-0, by design — no split brain.</size>" <<bad>> as w2
+}
+
+rectangle "Ways out" <<groupGood>> as o {
+  rectangle "<b>1 · The kubelet returns</b> — it confirms the deletion itself. The clean path.\n<b>2 · Delete the Node object</b> — the Pod garbage collector force-deletes Pods bound to a node that no longer exists (after a 40s wait).\n<b>3 · Force-delete the Pod</b> — kubectl delete pod <name> ~-~-grace-period=0 ~-~-force. Removes the object WITHOUT confirmation.\n<b>4 · Taint the node out-of-service</b> — node.kubernetes.io/out-of-service=nodeshutdown:NoExecute (stable v1.28):\n     force-deletes the Pods and detaches their volumes immediately, so a StatefulSet Pod and its PVC can move.\n<size:11>3 and 4 are only safe once the node is really powered off — otherwise the 'deleted' containers are still running and still writing.</size>" <<good>> as o1
+}
+
+h -down-> w
+w1 -[hidden]right-> w2
+w -down-> o
+@enduml

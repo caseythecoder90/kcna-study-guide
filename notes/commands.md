@@ -675,6 +675,17 @@ kubectl describe node <node> | grep -A8 "Allocated resources"
 
 **Quota is enforced by the ResourceQuota admission controller (403), not the kubelet; it never evicts existing Pods.** CPU: `1 = 1000m`, minimum `1m`, limit = throttling. Memory: bytes; `Ki/Mi/Gi` ×1024, `k/M/G` ×1000, `m` = millibytes; limit = OOMKilled.
 
+### 4A-s. When nodes fail (chapter 05-18)
+
+```bash
+systemctl stop k3s-agent.service                 # on a k3s worker: stop the kubelet
+kubectl describe node <node>                      # Ready Unknown + unreachable taints
+kubectl get pod <pod> -o jsonpath='{.spec.tolerations}'
+kubectl taint node <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+```
+
+**Silent node → `Ready=Unknown` after 50 s (40 s pre-1.32), shown as NotReady → `unreachable` taints → Pods deleted after `tolerationSeconds: 300`.** Old Pod stays Terminating until its kubelet confirms; a StatefulSet will not replace it until then.
+
 ## 5. Observability tooling
 
 _Section 6._

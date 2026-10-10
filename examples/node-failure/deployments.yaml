@@ -1,0 +1,43 @@
+# Two identical nginx Deployments. "default" keeps the 300s tolerations the
+# DefaultTolerationSeconds admission plugin injects; "fast" sets its own 30s ones.
+# Stop the kubelet on their node and compare how long each takes to be replaced.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: default}
+  template:
+    metadata:
+      labels: {app: default}
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fast
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: fast}
+  template:
+    metadata:
+      labels: {app: fast}
+    spec:
+      tolerations:                       # present, so the admission plugin adds nothing
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      containers:
+      - name: nginx
+        image: nginx
