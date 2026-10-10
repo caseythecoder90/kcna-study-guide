@@ -602,6 +602,32 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-16 — Pod Security Admission
+
+```bash
+kubectl create namespace psa-baseline
+kubectl label namespace psa-baseline \
+  pod-security.kubernetes.io/enforce=baseline  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/warn=restricted   pod-security.kubernetes.io/warn-version=latest \
+  pod-security.kubernetes.io/audit=restricted  pod-security.kubernetes.io/audit-version=latest
+kubectl get ns psa-baseline --show-labels
+kubectl get ns -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/warn      # as columns
+
+# Preview the effect on EXISTING Pods without saving the label
+kubectl label --dry-run=server --overwrite ns <ns> pod-security.kubernetes.io/enforce=restricted
+
+kubectl label ns <ns> pod-security.kubernetes.io/warn-               # remove a label (trailing dash)
+
+# Generate a Pod to edit, as in the lecture
+kubectl -n psa-restricted run nginx --image=nginx:stable -o yaml --dry-run=client | tee nginx-pod-restricted.yaml
+
+# Diagnose
+kubectl describe rs -n <ns> -l app=<app> | grep -A2 FailedCreate     # enforce rejected a Deployment's Pods
+kubectl describe pod <pod> | grep -i runAsNonRoot                    # admitted, but the kubelet refused to start it
+```
+
+**Each mode checks its own level; only `enforce` blocks.** `warn` is skipped when `enforce` rejects, and `enforce` never checks workload resources — so pair `warn` with `enforce` to be told about bad Deployments at apply time.
+
 ## Chapter 05-15 — security contexts
 
 ```bash

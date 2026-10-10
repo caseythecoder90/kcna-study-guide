@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Where Pod Security Admission sits — mutate first, then validate, then store
+
+rectangle "kubectl apply -f insecure-pod.yaml" <<plain>> as req
+
+rectangle "AuthN → AuthZ  (chapters 05-01 to 05-04)" <<group>> as auth {
+  rectangle "Who are you? May you create Pods in this namespace?\n<size:11>Passing here only means you are ALLOWED to ask. It says nothing about whether the Pod itself is safe.</size>" <<plain>> as a1
+}
+
+rectangle "PHASE 1 · MUTATING admission — may CHANGE the request" <<group>> as mut {
+  rectangle "<b>Mutate:</b> inject sidecars, add defaults\n<size:11>Built in: ServiceAccount (mounts the token), DefaultStorageClass, LimitRanger (default requests/limits)...</size>\n<size:11>Webhooks: a service mesh injecting its proxy container · Kyverno mutate rules</size>" <<accent>> as m1
+}
+
+rectangle "PHASE 2 · VALIDATING admission — may REJECT the request" <<groupGood>> as val {
+  rectangle "<b>Validate:</b> reject Pods that don't meet security rules\n<size:11>Built in: <b>PodSecurity</b> (Type: Validating, stable v1.25) · ResourceQuota · NodeRestriction ...</size>\n<size:11>Webhooks: OPA Gatekeeper · Kyverno validate rules</size>\n\n<size:11>PodSecurity reads the TARGET NAMESPACE's labels, then checks the Pod's spec against that PSS level.</size>\n<size:11>Validation runs AFTER mutation, so it judges the Pod as it will actually be stored — sidecars included.</size>" <<good>> as v1
+}
+
+rectangle "Stored in etcd — 'the object becomes reality'" <<plain>> as etcd
+
+rectangle "REJECTED — 403 Forbidden, nothing stored" <<bad>> as rej
+
+req -down-> auth
+auth -down-> mut
+mut -down-> val
+val -down-> etcd : every controller said yes
+val -right-> rej : ANY controller in EITHER phase said no
+
+caption <i>"If any of the controllers in either phase reject the request, the entire request is rejected immediately." PSA is one validating controller among several — not the whole of admission.</i>\n<i>That is also why a rejected Pod never appears in kubectl get pods: it never reached etcd. A Deployment's Pods rejected this way show up as FailedCreate events on its ReplicaSet instead.</i>
+@enduml

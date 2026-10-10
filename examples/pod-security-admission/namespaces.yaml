@@ -1,0 +1,45 @@
+# Four namespaces, four Pod Security Admission configurations.
+# PSA reads these labels; nothing else needs installing (built in since v1.25).
+---
+# No pod-security labels: effectively PRIVILEGED. Nothing is checked.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: psa-unrestricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: psa-baseline
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn-version: latest
+---
+# warn at the SAME level as enforce: adds nothing for a direct Pod (the
+# rejection suppresses the warning) but warns when a non-compliant
+# Deployment is applied -- which enforce alone accepts silently.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: psa-restricted
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+---
+# Hard floor at baseline; anything short of restricted is CREATED but
+# warned about (kubectl) and recorded (API audit log). The migration path.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: psa-warn-audit
+  labels:
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest

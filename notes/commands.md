@@ -654,6 +654,16 @@ securityContext: {runAsNonRoot: true, runAsUser: 1000, allowPrivilegeEscalation:
 
 **Pod level = defaults for every container; container level overrides.** `runAsUser` alone does not stop a setuid escalation — `allowPrivilegeEscalation: false` (default `true`) does.
 
+### 4A-q. Pod Security Admission (chapter 05-16)
+
+```bash
+kubectl label ns <ns> pod-security.kubernetes.io/enforce=baseline pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/audit=restricted
+kubectl label --dry-run=server --overwrite ns <ns> pod-security.kubernetes.io/enforce=restricted   # preview existing Pods
+kubectl get ns -L pod-security.kubernetes.io/enforce
+```
+
+**Labels `pod-security.kubernetes.io/<mode>[-version]`.** Modes are independent checks against their own levels; **only enforce blocks**. Unlabelled = privileged. PSA reads the **spec** — the kubelet still checks `runAsNonRoot` against the **image**.
+
 ## 5. Observability tooling
 
 _Section 6._

@@ -1,0 +1,18 @@
+# Answers "yes" to all four PSA questions: root, host networking/PID,
+# privileged. Apply it to each namespace with -n and compare.
+#   kubectl apply -n psa-unrestricted -f insecure-pod.yaml   # Running
+#   kubectl apply -n psa-baseline     -f insecure-pod.yaml   # Forbidden
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-pod
+  labels: {run: insecure-pod}
+spec:
+  hostNetwork: true
+  hostPID: true
+  containers:
+  - image: nginx:stable
+    name: insecure-pod
+    securityContext:
+      privileged: true
+      runAsUser: 0
