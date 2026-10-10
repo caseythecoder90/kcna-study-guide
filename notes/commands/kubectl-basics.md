@@ -602,6 +602,27 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-20 — probes and the kubelet, Spring Boot health endpoints
+
+```bash
+kubectl describe pod <pod> | grep -A10 Events         # Unhealthy / Killing ... failed liveness probe, will be restarted
+kubectl get pod <pod> -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'
+kubectl get endpointslices -l kubernetes.io/service-name=<svc> -o yaml | grep -B2 -A3 conditions
+kubectl port-forward deploy/<app> 8080:8080 &
+curl -i localhost:8080/actuator/health/liveness       # 200 UP | 503 DOWN        (livenessState only)
+curl -i localhost:8080/actuator/health/readiness      # 200 UP | 503 OUT_OF_SERVICE (readinessState only)
+curl -i localhost:8080/livez                          # same groups on the main port (add-additional-paths)
+```
+
+```yaml
+startupProbe:   {httpGet: {path: /livez,  port: http}, periodSeconds: 5,  failureThreshold: 36}
+livenessProbe:  {httpGet: {path: /livez,  port: http}, periodSeconds: 10, timeoutSeconds: 3}
+readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5,  timeoutSeconds: 3}
+lifecycle: {preStop: {sleep: {seconds: 10}}}
+```
+
+**The kubelet runs probes; liveness restarts locally, readiness flows through the EndpointSlice controller.** Startup and liveness share the liveness endpoint; never put external dependencies in liveness.
+
 ## Chapter 05-19 — garbage collection
 
 ```bash

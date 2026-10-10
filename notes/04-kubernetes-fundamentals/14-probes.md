@@ -180,6 +180,10 @@ Read that transcript carefully and the whole model is in it: startup failing fir
 
 ---
 
+For who executes probes, how a readiness result reaches Service endpoints, and wiring the three probes to Spring Boot Actuator's health endpoints, see [05-20 Probes and the kubelet](../05-kubernetes-deep-dive/20-probes-and-the-kubelet.md).
+
+---
+
 ## Exam angle
 
 - **Three probes, three questions.** **Startup** — has the app finished starting? **Liveness** — should this container be **restarted**? **Readiness** — should this Pod receive **traffic**?

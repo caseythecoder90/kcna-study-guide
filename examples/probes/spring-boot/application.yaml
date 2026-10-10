@@ -1,0 +1,15 @@
+# Spring Boot settings that pair with deployment.yaml (see notes 05-20, section 3).
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true                  # automatic on Kubernetes (2.3-3.x) and always on in 4.0+
+        add-additional-paths: true     # serve the liveness/readiness groups on the MAIN port as /livez and /readyz
+      # group:
+      #   readiness:
+      #     include: readinessState, db   # only after weighing a shared-dependency outage (notes 05-20, 3.5)
+server:
+  shutdown: graceful                   # the default since Spring Boot 3.4
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s    # default 30s; keep preStop + this < terminationGracePeriodSeconds

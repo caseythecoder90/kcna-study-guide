@@ -5,6 +5,8 @@ Companion manifest for [`14-probes`](../../notes/04-kubernetes-fundamentals/14-p
 | File | What it is |
 |---|---|
 | [`probe-demo.yaml`](probe-demo.yaml) | All three probes on one container, using the course's chaos-testing image so the normally-invisible probe lifecycle shows up in the Pod's own logs |
+| [`spring-boot/deployment.yaml`](spring-boot/deployment.yaml) | Startup, liveness and readiness wired to Spring Boot Actuator's `/livez` and `/readyz`, with a `preStop` sleep and a grace period sized for graceful shutdown — see [05-20](../../notes/05-kubernetes-deep-dive/20-probes-and-the-kubelet.md) |
+| [`spring-boot/application.yaml`](spring-boot/application.yaml) | The matching Spring Boot properties: probe groups on the main port, graceful shutdown timeout |
 
 The image is [`spurin/readiness-liveness-startup-probe-api`](https://github.com/spurin/readiness-liveness-startup-probe-api). It logs every probe request and takes environment variables that inject delays and failures, which is what makes this worth running rather than reading.
 
@@ -43,4 +45,15 @@ The detail worth catching in that last step: the **readiness probe kept succeedi
 
 ```bash
 kubectl delete -f probe-demo.yaml
+```
+
+## Spring Boot
+
+```bash
+kubectl apply -f spring-boot/deployment.yaml          # with your own Spring Boot image
+kubectl port-forward deploy/orders 8080:8080 &
+curl -i localhost:8080/livez                         # 200 {"status":"UP"} once the context has started
+curl -i localhost:8080/readyz                        # 503 OUT_OF_SERVICE while runners execute, then 200
+curl -i localhost:8080/actuator/health               # the aggregate -- includes db etc; not a probe target
+kubectl get pods -l app=orders -w                    # 0/1 until readiness passes
 ```
