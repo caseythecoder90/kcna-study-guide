@@ -628,6 +628,17 @@ kubectl get pdb                                                 # ALLOWED DISRUP
 
 **Involuntary** (hardware, kernel panic, partition) — a PDB can't stop. **Voluntary** (drain, upgrade, autoscaler) — a PDB limits, **via the Eviction API only** (`429` when blocked). `delete pod` and rolling updates bypass it. Healthy = Ready; `maxUnavailable` recommended.
 
+### 4A-o. Kubernetes security overview (chapter 05-14)
+
+```bash
+kubectl label namespace <ns> pod-security.kubernetes.io/enforce=restricted   # modes: enforce | warn | audit
+kubectl label --dry-run=server --overwrite namespace <ns> pod-security.kubernetes.io/enforce=baseline   # preview
+kubectl exec <pod> -- grep -E 'Cap(Eff|Bnd)|Seccomp' /proc/1/status
+kubescape scan framework nsa
+```
+
+**AuthN → AuthZ → admission → runtime → network/data.** PSS levels: **privileged** (allows escalations) · **baseline** (prevents known escalations) · **restricted** (hardened). **PSA** enforces them (v1.25); **PSP** removed v1.25. **4C's: Cloud, Cluster, Container, Code.**
+
 ## 5. Observability tooling
 
 _Section 6._

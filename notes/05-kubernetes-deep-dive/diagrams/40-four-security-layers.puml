@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Four layers, four questions — and what an attacker gets if each one is left open
+
+rectangle "LAYER 1 · AuthN and AuthZ — who can talk to the API, and what may they do?" <<group>> as l1 {
+  rectangle "<b>AuthN</b> ('N' for autheNtication) — who are you?   TLS client certificates · bearer tokens · OIDC · ServiceAccount tokens\n<b>AuthZ</b> ('Z' for authoriZation) — what are you allowed to do?   RBAC · Node authorizer · legacy ABAC · webhook\n<size:11>Chapters 05-01 to 05-04.  The API server is the front door: almost everything in Kubernetes goes through it.</size>\n<size:11>LEFT OPEN → anyone with a leaked kubeconfig or an over-broad binding can create, read or delete anything.</size>" <<accent>> as l1a
+}
+
+rectangle "LAYER 2 · Admission control — which requests may create or change objects?" <<group>> as l2 {
+  rectangle "<b>Runs AFTER AuthN/AuthZ, BEFORE the object is stored in etcd.</b>  Mutating admission may change a request;\nvalidating admission may reject it ('rejecting Pods that don't meet security rules').\n<size:11>Pod Security Admission enforcing the Pod Security Standards · webhooks: OPA Gatekeeper, Kyverno</size>\n<size:11>LEFT OPEN → an authorised user may still create a privileged Pod that mounts the host filesystem.</size>" <<good>> as l2a
+}
+
+rectangle "LAYER 3 · Workload runtime settings — how Pods and containers actually run on the node" <<group>> as l3 {
+  rectangle "securityContext (user, privileged, capabilities, host namespaces) · seccomp (syscall filter)\nAppArmor / SELinux (mandatory access control) · user namespaces · sandboxed runtimes such as gVisor\n<size:11>LEFT OPEN → one compromised container runs as root with every capability and a short path to the host kernel.</size>" <<good>> as l3a
+}
+
+rectangle "LAYER 4 · Network and data plane — how traffic flows, and how data is protected" <<group>> as l4 {
+  rectangle "NetworkPolicies (which Pods may talk to which, chapter 05-10) · Ingress / Gateway API and TLS at the edge\n(chapters 05-11, 05-12) · encryption at rest for Secrets in etcd · mTLS between services (service mesh)\n<size:11>LEFT OPEN → 'even if your AuthN, AuthZ or runtime settings are good, an attacker might still be able to move</size>\n<size:11>laterally inside the cluster or read sensitive data if they get a foothold.'</size>" <<good>> as l4a
+}
+
+l1 -down-> l2 : authenticated and authorised
+l2 -down-> l3 : admitted, stored, scheduled
+l3 -down-> l4 : running, and now talking
+
+caption <i>The question to ask of every layer: if this were misconfigured, what bad thing could happen? Each layer assumes the one above it might fail — that is defence in depth.</i>\n<i>Layers 1 and 2 decide what gets INTO the cluster; layers 3 and 4 limit the damage once something is running.</i>
+@enduml

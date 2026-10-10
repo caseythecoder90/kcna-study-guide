@@ -602,6 +602,46 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-14 — Kubernetes security overview
+
+```bash
+# Layer 1 -- who am I, what may I do
+kubectl auth whoami
+kubectl auth can-i --list
+
+# Layer 2 -- Pod Security Admission via namespace labels
+kubectl label namespace payments pod-security.kubernetes.io/enforce=restricted
+kubectl label namespace payments pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/audit=restricted
+kubectl label --dry-run=server --overwrite namespace payments pod-security.kubernetes.io/enforce=restricted   # preview violations
+kubectl get namespaces --show-labels | grep pod-security
+
+# Layer 3 -- what a running container actually has
+kubectl get pod <pod> -o jsonpath='{.spec.securityContext}{"\n"}{.spec.containers[*].securityContext}'
+kubectl exec <pod> -- id                                   # which UID?
+kubectl exec <pod> -- grep -E 'Cap(Eff|Bnd)|Seccomp' /proc/1/status   # capabilities and seccomp mode (2 = filtered)
+
+# Layer 4 -- encryption at rest is an API-server flag
+#   kube-apiserver --encryption-provider-config=/etc/kubernetes/enc.yaml
+
+# Tools
+kubescape scan framework nsa                               # NSA/CISA hardening guidance
+kubectl krew install oidc-login && kubectl oidc-login --help
+```
+
+```yaml
+# Restricted-compliant container
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities: {drop: ["ALL"]}
+  seccompProfile: {type: RuntimeDefault}
+  appArmorProfile: {type: RuntimeDefault}     # v1.30+ field
+# spec.hostUsers: false                       # user namespaces
+# spec.runtimeClassName: gvisor               # sandboxed runtime
+```
+
+**Four layers: AuthN/AuthZ → admission → runtime → network/data.** **PSA enforces PSS** (privileged / baseline / restricted) with `enforce` / `warn` / `audit` namespace labels; **PSP was removed in v1.25**.
+
 ## Chapter 05-13 — PodDisruptionBudgets, cordon and drain
 
 ```bash
