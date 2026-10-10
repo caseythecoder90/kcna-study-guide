@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Garbage collection is not one thing — who cleans up what, and when
+
+rectangle "CONTROL PLANE — controllers in kube-controller-manager (and cloud-controller-manager)" <<group>> as cp {
+  rectangle "<b>Garbage collector</b> — objects whose OWNER is gone\nFollows metadata.ownerReferences. Delete a Deployment → its ReplicaSets → their Pods.\n<size:11>Also Node Leases: each Lease is owned by its Node, so deleting the Node removes the Lease.</size>" <<accent>> as g1
+  rectangle "<b>Pod garbage collector (PodGC)</b> — terminated Pods\nSucceeded/Failed Pods once there are more than <b>12,500</b> (--terminated-pod-gc-threshold),\nplus orphans on deleted nodes, unscheduled terminating Pods, and terminating Pods on out-of-service nodes." <<plain>> as g2
+  rectangle "<b>TTL-after-finished controller</b> — finished Jobs\nDeletes a Job (and, by cascade, its Pods) <b>ttlSecondsAfterFinished</b> after it completes or fails. Unset = kept forever.\n<size:11>CronJobs trim their own history instead: successfulJobsHistoryLimit 3, failedJobsHistoryLimit 1.</size>" <<plain>> as g3
+  rectangle "<b>PersistentVolume controller</b> — released volumes\nreclaimPolicy: <b>Delete</b> (the StorageClass default) removes the PV and its backing storage when the PVC goes (chapter 05-08)." <<plain>> as g4
+  rectangle "<b>CSR cleaner</b> — stale CertificateSigningRequests\nApproved, denied or failed: deleted after <b>1 hour</b>.  Pending: after <b>24 hours</b>." <<plain>> as g5
+  rectangle "<b>Cloud node lifecycle controller</b> (cloud-controller-manager) — vanished machines\nAsks the cloud provider whether an unhealthy node's VM still exists; if not, deletes the Node object." <<plain>> as g6
+}
+
+rectangle "EACH NODE — the kubelet" <<groupGood>> as nd {
+  rectangle "<b>Unused images</b> — checked every <b>5 minutes</b>\nDisk above <b>imageGCHighThresholdPercent 85%</b> → delete least-recently-used images until below <b>imageGCLowThresholdPercent 80%</b>.\n<size:11>Never images younger than imageMinimumGCAge (2m). imageMaximumGCAge removes long-unused images regardless of disk (off by default).</size>" <<good>> as k1
+  rectangle "<b>Dead containers</b> — checked every <b>minute</b>\nKeeps the last exited instance of each container (so kubectl logs ~-~-previous works); removes containers of deleted Pods.\n<size:11>Do not run external image/container cleanup tools — they can remove containers the kubelet still expects.</size>" <<good>> as k2
+}
+
+g1 -[hidden]down-> g2
+g2 -[hidden]down-> g3
+g3 -[hidden]down-> g4
+g4 -[hidden]down-> g5
+g5 -[hidden]down-> g6
+k1 -[hidden]down-> k2
+cp -[hidden]down-> nd
+
+caption <i>Glossary: 'Garbage collection is a collective term for the various mechanisms Kubernetes uses to clean up cluster resources.'</i>
+@enduml

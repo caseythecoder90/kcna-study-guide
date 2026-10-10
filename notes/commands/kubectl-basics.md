@@ -602,6 +602,25 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-19 — garbage collection
+
+```bash
+kubectl get pod <pod> -o jsonpath='{.metadata.ownerReferences}{"\n"}'      # kind, name, uid, controller, blockOwnerDeletion
+kubectl delete deployment web                          # background (default): owner first, dependents after
+kubectl delete deployment web --cascade=foreground     # dependents first; owner shows the foregroundDeletion finalizer
+kubectl delete deployment web --cascade=orphan         # owner only; ReplicaSet and Pods keep running, ownerReferences removed
+kubectl get deploy web -o jsonpath='{.metadata.finalizers}{" "}{.metadata.deletionTimestamp}{"\n"}'
+kubectl get events -A --field-selector=reason=OwnerRefInvalidNamespace
+kubectl get --raw "/api/v1/nodes/<node>/proxy/configz" | python -m json.tool | grep -i imageGC   # kubelet image GC thresholds
+```
+
+```yaml
+spec:
+  ttlSecondsAfterFinished: 60    # Job deleted (with its Pods) 60s after it finishes
+```
+
+**GC is many mechanisms: controllers in kube-controller-manager, plus the kubelet for images and containers.** Background cascade is the default; `--cascade=orphan` keeps the dependents.
+
 ## Chapter 05-18 — when nodes fail
 
 ```bash
