@@ -686,6 +686,15 @@ kubectl taint node <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecu
 
 **Silent node → `Ready=Unknown` after 50 s (40 s pre-1.32), shown as NotReady → `unreachable` taints → Pods deleted after `tolerationSeconds: 300`.** Old Pod stays Terminating until its kubelet confirms; a StatefulSet will not replace it until then.
 
+### 4A-t. Garbage collection (chapter 05-19)
+
+```bash
+kubectl get pod <pod> -o jsonpath='{.metadata.ownerReferences}'
+kubectl delete deployment web --cascade=background|foreground|orphan
+```
+
+**Background is the default. Orphan keeps dependents running and a matching controller adopts them.** Completed Jobs stay unless `ttlSecondsAfterFinished` is set; the kubelet GCs images at 85% disk down to 80%.
+
 ## 5. Observability tooling
 
 _Section 6._

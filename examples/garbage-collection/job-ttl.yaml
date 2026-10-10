@@ -1,0 +1,15 @@
+# A Job that deletes itself (and, by cascade, its Pod) 60 seconds after it finishes.
+# Without ttlSecondsAfterFinished the Job and its Pod are kept until someone deletes them.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello-ttl
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: hello
+        image: busybox
+        command: ["sh", "-c", "echo hello; sleep 5"]

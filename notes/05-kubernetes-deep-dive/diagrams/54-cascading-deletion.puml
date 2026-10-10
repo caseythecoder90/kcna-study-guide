@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title kubectl delete deployment web — three propagation policies
+
+rectangle "BACKGROUND — the default" <<groupGood>> as bg {
+  rectangle "<b>~-~-cascade=background</b>\npropagationPolicy: Background\n\n1. The Deployment is deleted <b>at once</b>.\n2. The garbage collector then finds the\n   ReplicaSets whose owner is gone and\n   deletes them, then their Pods.\n<size:11>kubectl returns immediately; dependents</size>\n<size:11>disappear a moment later.</size>" <<good>> as b1
+}
+
+rectangle "FOREGROUND" <<group>> as fg {
+  rectangle "<b>~-~-cascade=foreground</b>\npropagationPolicy: Foreground\n\n1. The Deployment gets a deletionTimestamp\n   and the <b>foregroundDeletion</b> finalizer —\n   still visible, 'deletion in progress'.\n2. Dependents are deleted first (those with\n   blockOwnerDeletion: true hold it up).\n3. <b>Then</b> the Deployment itself goes." <<plain>> as f1
+}
+
+rectangle "ORPHAN" <<groupBad>> as or {
+  rectangle "<b>~-~-cascade=orphan</b>\npropagationPolicy: Orphan\n\n1. The <b>orphan</b> finalizer is added.\n2. The ownerReferences pointing at the\n   Deployment are <b>removed</b> from its ReplicaSets.\n3. The Deployment is deleted.\n<size:11>The ReplicaSets and Pods keep running,</size>\n<size:11>now with no owner.</size>" <<bad>> as o1
+}
+
+bg -[hidden]right-> fg
+fg -[hidden]right-> or
+
+caption <i>Orphans are not lost: a new controller whose selector matches them ADOPTS them (writes itself in as owner).</i>\n<i>That is the use of ~-~-cascade=orphan — replace or re-create a controller without restarting its Pods.</i>
+@enduml
