@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title What helm create generates — and how values become manifests
+
+rectangle "helm create flappy-app" <<group>> as files {
+  rectangle "<b>Chart.yaml</b> — the chart's identity: apiVersion v2, name,\n<b>version</b> (chart, SemVer, required), <b>appVersion</b> (the app inside)\n<b>values.yaml</b> — the DEFAULT values every template can read\n<b>charts/</b> — dependency charts (subcharts), empty at first\n<b>.helmignore</b> — like .gitignore for helm package (hidden file)\n<b>templates/</b> — Kubernetes YAML with Go-template placeholders:\n   deployment.yaml · service.yaml · serviceaccount.yaml\n   ingress.yaml · hpa.yaml · httproute.yaml (Helm 4)\n   <b>_helpers.tpl</b> — named snippets (names, labels); renders nothing\n   <b>NOTES.txt</b> — usage text printed after install\n   <b>tests/test-connection.yaml</b> — a Pod run by helm test\n<size:11>A working nginx app out of the box: you edit values, not templates, to make it yours.</size>" <<plain>> as f1
+}
+
+rectangle "Values, lowest to highest priority" <<group>> as vals {
+  rectangle "1  the chart's <b>values.yaml</b>\n2  a parent chart's values.yaml\n3  <b>-f / ~-~-values</b> files (last one wins)\n4  <b>~-~-set key=value</b> on the command line" <<plain>> as v1
+}
+
+rectangle "Rendering — on YOUR machine" <<groupGood>> as render {
+  rectangle "templates/deployment.yaml:\nimage: <b>'{{ .Values.image.repository }}:</b>\n<b>{{ .Values.image.tag | default .Chart.AppVersion }}'</b>\n\n+ .Values  .Chart  .Release  .Capabilities\n\n→ plain Kubernetes YAML\n<size:11>helm template . shows it without installing</size>" <<good>> as r1
+}
+
+rectangle "Kubernetes API server" <<accent>> as api
+
+f1 --> r1
+v1 --> r1
+r1 --> api : apply the rendered manifests\n+ store the release Secret
+
+caption <i>Note the default: image.tag is empty, so the image tag falls back to Chart.yaml's appVersion (1.16.0 in the scaffold).</i>\n<i>Change the repository without setting a tag and Helm pulls <your-image>:1.16.0.</i>
+@enduml

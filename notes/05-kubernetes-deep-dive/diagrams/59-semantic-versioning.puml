@@ -1,0 +1,39 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Semantic Versioning 2.0.0 — MAJOR.MINOR.PATCH-PRERELEASE+BUILD
+
+rectangle "  2  .  4  .  1  -rc.1  +git.ef365  " <<accent>> as v
+
+rectangle "MAJOR — 2" <<groupBad>> as ma {
+  rectangle "Incompatible (breaking)\nAPI changes.\nBump → 3.0.0\n<size:11>Users must read the release notes.</size>" <<bad>> as ma1
+}
+rectangle "MINOR — 4" <<group>> as mi {
+  rectangle "New functionality,\nbackward compatible.\nBump → 2.5.0\n<size:11>PATCH resets to 0.</size>" <<plain>> as mi1
+}
+rectangle "PATCH — 1" <<groupGood>> as pa {
+  rectangle "Backward-compatible\nbug fixes only.\nBump → 2.4.2\n<size:11>Safe to take.</size>" <<good>> as pa1
+}
+rectangle "PRE-RELEASE — after a hyphen" <<group>> as pr {
+  rectangle "-alpha, -beta.2, -rc.1\nNot yet stable; ranks BELOW\nthe normal version:\n2.4.1-rc.1 < 2.4.1\n<size:11>Helm ignores pre-releases in</size>\n<size:11>ranges unless asked (the devel flag).</size>" <<plain>> as pr1
+}
+rectangle "BUILD METADATA — after a plus" <<group>> as bm {
+  rectangle "+git.ef365, +20260110\nIdentifies the build.\n<b>Ignored</b> when comparing\nversions: 1.0.0+a == 1.0.0+b\nin precedence." <<muted>> as bm1
+}
+
+v -down-> ma
+v -down-> mi
+v -down-> pa
+v -down-> pr
+v -down-> bm
+ma -[hidden]right-> mi
+mi -[hidden]right-> pa
+pa -[hidden]right-> pr
+pr -[hidden]right-> bm
+
+rectangle "Order and ranges" <<group>> as rules {
+  rectangle "<b>Compare numerically, left to right:</b> 1.9.0 < 1.10.0 < 2.0.0  (10 > 9 — not alphabetical).\n<b>Pre-release order:</b> 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0\n<b>0.y.z</b> = initial development — anything may change at any time; <b>1.0.0</b> defines the public API.\n<b>Helm ranges</b> (dependencies, kubeVersion):  <b>~1.2.3</b> = >=1.2.3 <1.3.0 (patches)   <b>^1.2.3</b> = >=1.2.3 <2.0.0 (minors)   <b>1.2.x</b> = >=1.2.0 <1.3.0" <<plain>> as ru1
+}
+pa -[hidden]down-> rules
+
+caption <i>In Helm, the chart's version MUST be SemVer 2. appVersion should not be — it is whatever the app calls itself ('1.16.0', 'latest', '2026-10').</i>
+@enduml

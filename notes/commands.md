@@ -711,4 +711,20 @@ _Section 6._
 
 ## 6. Delivery tooling (Helm, GitOps)
 
-_Section 7._
+### Helm (chapter 05-21)
+
+```bash
+helm search hub <keyword>                      # Artifact Hub (index across repos)
+helm repo add <name> <url> && helm repo update
+helm search repo <keyword>                     # repos you added
+helm show values <repo>/<chart>
+helm install <release> <chart> [-n ns --create-namespace] [-f values.yaml] [--set k=v]
+helm upgrade --install <release> <chart>       # idempotent install/upgrade
+helm list -A ; helm history <release> ; helm rollback <release> <revision>
+helm uninstall <release>                       # removes resources + history (un/del/delete)
+helm create <name> ; helm lint . ; helm template . ; helm package .
+```
+
+**Chart = package, repository = where charts live (`index.yaml` or OCI), Artifact Hub = search index, release = installed instance.** Full reference: [`commands/helm.md`](commands/helm.md).
+
+GitOps tooling: _Section 7._

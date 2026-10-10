@@ -1,0 +1,6 @@
+# Override file for podinfo/podinfo — only the keys you change.
+# helm install web podinfo/podinfo -f values-dev.yaml
+replicaCount: 2
+ui:
+  message: "hello from values-dev.yaml"
+  color: "#34577c"

@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title The lecture's flow — author, package, install, and the release's revisions
+
+rectangle "AUTHOR" <<group>> as a {
+  rectangle "<b>helm create flappy-app</b>\nedit Chart.yaml (description,\nversion, appVersion)\nedit values.yaml (image)\n<size:11>helm lint .     helm template .</size>" <<plain>> as a1
+}
+
+rectangle "PACKAGE" <<group>> as p {
+  rectangle "<b>helm package .</b>\n→ flappy-app-<b>0.1.0</b>.tgz\n<size:11>name + Chart.yaml version</size>\n<size:11>Optional: helm push to an OCI</size>\n<size:11>registry, or add to a repo's index.yaml</size>" <<plain>> as p1
+}
+
+rectangle "RELEASE  flappy-app  (namespace default)" <<groupGood>> as r {
+  rectangle "<b>revision 1</b>\nhelm install flappy-app\n  flappy-app-0.1.0.tgz\nSTATUS deployed" <<good>> as r1
+  rectangle "<b>revision 2</b>\nhelm upgrade flappy-app ...\n  ~-~-set image.tag=v2\nrev 1 → superseded" <<good>> as r2
+  rectangle "<b>revision 3</b>\nhelm rollback flappy-app 1\n<size:11>a NEW revision with rev 1's</size>\n<size:11>manifests and values</size>" <<good>> as r3
+}
+
+rectangle "UNINSTALL" <<groupBad>> as u {
+  rectangle "<b>helm uninstall flappy-app</b>\n<size:11>aliases: un · del · delete</size>\nDeletes the release's resources\nAND its history Secrets.\n<size:11>~-~-keep-history keeps the history</size>\n<size:11>(status: uninstalled)</size>" <<bad>> as u1
+}
+
+a1 --> p1
+p1 --> r1
+r1 --> r2
+r2 --> r3
+r3 --> u1
+
+caption <i>helm list shows CHART (name-version) and APP VERSION (appVersion) separately — two version numbers that move independently.</i>
+@enduml
