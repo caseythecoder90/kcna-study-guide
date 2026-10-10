@@ -1,0 +1,11 @@
+# The memory trap: 400m of memory is 0.4 BYTES, not 400 mebibytes.
+# The API accepts it -- m is a valid quantity suffix, shared with CPU where
+# it correctly means millicores -- which is exactly why it is a trap.
+apiVersion: v1
+kind: Pod
+metadata: {name: millibytes, namespace: limited}
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources: {requests: {cpu: 100m, memory: 400m}, limits: {cpu: 100m, memory: 400m}}

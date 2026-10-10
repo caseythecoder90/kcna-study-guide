@@ -1,0 +1,13 @@
+# Gives every container a default request and limit, so Pods that omit
+# resources are no longer rejected by the quota. LimitRange is per OBJECT;
+# ResourceQuota is the namespace TOTAL.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: defaults
+  namespace: limited
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 100m, memory: 128Mi}
+    default:        {cpu: 200m, memory: 256Mi}

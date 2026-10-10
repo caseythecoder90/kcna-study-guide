@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three gatekeepers for the same numbers — at three different moments
+
+rectangle "1 · ADMISSION — the ResourceQuota admission controller, in the API server" <<groupGood>> as q {
+  rectangle "<b>Question: would this object push the NAMESPACE over its hard limits?</b>\nSums the requests/limits (and object counts) of everything already in the namespace, adds the new Pod, compares\nwith spec.hard. Over → <b>403 Forbidden</b>, the Pod is never stored, the scheduler never sees it.\n<size:11>exceeded quota: limited, requested: requests.memory=300Mi, used: requests.memory=768Mi, limited: requests.memory=1Gi</size>\n<size:11>Enforced by the CONTROL PLANE — not the kubelet. Looks at DECLARED numbers, never at real usage.</size>" <<good>> as q1
+}
+
+rectangle "2 · SCHEDULING — kube-scheduler (chapter 05-05)" <<group>> as s {
+  rectangle "<b>Question: which NODE has room for this Pod's REQUESTS?</b>\nCompares requests with each node's allocatable capacity minus requests already placed there. No node fits → <b>Pending</b>.\n<size:11>Knows nothing about quotas. A Pod can be well inside its namespace quota and still Pending — quota is not capacity.</size>\n<size:11>Limits play no part here.</size>" <<plain>> as s1
+}
+
+rectangle "3 · RUNTIME — the kubelet and the Linux kernel (cgroups)" <<groupBad>> as k {
+  rectangle "<b>Question: is this RUNNING container using more than its LIMIT?</b>\nCPU over its limit → THROTTLED.   Memory over its limit → OOMKilled.\nNode short of memory → the kubelet EVICTS Pods, BestEffort first, then Burstable, Guaranteed last.\n<size:11>'The kubelet enforces running container CPU and memory limits, while ResourceQuota blocks over-quota objects</size>\n<size:11>before they are admitted.'</size>" <<bad>> as k1
+}
+
+q -down-> s : admitted and stored
+s -down-> k : bound to a node and started
+
+caption <i>A correction to the lecture's comparison table: quota does not affect SCHEDULING — it decides whether a Pod is CREATED at all. Scheduling is purely requests vs node capacity.</i>\n<i>And quotas never act retroactively: lowering a quota below current usage evicts nothing; it only blocks new objects until usage drops.</i>
+@enduml
