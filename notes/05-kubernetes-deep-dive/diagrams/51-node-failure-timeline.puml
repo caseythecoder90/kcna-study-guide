@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title When a node stops reporting — the default timeline, and who acts at each step
+
+rectangle "t = 0 · the kubelet stops (the lab: systemctl stop k3s-agent on worker-2)" <<groupBad>> as a {
+  rectangle "The kubelet stops renewing its <b>Lease</b> in <b>kube-node-lease</b> (normally every <b>10s</b>) and stops posting node status.\nThe containers <b>keep running</b> — containerd and its shims do not need the kubelet to keep a process alive.\n<size:11>Nothing in the API changes yet. kubectl get nodes still says Ready.</size>" <<bad>> as a1
+}
+
+rectangle "t ≈ 50s · node-monitor-grace-period expires (kube-controller-manager · 40s before v1.32)" <<group>> as b {
+  rectangle "The <b>node lifecycle controller</b> (checks every <b>5s</b>) sets every node condition to <b>Unknown</b>:\n<size:11>Ready = Unknown · reason NodeStatusUnknown · 'Kubelet stopped posting node status.'   kubectl get nodes prints this as NotReady.</size>\nIt adds two taints:  <b>node.kubernetes.io/unreachable:NoSchedule</b>  — no new Pods land here\n                     <b>node.kubernetes.io/unreachable:NoExecute</b>   — the eviction clock starts for Pods already here\nIt flips each Pod's <b>Ready condition to False</b> → the Pod drops out of Service endpoints. Traffic stops NOW, not at 5 minutes.\n<size:11>The READY column still says 1/1 and STATUS still says Running — those come from container status, which only the kubelet can update.</size>" <<plain>> as b1
+}
+
+rectangle "t ≈ 50s + 300s · the toleration runs out" <<group>> as c {
+  rectangle "Every Pod was given <b>unreachable:NoExecute with tolerationSeconds: 300</b> at creation, by the <b>DefaultTolerationSeconds</b> admission plugin.\nWhen it expires, the <b>taint-eviction-controller</b> DELETES the Pod.  This is the docs' 'waits 5 minutes before the first eviction'.\n<size:11>It is a plain DELETE, not the Eviction API — PodDisruptionBudgets are not consulted (chapter 05-13).  Rate limit: 0.1 nodes per second.</size>\n<size:11>DaemonSet Pods tolerate the taint with NO tolerationSeconds, so they are never evicted for this.</size>" <<accent>> as c1
+}
+
+rectangle "immediately after · the controller replaces the Pod" <<groupGood>> as d {
+  rectangle "The deleted Pod now has a <b>deletionTimestamp</b>. A ReplicaSet does not count such Pods, so it creates a replacement at once.\nThe scheduler avoids the tainted node → the new Pod runs on <b>worker-1</b>.\nThe old Pod shows <b>Terminating</b> — indefinitely. Only its kubelet can confirm the containers stopped (diagram 52).\n<size:11>For a while the old containers may STILL be running on worker-2 — two copies exist. Fine for nginx; dangerous for a database.</size>" <<good>> as d1
+}
+
+rectangle "the kubelet comes back (systemctl start k3s-agent)" <<group>> as e {
+  rectangle "It renews its Lease, posts Ready = True, the taints are removed.\nIt sees the old Pod's deletionTimestamp, stops the containers, and confirms — the Terminating Pod finally disappears." <<plain>> as e1
+}
+
+a -down-> b
+b -down-> c
+c -down-> d
+d -down-> e
+
+caption <i>Total with defaults: about 50s + 300s ≈ 6 minutes from the last heartbeat to a replacement Pod. Shorten it per Pod with your own tolerationSeconds.</i>
+@enduml

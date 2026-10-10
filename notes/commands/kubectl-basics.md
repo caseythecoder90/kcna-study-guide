@@ -602,6 +602,38 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-18 — when nodes fail
+
+```bash
+# on the worker: simulate a kubelet failure (k3s runs the kubelet inside k3s-agent)
+systemctl stop k3s-agent.service
+systemctl start k3s-agent.service
+
+kubectl get nodes -w                                  # Ready -> NotReady after ~40-50s
+kubectl get pods -o wide -w                           # Terminating + replacement after ~5 min more
+kubectl describe node worker-2                        # Conditions: Ready Unknown, NodeStatusUnknown; Taints: unreachable
+kubectl get node worker-2 -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{"\n"}'   # Unknown
+kubectl get lease -n kube-node-lease                  # one heartbeat Lease per node
+kubectl get pod <pod> -o jsonpath='{.spec.tolerations}{"\n"}'      # the injected 300s tolerations
+kubectl get events --field-selector reason=NodeNotReady
+
+# Clearing Pods stuck Terminating on a node that will not come back
+kubectl delete pod <pod> --grace-period=0 --force      # only if the containers are known to be stopped
+kubectl taint node worker-2 node.kubernetes.io/out-of-service=nodeshutdown:NoExecute    # non-graceful shutdown
+kubectl taint node worker-2 node.kubernetes.io/out-of-service=nodeshutdown:NoExecute-   # remove after recovery
+kubectl delete node worker-2                          # Pod GC force-deletes its orphaned Pods
+```
+
+```yaml
+tolerations:                     # fail over after 30s instead of the default 300s
+- key: node.kubernetes.io/unreachable
+  operator: Exists
+  effect: NoExecute
+  tolerationSeconds: 30
+```
+
+**`get nodes` NotReady = Ready condition `False` or `Unknown`; `describe` tells them apart.** The 5 minutes is `tolerationSeconds: 300`. Only the kubelet can finish a deletion.
+
 ## Chapter 05-17 — resource quotas, CPU and memory
 
 ```bash
