@@ -602,6 +602,43 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-15 — security contexts
+
+```bash
+kubectl explain pod.spec.securityContext                     # PodSecurityContext
+kubectl explain pod.spec.containers.securityContext          # SecurityContext
+
+kubectl exec <pod> -- id                                     # uid / gid / groups actually in effect
+kubectl exec <pod> -- grep -E 'CapEff|NoNewPrivs|Seccomp:' /proc/1/status
+#   NoNewPrivs: 1  -> allowPrivilegeEscalation: false is in force
+#   Seccomp:    2  -> a seccomp filter is applied
+kubectl get pod <pod> -o jsonpath='{.spec.securityContext}{"\n"}{.spec.containers[*].securityContext}{"\n"}'
+
+# The lecture's demo
+kubectl run ubuntu --image=spurin/rootshell:latest -o yaml --dry-run=client -- sleep infinity | tee ubuntu_secure.yaml
+kubectl replace --force -f ubuntu_secure.yaml
+kubectl exec -it ubuntu -- bash        # then: id ; /rootshell ; id
+```
+
+```yaml
+spec:
+  securityContext:                     # POD level -- all containers + volumes
+    runAsNonRoot: true
+    runAsUser: 1000                    # WHO it runs as
+    runAsGroup: 1000                   # omit -> primary group 0
+    fsGroup: 1000                      # volume group ownership (Pod only)
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+  - name: app
+    securityContext:                   # CONTAINER level -- overrides the Pod
+      allowPrivilegeEscalation: false  # WHETHER it can gain more later (defaults to true)
+      readOnlyRootFilesystem: true
+      capabilities: {drop: ["ALL"], add: ["NET_BIND_SERVICE"]}
+      # privileged: true               # avoid: all capabilities + host devices
+```
+
+**`runAsUser` = who it starts as; `allowPrivilegeEscalation: false` = it can never become more** (sets `no_new_privs`, so setuid binaries are ignored). You need both. Container values override Pod values.
+
 ## Chapter 05-14 — Kubernetes security overview
 
 ```bash

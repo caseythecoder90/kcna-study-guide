@@ -1,0 +1,43 @@
+# The lecture's privilege-escalation demonstration as three Pods.
+#
+# spurin/rootshell contains /rootshell: a setuid-root program that runs
+# setuid(0) and then bash. FOR LABS ONLY -- it deliberately hands out root.
+#
+#   kubectl apply -f rootshell-states.yaml
+#   kubectl exec -it <pod> -- bash      then:  id ; /rootshell ; id
+---
+# STATE 1: nothing set. The image has no USER, so the container runs as root.
+apiVersion: v1
+kind: Pod
+metadata: {name: state1-root}
+spec:
+  containers:
+  - {name: ubuntu, image: "spurin/rootshell:latest", args: [sleep, infinity]}
+---
+# STATE 2: starts as UID 1000 -- but /rootshell still returns uid=0.
+# runAsUser decides who you START as, not what you may BECOME.
+apiVersion: v1
+kind: Pod
+metadata: {name: state2-nonroot}
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+  containers:
+  - {name: ubuntu, image: "spurin/rootshell:latest", args: [sleep, infinity]}
+---
+# STATE 3: allowPrivilegeEscalation: false sets the kernel's no_new_privs flag,
+# so exec ignores the setuid bit. /rootshell runs and you stay UID 1000.
+apiVersion: v1
+kind: Pod
+metadata: {name: state3-no-escalation}
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+  containers:
+  - name: ubuntu
+    image: "spurin/rootshell:latest"
+    args: [sleep, infinity]
+    securityContext:
+      allowPrivilegeEscalation: false   # container-level only

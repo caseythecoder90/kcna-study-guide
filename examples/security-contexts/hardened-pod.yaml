@@ -1,0 +1,33 @@
+# A Pod that passes the RESTRICTED Pod Security Standard.
+#
+#   kubectl apply -f hardened-pod.yaml
+#   kubectl exec hardened -- id                               # uid=1000
+#   kubectl exec hardened -- touch /etc/x                     # Read-only file system
+#   kubectl exec hardened -- touch /tmp/x                     # fine: emptyDir
+#   kubectl exec hardened -- grep -E 'Cap(Eff|Bnd)|NoNewPrivs|Seccomp' /proc/1/status
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hardened
+spec:
+  securityContext:                       # POD level: every container
+    runAsNonRoot: true                   # kubelet refuses to start a UID-0 container
+    runAsUser: 1000
+    runAsGroup: 1000                     # omit and the primary group is 0 (root)
+    fsGroup: 1000                        # volumes become group-owned by 1000
+    seccompProfile:
+      type: RuntimeDefault               # Kubernetes default is Unconfined
+  containers:
+  - name: app
+    image: nginxinc/nginx-unprivileged:stable   # stock nginx needs root for port 80
+    ports:
+    - containerPort: 8080
+    securityContext:                     # CONTAINER level: overrides the Pod
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    volumeMounts:
+    - {name: tmp, mountPath: /tmp}       # the one place it may write
+  volumes:
+  - {name: tmp, emptyDir: {}}

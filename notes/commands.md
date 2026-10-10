@@ -639,6 +639,21 @@ kubescape scan framework nsa
 
 **AuthN → AuthZ → admission → runtime → network/data.** PSS levels: **privileged** (allows escalations) · **baseline** (prevents known escalations) · **restricted** (hardened). **PSA** enforces them (v1.25); **PSP** removed v1.25. **4C's: Cloud, Cluster, Container, Code.**
 
+### 4A-p. Security contexts (chapter 05-15)
+
+```bash
+kubectl exec <pod> -- id
+kubectl exec <pod> -- grep -E 'CapEff|NoNewPrivs|Seccomp:' /proc/1/status
+kubectl explain pod.spec.containers.securityContext
+```
+
+```yaml
+securityContext: {runAsNonRoot: true, runAsUser: 1000, allowPrivilegeEscalation: false,
+                  readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+```
+
+**Pod level = defaults for every container; container level overrides.** `runAsUser` alone does not stop a setuid escalation — `allowPrivilegeEscalation: false` (default `true`) does.
+
 ## 5. Observability tooling
 
 _Section 6._

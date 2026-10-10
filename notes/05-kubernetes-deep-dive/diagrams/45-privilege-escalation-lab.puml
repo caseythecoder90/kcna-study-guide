@@ -1,0 +1,26 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title spurin/rootshell — three manifests, one setuid binary, and the flag that finally stops it
+
+rectangle "The image" <<group>> as img {
+  rectangle "Ubuntu + a user 'nonpriv' (UID 1000) + <b>/rootshell</b>: a tiny C program —  setuid(0); system(/bin/bash);\ncompiled and marked <b>chmod u+s</b> — the SETUID bit. A setuid binary runs with the privileges of its OWNER (root),\nwhoever starts it. That is how  passwd  lets ordinary users edit /etc/shadow — and how a rogue binary hands out root.\n<size:11>No USER line in the Dockerfile, so by default the container runs as root.</size>" <<plain>> as i1
+}
+
+rectangle "STATE 1 · no securityContext" <<groupBad>> as s1 {
+  rectangle "kubectl exec -it ubuntu ~-~- bash\n<b>root@ubuntu:/#</b>      ← '#' prompt and 'root' — the container already runs as UID 0\n<size:11>Nothing to escalate to: it started at the top.</size>" <<bad>> as s1a
+}
+
+rectangle "STATE 2 · runAsUser: 1000, runAsGroup: 1000" <<groupBad>> as s2 {
+  rectangle "<b>nonpriv@ubuntu:/$</b>  id  →  uid=1000(nonpriv) gid=1000(nonpriv)       ← looks fixed\n<b>/rootshell</b>  →  <b>root@ubuntu:/#</b>  id  →  uid=0(root) gid=1000(nonpriv)       ← root again\n<size:11>runAsUser controls who the container STARTS as. It says nothing about what the process may BECOME:</size>\n<size:11>the kernel honours the setuid bit, and the process gains its owner's power. allowPrivilegeEscalation defaults to TRUE.</size>" <<bad>> as s2a
+}
+
+rectangle "STATE 3 · + allowPrivilegeEscalation: false" <<groupGood>> as s3 {
+  rectangle "<b>nonpriv@ubuntu:/$</b>  /rootshell  →  <b>nonpriv@ubuntu:/$</b>  id  →  uid=1000(nonpriv)       ← escalation refused\n<size:11>The kubelet sets the kernel's <b>no_new_privs</b> flag on the container process (the setting is inverted: false → flag on).</size>\n<size:11>With no_new_privs, exec IGNORES setuid and setgid bits and file capabilities, for that process and every child.</size>\n<size:11>/rootshell runs, its setuid(0) call fails, and bash starts as UID 1000. The flag can never be switched off again.</size>" <<good>> as s3a
+}
+
+img -down-> s1
+s1 -down-> s2 : who you START as
+s2 -down-> s3 : whether you can BECOME more
+
+caption <i>The study tips' memory hook: runAsUser is about WHO the container runs as; allowPrivilegeEscalation is about WHETHER it can gain more power later. You need both.</i>\n<i>allowPrivilegeEscalation: false cannot be combined with privileged: true or CAP_SYS_ADMIN — either already IS the escalation.</i>
+@enduml
