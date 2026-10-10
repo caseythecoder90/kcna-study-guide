@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Hub, repository, chart, release — four words, four different things
+
+rectangle "ARTIFACT HUB  (artifacthub.io)" <<group>> as hub {
+  rectangle "A <b>search index</b> and web UI\nover thousands of repositories.\nIt stores NO charts itself —\nit points you at the repo.\n<size:11>helm search hub nginx</size>\n<size:11>CNCF Incubating project</size>\n<size:11>(was Helm Hub, hub.helm.sh)</size>" <<plain>> as h1
+}
+
+rectangle "REPOSITORY" <<group>> as repo {
+  rectangle "<b>Where charts are stored and served</b>\n\nClassic: an HTTP server with an\n<b>index.yaml</b> listing every chart and\nversion, plus the <b>.tgz</b> packages.\n<size:11>helm repo add podinfo https://...</size>\n<size:11>helm repo update   (refresh index.yaml)</size>\n<size:11>helm search repo nginx</size>\n\nModern: an <b>OCI registry</b> — the same\nregistries that hold container images.\n<size:11>oci://ghcr.io/org/charts/app — no repo add</size>" <<plain>> as r1
+}
+
+rectangle "CHART" <<groupGood>> as chart {
+  rectangle "<b>A package</b> — 'the apt .deb of Kubernetes'\nTemplates + default values + Chart.yaml.\nIdentified by <b>name + version</b>\n(e.g. podinfo 6.15.0) — SemVer.\n<size:11>On disk: a directory (helm create)</size>\n<size:11>Packaged: name-version.tgz (helm package)</size>" <<good>> as c1
+}
+
+rectangle "RELEASE" <<groupGood>> as rel {
+  rectangle "<b>An installed instance of a chart</b>\nin a cluster, with its own name.\nInstall the same chart twice → two releases.\nEvery install/upgrade/rollback adds a\n<b>revision</b> (1, 2, 3 ...).\n<size:11>Stored as Secrets in the release namespace:</size>\n<size:11>sh.helm.release.v1.<name>.v<revision></size>" <<good>> as l1
+}
+
+h1 --> r1 : find
+r1 --> c1 : pull / install
+c1 --> l1 : helm install\n+ your values
+
+caption <i>Helm docs: 'Helm installs charts into Kubernetes, creating a new release for each installation,</i>\n<i>and you find new charts by searching Helm chart repositories.'</i>
+@enduml
