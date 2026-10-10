@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two places to write a securityContext — the container wins where they overlap
+
+rectangle "spec.securityContext — POD level: PodSecurityContext" <<group>> as pod {
+  rectangle "<b>Applies to every container in the Pod</b>, and to the Pod's volumes.\n<size:11>runAsUser · runAsGroup · runAsNonRoot · seccompProfile · appArmorProfile · seLinuxOptions</size>\n<size:11><b>Pod-only:</b>  fsGroup (group that owns mounted volumes) · supplementalGroups · sysctls</size>\n<size:11>Pod spec siblings, not securityContext fields:  hostNetwork · hostPID · hostIPC · hostUsers</size>" <<plain>> as p1
+}
+
+rectangle "spec.containers[].securityContext — CONTAINER level: SecurityContext" <<groupGood>> as ctr {
+  rectangle "<b>Applies to that one container, and OVERRIDES the Pod value where both are set.</b>\n<size:11>runAsUser · runAsGroup · runAsNonRoot · seccompProfile · appArmorProfile · seLinuxOptions  (same as Pod level)</size>\n<size:11><b>Container-only:</b>  allowPrivilegeEscalation · privileged · capabilities · readOnlyRootFilesystem · procMount</size>\n<size:11>Container settings do NOT affect the Pod's volumes.</size>" <<good>> as c1
+}
+
+rectangle "The docs' example" <<group>> as ex {
+  rectangle "spec:\n  securityContext:   {runAsUser: 1000}          ← Pod says 1000\n  containers:\n  - name: app\n    securityContext: {runAsUser: 2000}          ← this container says 2000\n\n<size:11>ps aux inside the container shows USER 2000. A second container without its own value would run as 1000.</size>\n<size:11>Neither set? The image decides — its Dockerfile USER, or root (UID 0) if it has none.</size>" <<accent>> as e1
+}
+
+pod -down-> ctr : container overrides pod
+ctr -down-> ex
+
+caption <i>Settings about the WHOLE Pod (its volumes, its groups, kernel parameters) live only at Pod level; settings about a PROCESS's power (privileged, capabilities, escalation) live only on the container.</i>\n<i>A common pattern: user and seccomp at Pod level for every container, then capabilities and allowPrivilegeEscalation per container.</i>
+@enduml
