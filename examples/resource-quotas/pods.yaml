@@ -1,0 +1,29 @@
+# Three identical Pods: 250m/256Mi requested, 500m/512Mi limit each.
+# Together: requests 750m / 768Mi, limits 1500m / 1536Mi, 3 Pods -- all within quota.
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: pod1, namespace: limited}
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: 500m, memory: 512Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: pod2, namespace: limited}
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: 500m, memory: 512Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: pod3, namespace: limited}
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: 500m, memory: 512Mi}}

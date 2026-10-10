@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title CPU in Kubernetes — an amount of CPU TIME, measured in cores and thousandths of a core
+
+rectangle "THE UNIT" <<group>> as u {
+  rectangle "<b>1 CPU = 1 physical core, or 1 virtual core (vCPU)</b> if the node is a VM. On most clouds a vCPU is one\nhardware thread (hyperthread) of a physical core.\n<b>1 CPU = 1000m</b>  — m is 'millicpu', usually said 'millicores'. Finest precision allowed: <b>1m</b>.\n<size:11>   1      =  1000m   one whole core          0.5  =  500m   half a core</size>\n<size:11>   0.25   =   250m   a quarter                0.1  =  100m   a tenth          0.001 = 1m   the smallest step</size>\n<size:11>   2.5    =  2500m   two and a half cores — a single container CAN use more than one core if it is multi-threaded</size>\n<size:11>ABSOLUTE, never relative: 500m is the same amount of CPU on a 2-core node and on a 48-core node.</size>" <<accent>> as u1
+}
+
+rectangle "REQUEST — what the container is GUARANTEED, and what the scheduler counts" <<groupGood>> as r {
+  rectangle "<b>Scheduling:</b> a Pod fits a node only if the SUM of requests on that node stays within its allocatable CPU.\n<b>At run time:</b> the request becomes a WEIGHT (cgroup cpu shares / cpu.weight). When the node is busy, CPU time is\nshared in proportion to requests — a 500m container gets twice the time of a 250m one. When the node is idle, a\ncontainer may use MORE than its request. Unused CPU is never wasted." <<good>> as r1
+}
+
+rectangle "LIMIT — a hard ceiling, enforced by THROTTLING (never by killing)" <<groupBad>> as l {
+  rectangle "The kernel's CFS scheduler gives each container a QUOTA of CPU time per PERIOD. The kubelet's default period is <b>100ms</b>.\n<size:11>  limit 1     →  100ms of CPU time per 100ms        limit 500m  →  50ms per 100ms        limit 250m → 25ms per 100ms</size>\n<size:11>Quota is the TOTAL across all of the container's threads. A 4-thread app with a 1 CPU limit can burn its 100ms in 25ms of</size>\n<size:11>wall-clock time — then it is frozen for the remaining 75ms. That is CPU THROTTLING: no error, no restart, just latency.</size>\n<size:11>'Container runtimes don't terminate Pods or containers for excessive CPU usage.' CPU is COMPRESSIBLE: take it away and the</size>\n<size:11>app slows down. Memory is not (diagram 49).</size>" <<bad>> as l1
+}
+
+u -down-> r
+r -down-> l
+
+caption <i>Write sub-core values in millicores: 0.005 and 5m are the same, but '0.5m' is visibly invalid where '0.0005' is not. The docs recommend the m form for exactly that reason.</i>\n<i>A limit with no request? Kubernetes copies the limit into the request. A request with no limit? The container may use any idle CPU on the node.</i>
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Memory is counted in BYTES — and there are two ladders of suffixes, 1000 apart from 1024
+
+rectangle "DECIMAL (SI) — powers of 1000 · how disks and networks are sold" <<group>> as dec {
+  rectangle "k   kilobyte    1,000 bytes                       = 10^3\nM   megabyte    1,000,000                          = 10^6\nG   gigabyte    1,000,000,000                      = 10^9\nT   terabyte    1,000,000,000,000                  = 10^12\nP   petabyte    10^15          E   exabyte   10^18" <<plain>> as d1
+}
+
+rectangle "BINARY (IEC) — powers of 1024 · how RAM actually comes · the usual choice in Kubernetes" <<groupGood>> as bin {
+  rectangle "Ki  kibibyte    1,024 bytes                       = 2^10\nMi  mebibyte    1,048,576  (1024 Ki)               = 2^20\nGi  gibibyte    1,073,741,824  (1024 Mi)           = 2^30\nTi  tebibyte    1,099,511,627,776  (1024 Gi)       = 2^40\nPi  pebibyte    2^50           Ei  exbibyte  2^60\n\n<size:11>The 'i' means binary: kibi = KIlo BInary. Each step up is x1024, not x1000.</size>" <<good>> as b1
+}
+
+rectangle "WHY THE DIFFERENCE MATTERS — it grows with every step" <<group>> as diff {
+  rectangle "1Ki  vs 1k   →  1,024 vs 1,000                     2.4% larger\n1Mi  vs 1M   →  1,048,576 vs 1,000,000             4.9% larger\n1Gi  vs 1G   →  1,073,741,824 vs 1,000,000,000     7.4% larger\n1Ti  vs 1T   →                                     10.0% larger\n<size:11>Roughly the same amount, five ways:   128974848  ·  129e6  ·  129M  ·  128974848000m  ·  123Mi</size>\n<size:11>A '500GB' disk shows up as about 465Gi — nothing is missing, the two ladders just count differently.</size>" <<plain>> as df1
+}
+
+rectangle "THE TRAP — the case of the suffix" <<groupBad>> as trap {
+  rectangle "<b>M</b> = megabytes.  <b>m</b> = MILLIbytes (1/1000 of a byte).   memory: 400m  is a request for <b>0.4 bytes</b>.\n<size:11>The API accepts it — m is a valid quantity suffix because the same format is shared with CPU — and the Pod is useless.</size>\n<size:11>For memory, write Mi or Gi. For CPU, m means millicores and is exactly right. Same letter, opposite meaning.</size>" <<bad>> as t1
+}
+
+rectangle "ENFORCEMENT — memory is NOT compressible" <<group>> as enf {
+  rectangle "<b>Request</b> — used for scheduling; on cgroup v2 a hint for memory.min/low. Exceeding it is allowed, but makes the Pod a\ncandidate for EVICTION when the node runs short.\n<b>Limit</b> — the cgroup's ceiling. Exceed it and the kernel's OOM killer stops the process: <b>OOMKilled</b>, exit code <b>137</b>\n(128 + SIGKILL 9), and the container restarts. You cannot throttle memory the way you throttle CPU — it is held, not spent." <<accent>> as e1
+}
+
+dec -down-> bin
+bin -down-> diff
+diff -down-> trap
+trap -down-> enf
+
+caption <i>CPU over its limit is SLOWED; memory over its limit is KILLED. That one sentence explains most resource incidents.</i>\n<i>Memory-backed emptyDir volumes (chapter 05-08) count against the container's memory limit too — a full tmpfs can OOM-kill a container that never called malloc.</i>
+@enduml

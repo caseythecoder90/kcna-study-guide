@@ -1,0 +1,20 @@
+# The lecture's quota. Enforced by the ResourceQuota ADMISSION controller in the
+# API server -- not the kubelet. Over quota = 403 Forbidden, nothing stored.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: limited
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: limited
+  namespace: limited
+spec:
+  hard:
+    requests.cpu: "1"          # 1 core = 1000m   (sum of requests)
+    requests.memory: "1Gi"     # 1 gibibyte = 1024Mi = 1,073,741,824 bytes
+    limits.cpu: "2"            # sum of limits
+    limits.memory: "2Gi"
+    pods: "3"                  # non-terminal Pods only

@@ -664,6 +664,17 @@ kubectl get ns -L pod-security.kubernetes.io/enforce
 
 **Labels `pod-security.kubernetes.io/<mode>[-version]`.** Modes are independent checks against their own levels; **only enforce blocks**. Unlabelled = privileged. PSA reads the **spec** — the kubelet still checks `runAsNonRoot` against the **image**.
 
+### 4A-r. Resource quotas, CPU and memory (chapter 05-17)
+
+```bash
+kubectl create quota limited -n limited --hard=requests.cpu=1,requests.memory=1Gi,limits.cpu=2,limits.memory=2Gi,pods=3
+kubectl describe quota -n limited                       # Used vs Hard
+kubectl get pod <pod> -o jsonpath='{.status.qosClass}'  # Guaranteed | Burstable | BestEffort
+kubectl describe node <node> | grep -A8 "Allocated resources"
+```
+
+**Quota is enforced by the ResourceQuota admission controller (403), not the kubelet; it never evicts existing Pods.** CPU: `1 = 1000m`, minimum `1m`, limit = throttling. Memory: bytes; `Ki/Mi/Gi` ×1024, `k/M/G` ×1000, `m` = millibytes; limit = OOMKilled.
+
 ## 5. Observability tooling
 
 _Section 6._

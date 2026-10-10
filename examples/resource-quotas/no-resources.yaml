@@ -1,0 +1,10 @@
+# A quota on cpu/memory means every new Pod MUST declare them:
+#   failed quota: limited: must specify limits.cpu for: bare; limits.memory for: bare;
+#   requests.cpu for: bare; requests.memory for: bare
+# Fix: add resources, or a LimitRange that injects defaults (limitrange.yaml).
+apiVersion: v1
+kind: Pod
+metadata: {name: bare, namespace: limited}
+spec:
+  containers:
+  - {name: bare, image: nginx}

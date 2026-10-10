@@ -602,6 +602,43 @@ kubectl exec probe-demo -- touch /tmp/ready       # it rejoins by itself
 
 Defaults: `initialDelaySeconds` **0** · `periodSeconds` **10** · `timeoutSeconds` **1** · `successThreshold` **1** (must be 1 for liveness and startup) · `failureThreshold` **3**. Mechanisms: **`httpGet`** (200-399), **`exec`** (exit 0), **`tcpSocket`** (port opens), **`grpc`** (SERVING). **A startup probe gates liveness and readiness** — they do not run until it succeeds once.
 
+## Chapter 05-17 — resource quotas, CPU and memory
+
+```bash
+kubectl create namespace limited
+kubectl create quota limited -n limited \
+  --hard=requests.cpu=1,requests.memory=1Gi,limits.cpu=2,limits.memory=2Gi,pods=3
+kubectl create quota objects -n limited --hard=count/deployments.apps=5,count/secrets=20,persistentvolumeclaims=4
+kubectl create quota best-effort -n limited --hard=pods=10 --scopes=BestEffort
+
+kubectl get resourcequota -n limited                 # quota
+kubectl describe quota limited -n limited            # Used vs Hard -- the ledger
+kubectl get quota limited -n limited -o jsonpath='{.status.used}{"\n"}{.status.hard}{"\n"}'
+kubectl patch resourcequota limited -n limited --type=merge -p '{"spec":{"hard":{"pods":"5"}}}'
+
+# Rejected at admission -- the Pod never exists
+#   Error from server (Forbidden): ... exceeded quota: limited, requested: pods=1, used: pods=3, limited: pods=3
+#   Error from server (Forbidden): ... failed quota: limited: must specify limits.cpu for: nginx; ...
+kubectl describe rs -n limited -l app=web | grep -A2 FailedCreate   # Deployments: accepted, Pods fail
+
+# What containers actually have and use
+kubectl get pod <pod> -o jsonpath='{.spec.containers[*].resources}{"\n"}'
+kubectl get pod <pod> -o jsonpath='{.status.qosClass}{"\n"}'        # Guaranteed | Burstable | BestEffort
+kubectl describe node <node> | grep -A8 "Allocated resources"      # requests/limits summed per node
+kubectl top pods -n limited                                        # live usage (needs metrics-server)
+kubectl get pod <pod> -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}'   # OOMKilled
+```
+
+```yaml
+resources:
+  requests: {cpu: 250m, memory: 256Mi}   # 0.25 core; 256 MEBIbytes (256 x 1,048,576 bytes)
+  limits:   {cpu: 500m, memory: 512Mi}   # throttled above 50ms/100ms; OOMKilled above 512Mi
+# memory: 400m  = 0.4 BYTES (m = milli).  Use Mi / Gi.
+# 1 = 1000m CPU.  Ki/Mi/Gi/Ti = x1024.  k/M/G/T = x1000.
+```
+
+**Quota = namespace totals at admission (403); scheduler = requests vs node; kubelet = limits at run time.** CPU over limit is throttled, memory over limit is OOMKilled.
+
 ## Chapter 05-16 — Pod Security Admission
 
 ```bash
