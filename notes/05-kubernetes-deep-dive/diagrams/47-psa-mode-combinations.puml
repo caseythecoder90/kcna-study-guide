@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Three independent checks per request — each mode compares the Pod against ITS OWN level
+
+rectangle "What the admission plugin does, in order (pod-security-admission/admission/admission.go)" <<group>> as alg {
+  rectangle "<b>1 · enforce</b> — check against the enforce level.  Violation → the request is REJECTED (403 Forbidden).\n<b>2 · audit</b>  — check against the audit level.    Violation → an <b>audit-violations</b> annotation on the API audit log event.\n<b>3 · warn</b>   — check against the warn level.     Violation → a <b>Warning:</b> returned to kubectl.\n<size:11>Step 3 is SKIPPED if step 1 rejected: 'avoid adding warnings to a request we're already going to reject with an error'.</size>\n<size:11>And for Deployments, Jobs, StatefulSets... step 1 never runs — enforce applies to Pods only; audit and warn apply to both.</size>" <<accent>> as a1
+}
+
+rectangle "NAMESPACE psa-restricted:   enforce=restricted · warn=restricted" <<groupBad>> as r {
+  rectangle "<b>A Pod that violates restricted</b>    → REJECTED. Only the Forbidden error — no extra warning, it would say the same thing.\n<b>A Deployment that violates restricted</b> → ACCEPTED, with a <b>Warning</b> at kubectl apply time. Its ReplicaSet's\n<size:11>Pods are then each REJECTED by enforce (FailedCreate events). <b>That warning is the whole value of warn=enforce-level:</b></size>\n<size:11>without it, the Deployment is accepted SILENTLY and you discover the problem only as 0/3 READY.</size>" <<bad>> as r1
+}
+
+rectangle "NAMESPACE psa-warn-audit:   enforce=baseline · warn=restricted · audit=restricted" <<groupGood>> as w {
+  rectangle "<b>Pod violates BASELINE</b> (privileged, hostPID...)       → REJECTED. Audit annotation recorded too; no warning.\n<b>Pod passes baseline, violates RESTRICTED</b> (plain nginx) → CREATED, plus a <b>Warning</b> and an <b>audit</b> record.\n<b>Pod passes restricted</b>                               → CREATED. Nothing to report.\n\n<size:11>The lecture's plain nginx Pod: 'Warning: would violate PodSecurity restricted:latest: allowPrivilegeEscalation != false ...,</size>\n<size:11>unrestricted capabilities ..., runAsNonRoot != true ..., seccompProfile ...'  followed by  'pod/nginx created'.</size>\n<size:11>A hard floor at baseline, and visibility of everything still short of restricted — the migration path toward enforce=restricted.</size>" <<good>> as w1
+}
+
+alg -down-> r
+r -down-> w
+
+caption <i>The modes do not combine into one verdict; they are three separate questions against possibly three different levels. Only enforce can say no.</i>\n<i>Audit annotations land in the API server's audit log, so they are only visible where audit logging is configured — k3s does not enable it by default.</i>
+@enduml

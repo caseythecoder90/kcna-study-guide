@@ -1,0 +1,16 @@
+# Shows why warn is paired with enforce at the SAME level.
+# In psa-restricted the Deployment is ACCEPTED (enforce does not check
+# workload resources) -- warn prints the problem at apply time; then every
+# Pod the ReplicaSet tries to create is rejected (FailedCreate).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plain-web
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: plain-web}}
+  template:
+    metadata: {labels: {app: plain-web}}
+    spec:
+      containers:
+      - {image: "nginx:stable", name: nginx}

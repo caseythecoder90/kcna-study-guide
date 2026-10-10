@@ -1,0 +1,36 @@
+# Two Pods that both PASS restricted admission. Only one of them runs.
+---
+# The lecture's version. PSA admits it -- it judges the SPEC. But stock nginx
+# has no USER line, so the kubelet refuses to start it:
+#   CreateContainerConfigError: container has runAsNonRoot and image will run as root
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-spec-only
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - image: nginx:stable
+    name: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: ["ALL"]}
+      seccompProfile: {type: RuntimeDefault}
+---
+# Same securityContext, an image BUILT to run unprivileged (UID 101, port 8080).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-unprivileged
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - image: nginxinc/nginx-unprivileged:stable
+    name: nginx
+    ports: [{containerPort: 8080}]
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: {drop: ["ALL"]}
+      seccompProfile: {type: RuntimeDefault}

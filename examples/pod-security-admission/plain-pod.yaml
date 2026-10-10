@@ -1,0 +1,11 @@
+# An ordinary nginx Pod: passes BASELINE, fails RESTRICTED.
+#   -n psa-warn-audit  -> Warning: would violate PodSecurity "restricted:latest" ... pod/plain-nginx created
+#   -n psa-restricted  -> Forbidden
+apiVersion: v1
+kind: Pod
+metadata:
+  name: plain-nginx
+  labels: {run: plain-nginx}
+spec:
+  containers:
+  - {image: "nginx:stable", name: nginx}
