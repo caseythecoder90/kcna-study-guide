@@ -1,0 +1,24 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Spring Boot availability states through a Pod's life — and what each probe endpoint returns
+
+rectangle "1 · STARTING — JVM up, application context refreshing (bean creation, @PostConstruct, connection pools)" <<groupBad>> as s1 {
+  rectangle "HTTP server not started yet → every probe gets <b>connection refused</b> = failure.\n<b>startupProbe</b> on /actuator/health/liveness keeps failing — <b>by design</b>, within failureThreshold x periodSeconds.\n<size:11>Liveness and readiness probes are NOT running yet — the startup probe gates them.</size>" <<bad>> as a1
+}
+
+rectangle "2 · STARTED — context refreshed, web server up; ApplicationRunner / CommandLineRunner beans executing" <<group>> as s2 {
+  rectangle "LivenessState <b>CORRECT</b>  →  /actuator/health/liveness   <b>200</b> {status: UP}      → startupProbe SUCCEEDS, liveness takes over\nReadinessState <b>REFUSING_TRAFFIC</b>  →  /actuator/health/readiness  <b>503</b> {status: OUT_OF_SERVICE}  → Pod 0/1, no traffic\n<size:11>This is where cache warm-up and other startup tasks belong: the app is alive but not yet in the load balancer.</size>" <<plain>> as a2
+}
+
+rectangle "3 · READY — all runners finished" <<groupGood>> as s3 {
+  rectangle "LivenessState CORRECT → liveness 200.   ReadinessState <b>ACCEPTING_TRAFFIC</b> → readiness <b>200</b> → Pod 1/1, endpoint ready.\n<size:11>At run time the app can flip either state itself: AvailabilityChangeEvent.publish(ctx, ReadinessState.REFUSING_TRAFFIC) — or LivenessState.BROKEN</size>\n<size:11>for an unrecoverable internal fault (liveness → 503 DOWN → the kubelet restarts the container).</size>" <<good>> as a3
+}
+
+rectangle "4 · SHUTTING DOWN — Pod deleted: endpoint removal and SIGTERM happen IN PARALLEL" <<group>> as s4 {
+  rectangle "preStop <b>sleep</b> (e.g. 10s) runs FIRST — gives the EndpointSlice change time to reach every kube-proxy and Ingress.\nThen SIGTERM → graceful shutdown (default since Spring Boot 3.4): ReadinessState <b>REFUSING_TRAFFIC</b>, new requests rejected,\nin-flight requests finish within spring.lifecycle.timeout-per-shutdown-phase (<b>30s</b>).\n<size:11>Budget: preStop sleep + shutdown phase must fit inside terminationGracePeriodSeconds (30s default) — or SIGKILL cuts it short.</size>" <<accent>> as a4
+}
+
+s1 -down-> s2
+s2 -down-> s3
+s3 -down-> s4
+@enduml

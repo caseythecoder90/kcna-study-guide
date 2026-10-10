@@ -967,6 +967,10 @@
 | Orphans get adopted | A new controller whose **selector matches** orphaned objects **adopts** them — `--cascade=orphan` lets you replace a controller without restarting its Pods | [05-19](05-kubernetes-deep-dive/19-garbage-collection.md) |
 | Finalizers | Keys in `metadata.finalizers`; a delete only sets `deletionTimestamp` until the list is empty. Examples: `foregroundDeletion`, `orphan`, **`kubernetes.io/pv-protection`**, **`kubernetes.io/pvc-protection`**. A stuck `Terminating` object is usually waiting on a finalizer | [05-19](05-kubernetes-deep-dive/19-garbage-collection.md) |
 
+| Who runs probes | **The kubelet** on the Pod's node — probes are instructions in the Pod spec; **no control-plane component probes anything**. One probe worker per container per configured probe, every `periodSeconds` | [05-20](05-kubernetes-deep-dive/20-probes-and-the-kubelet.md) |
+| How each probe mechanism executes | **`httpGet` / `tcpSocket` / `grpc`** — sent by the **kubelet process from the node to the Pod IP** (`User-Agent: kube-probe/<version>`, `Accept: */*`; redirects followed only to the same host). **`exec`** — the kubelet asks the **container runtime (CRI)** to run the command **inside the container** | [05-20](05-kubernetes-deep-dive/20-probes-and-the-kubelet.md) |
+| Where a probe result goes | **Liveness/startup failure** → the kubelet **kills and restarts the container locally** (works even with the API server unreachable). **Readiness failure** → kubelet sets Pod **`ContainersReady`/`Ready` = False** via the API server → **EndpointSlice controller** marks the endpoint not ready → kube-proxy stops routing. The kubelet does **not** edit endpoints itself | [05-20](05-kubernetes-deep-dive/20-probes-and-the-kubelet.md) |
+
 ## 06 · Telemetry and Observability
 
 _Not started._

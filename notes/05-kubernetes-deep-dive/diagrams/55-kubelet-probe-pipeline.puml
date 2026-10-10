@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The kubelet runs every probe — liveness acts on the node, readiness acts through the control plane
+
+rectangle "ON THE NODE — the kubelet" <<group>> as node {
+  rectangle "<b>One probe worker per container, per configured probe</b>, firing every periodSeconds\n<size:11>httpGet / tcpSocket / grpc — sent by the kubelet process itself, from the node to the POD IP (User-Agent: kube-probe/<version>)</size>\n<size:11>exec — the kubelet asks the container runtime (CRI) to run the command INSIDE the container</size>" <<accent>> as w
+  rectangle "<b>startup / liveness failed</b> (failureThreshold reached)\nThe kubelet <b>kills the container itself</b> → restartPolicy → restart with backoff.\n<size:11>Event: Container app failed liveness probe, will be restarted</size>\n<size:11>Purely local — keeps working even if the API server is unreachable.</size>" <<bad>> as kill
+  rectangle "<b>readiness failed</b>\nThe kubelet marks the container ready=false\nand writes the Pod's status: <b>ContainersReady</b> and <b>Ready</b> conditions → False.\n<size:11>Nothing is restarted. Probing continues; it flips back on success.</size>" <<plain>> as notready
+}
+
+rectangle "IN THE CONTROL PLANE" <<groupGood>> as cp {
+  rectangle "<b>API server</b>\nstores the Pod status update" <<plain>> as api
+  rectangle "<b>EndpointSlice controller</b> (kube-controller-manager)\nwatches Pods; marks this endpoint ready: false\nin every matching Service's EndpointSlices" <<good>> as eps
+  rectangle "<b>kube-proxy / the CNI data plane</b>, on every node\nstops sending Service traffic to the Pod IP" <<good>> as kp
+}
+
+w -down-> kill : liveness / startup
+w -down-> notready : readiness
+kill -[hidden]right-> notready
+notready -right-> api : Pod status
+api -down-> eps : watch
+eps -down-> kp : watch
+
+caption <i>A correction to the write-up: the kubelet does not 'tell the API server to remove the Pod from endpoints'. It reports a condition;</i>\n<i>the EndpointSlice controller does the removal. (In chapter 05-18, with the kubelet gone, the node controller flips the same condition instead.)</i>
+@enduml

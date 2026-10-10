@@ -695,6 +695,16 @@ kubectl delete deployment web --cascade=background|foreground|orphan
 
 **Background is the default. Orphan keeps dependents running and a matching controller adopts them.** Completed Jobs stay unless `ttlSecondsAfterFinished` is set; the kubelet GCs images at 85% disk down to 80%.
 
+### 4A-u. Probes and the kubelet (chapter 05-20)
+
+```bash
+kubectl describe pod <pod> | grep -A10 Events       # probe failures and Killing events
+curl -i localhost:8080/actuator/health/liveness     # Spring Boot: 200 UP / 503 DOWN
+curl -i localhost:8080/actuator/health/readiness    # Spring Boot: 200 UP / 503 OUT_OF_SERVICE
+```
+
+**The kubelet executes probes (httpGet from the node to the Pod IP; exec through the runtime).** Spring Boot: startup + liveness → `/actuator/health/liveness` (`/livez`), readiness → `/actuator/health/readiness` (`/readyz`); never the aggregate `/actuator/health`.
+
 ## 5. Observability tooling
 
 _Section 6._
