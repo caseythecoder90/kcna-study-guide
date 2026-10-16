@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Kustomize: one base, one overlay per environment
+
+rectangle "base/" <<group>> as base {
+  rectangle "deployment.yaml\nservice.yaml\n<size:11>plain, valid Kubernetes YAML</size>" <<plain>> as b1
+  rectangle "kustomization.yaml\n<size:11>resources: [deployment.yaml, service.yaml]</size>" as b2
+  b1 -[hidden]down-> b2
+}
+
+rectangle "overlays/dev/" <<groupGood>> as dev {
+  rectangle "kustomization.yaml\n<size:11>resources: [../../base]</size>\n<size:11>namespace: dev · namePrefix: dev-</size>\n<size:11>images: web → web:1.4-rc1</size>" <<good>> as d1
+}
+
+rectangle "overlays/prod/" <<groupGood>> as prod {
+  rectangle "kustomization.yaml + patch\n<size:11>resources: [../../base]</size>\n<size:11>namespace: prod · replicas: 5</size>\n<size:11>patches: [resources-patch.yaml]</size>" <<good>> as p1
+}
+
+rectangle "kubectl apply -k overlays/<env>\n<size:11>build (render) then apply</size>" <<accent>> as apply
+rectangle "Cluster" <<muted>> as cluster
+
+b2 --> d1 : referenced, never edited
+b2 --> p1 : referenced, never edited
+d1 --> apply
+p1 --> apply
+apply --> cluster
+@enduml

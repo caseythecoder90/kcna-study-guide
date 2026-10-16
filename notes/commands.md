@@ -727,4 +727,17 @@ helm create <name> ; helm lint . ; helm template . ; helm package .
 
 **Chart = package, repository = where charts live (`index.yaml` or OCI), Artifact Hub = search index, release = installed instance.** Full reference: [`commands/helm.md`](commands/helm.md).
 
+
+### Kustomize (chapter 05-22)
+
+```bash
+kubectl kustomize <dir>          # render the kustomization to stdout
+kubectl apply -k <dir>           # render + apply (point at the OVERLAY directory)
+kubectl diff -k <dir>            # what apply would change
+kubectl delete -k <dir>          # render + delete
+kubectl version --client         # shows the embedded Kustomize version
+```
+
+**`-k` takes a directory containing `kustomization.yaml`. Base = shared YAML, overlay = per-environment changes; Helm templates, Kustomize patches.** Full reference: [`commands/kustomize.md`](commands/kustomize.md).
+
 GitOps tooling: _Section 7._

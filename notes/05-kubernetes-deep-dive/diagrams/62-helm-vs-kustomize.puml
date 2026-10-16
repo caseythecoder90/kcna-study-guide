@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Helm = template and render · Kustomize = patch and overlay
+
+rectangle "Helm: substitute" <<group>> as helm {
+  rectangle "templates/deployment.yaml\n<size:11>replicas: {{ .Values.replicaCount }}</size>\n<size:11>NOT valid YAML until rendered</size>" <<plain>> as h1
+  rectangle "values-prod.yaml\n<size:11>replicaCount: 5</size>" <<plain>> as h2
+  rectangle "Go template engine\n<size:11>fills the placeholders</size>" as h3
+  rectangle "replicas: 5" <<good>> as h4
+  h1 --> h3
+  h2 --> h3
+  h3 --> h4
+}
+
+rectangle "Kustomize: merge" <<group>> as kust {
+  rectangle "base/deployment.yaml\n<size:11>replicas: 1</size>\n<size:11>valid YAML, applyable on its own</size>" <<plain>> as k1
+  rectangle "overlays/prod patch\n<size:11>replicas: 5</size>" <<plain>> as k2
+  rectangle "kustomize build\n<size:11>merges the patch onto the base</size>" as k3
+  rectangle "replicas: 5" <<good>> as k4
+  k1 --> k3
+  k2 --> k3
+  k3 --> k4
+}
+
+helm -[hidden]right-> kust
+
+caption <i>Same output, opposite mechanism. Helm also packages, versions and rolls back releases; Kustomize is built into kubectl (-k) and has no release history.</i>
+@enduml
