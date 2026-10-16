@@ -106,3 +106,19 @@ kubectl get nodes -L karpenter.sh/capacity-type,eks.amazonaws.com/capacityType
 kubectl taint nodes <spot-node> lifecycle=spot:NoSchedule        # only tolerating workloads land here
 kubectl get pdb -A                                               # what a Spot drain must respect
 ```
+
+## Grafana (chapter [06-04](../06-telemetry-and-observability/04-hands-on-with-grafana.md))
+
+```bash
+kubectl port-forward svc/my-observability-grafana 3000:80                                     # http://localhost:3000
+kubectl get secret my-observability-grafana -o jsonpath='{.data.admin-user}' | base64 -d; echo
+kubectl get secret my-observability-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+kubectl get configmaps -A -l grafana_dashboard=1                                               # dashboards loaded by the sidecar
+kubectl create configmap orders-dashboard --from-file=orders.json -n shop \
+  && kubectl label configmap orders-dashboard grafana_dashboard=1 -n shop                      # ship a dashboard as code
+```
+
+```promql
+label_values(kube_pod_info, namespace)                       # a dashboard variable query
+sum by (namespace) (rate(container_cpu_usage_seconds_total{container!=""}[5m]))
+```

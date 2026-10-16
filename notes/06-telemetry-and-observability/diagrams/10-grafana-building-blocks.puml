@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Grafana's building blocks: from a data source to a page, and to a pager
+
+rectangle "Data sources\n<size:11>Prometheus · Loki · Tempo · Jaeger</size>\n<size:11>InfluxDB · Elasticsearch · SQL ...</size>\n<size:11>Grafana stores NONE of the data</size>" <<plain>> as ds
+
+rectangle "Visualize" <<groupGood>> as viz {
+  rectangle "Query\n<size:11>PromQL, LogQL, SQL ...</size>" <<good>> as q
+  rectangle "Panel\n<size:11>time series, stat, gauge,</size>\n<size:11>table, heatmap, bar chart</size>" <<good>> as p
+  rectangle "Dashboard\n<size:11>panels + variables ($namespace)</size>\n<size:11>+ time range · saved as JSON</size>" <<good>> as d
+}
+
+rectangle "Alert" <<group>> as al {
+  rectangle "Alert rule\n<size:11>query + condition + 'for'</size>" as ar
+  rectangle "Notification policy\n<size:11>routes by labels</size>" as np
+  rectangle "Contact point\n<size:11>email · Slack · PagerDuty</size>" <<accent>> as cp
+}
+
+rectangle "Explore\n<size:11>ad-hoc queries, no dashboard</size>" <<muted>> as ex
+
+ds --> q
+q --> p
+p --> d
+ds --> ar
+ar --> np
+np --> cp
+ds --> ex
+@enduml
