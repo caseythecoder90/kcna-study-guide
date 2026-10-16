@@ -59,3 +59,16 @@ argocd proj list
 kubectl -n guestbook scale deploy guestbook-ui --replicas=4       # reverted by selfHeal
 kubectl delete namespace guestbook                                # the course's demo: recreated from Git
 ```
+
+## Argo Workflows (chapter [07-03](../07-cloud-native-application-delivery/03-argo-workflows-and-the-argo-family.md))
+
+```bash
+kubectl create namespace argo
+kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v4.1.5/quick-start-minimal.yaml
+argo submit -n argo --watch parallel-dag.yaml            # examples/argo-workflows/
+argo list -n argo
+argo get -n argo @latest
+argo logs -n argo @latest
+argo template list -n argo ; argo cron list -n argo
+kubectl -n argo port-forward svc/argo-server 2746:2746   # UI (self-signed HTTPS)
+```
