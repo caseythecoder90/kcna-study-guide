@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title kubectl top is just a client of the metrics.k8s.io API
+
+rectangle "Every node" <<group>> as node {
+  rectangle "kubelet\n<size:11>cAdvisor / CRI stats</size>\n<size:11>/metrics/resource endpoint</size>" as kubelet
+}
+
+rectangle "metrics-server\n<size:11>scrapes every kubelet (default 15 s)</size>\n<size:11>keeps only recent samples, in memory</size>\n<size:11>no history, no storage</size>" <<good>> as ms
+
+rectangle "kube-apiserver\n<size:11>aggregation layer</size>\n<size:11>APIService v1beta1.metrics.k8s.io</size>" <<accent>> as api
+
+rectangle "Clients of /apis/metrics.k8s.io/v1beta1" <<group>> as clients {
+  rectangle "kubectl top node | pod\n<size:11>reads NodeMetrics / PodMetrics</size>" <<plain>> as top
+  rectangle "HorizontalPodAutoscaler" <<plain>> as hpa
+  rectangle "VerticalPodAutoscaler" <<plain>> as vpa
+  top -[hidden]down-> hpa
+  hpa -[hidden]down-> vpa
+}
+
+kubelet --> ms : CPU + memory\nper node, Pod, container
+ms --> api : registers as\nan aggregated API
+api --> clients : GET .../nodes\nGET .../namespaces/<ns>/pods
+
+caption <i>CPU and memory only. For history, dashboards, custom metrics and alerting you need Prometheus (next chapter).</i>
+@enduml

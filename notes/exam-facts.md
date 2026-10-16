@@ -998,7 +998,18 @@
 
 ## 06 · Telemetry and Observability
 
-_Not started._
+| Fact | Value | Chapter |
+|---|---|---|
+| Observability, defined | The ability to **accurately measure a system's state** by examining its output — **telemetry** from **systems, components, processes and applications**. Monitoring watches predicted failures; observability answers unpredicted questions | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| The 3 pillars of observability | **Logs, metrics, traces.** **Alerts are NOT a pillar** — some count them as telemetry, but they are rules evaluated **over** the pillars that **proactively notify** a team (email, Slack, PagerDuty) | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| When to use each pillar | **Logs** → *what happened* (discrete events, error text). **Metrics** → *how much / how often* (trends, dashboards, autoscaling, **most alerts**). **Traces** → *where the time went* across services (end-to-end request lifecycle) | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| Logs | Many **formats** (plain text, structured JSON) · **adjustable verbosity** (TRACE, DEBUG, INFO, WARN, ERROR, FATAL; Kubernetes `-v=0..10`) · **often file based, but streaming exists** (containers → stdout/stderr → `/var/log/pods`) · can be routed through **syslog** (RFC 5424; severities 0–7) | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| Metric types (course) | **Gauge** — current level, up and down (memory used, running Pods). **Counter** — cumulative, **only increases** (total requests; resets on restart; read its rate). **Meter** — **rate** at which an event occurs (heartbeat; 1/5/15-min averages). **Histogram** — distribution in **buckets/bins** + count + sum → percentiles | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| Swap and IOPS | **Swap** = disk used as overflow RAM; rising swap = memory pressure; Kubernetes nodes traditionally ran with swap **off**. **IOPS** = input/output **operations per second** (≠ throughput MB/s ≠ latency) | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| Trace vocabulary | **Trace** = one request (trace ID). **Span** = one operation (span ID, parent ID, start/end, attributes); first = **root span**. **Context propagation** via **W3C `traceparent`** header (older: Zipkin `X-B3-*`). **Sampling** keeps a fraction | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| `kubectl top` | `kubectl top node`, `kubectl top pod [-A] [--containers] [--sort-by=cpu\|memory] [-l]` — current **CPU and memory only**; needs the **Metrics Server** | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| Metrics Server | Add-on that scrapes every **kubelet** (`/metrics/resource`; formerly the Summary API) every **15 s**, keeps recent samples **in memory only** (no history), and registers the aggregated API **`metrics.k8s.io`** (APIService `v1beta1.metrics.k8s.io`) → `NodeMetrics`, `PodMetrics`. **`kubectl top`, HPA and VPA are all clients of it** | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
+| OpenTracing / OpenTelemetry | Operate at the **application layer** (instrumentation in the code or an agent). **OpenTracing + OpenCensus merged into OpenTelemetry (2019)**; OpenTracing is **archived**. OTel = APIs, SDKs, auto-instrumentation, **Collector**, protocol **OTLP**; backends: **Jaeger**, **Zipkin**, Tempo | [06-01](06-telemetry-and-observability/01-cloud-native-observability.md) |
 
 ## 07 · Cloud Native Application Delivery
 
