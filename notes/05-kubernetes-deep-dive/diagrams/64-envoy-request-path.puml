@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title One request through an Envoy-based mesh (Istio sidecar mode)
+
+rectangle "istiod (control plane)\n<size:11>translates VirtualService, DestinationRule,</size>\n<size:11>PeerAuthentication into Envoy config</size>\n<size:11>+ issues workload certificates</size>" <<accent>> as istiod
+
+rectangle "Pod: checkout" <<groupGood>> as pa {
+  rectangle "app\n<size:11>calls http://payments</size>" <<plain>> as a
+  rectangle "Envoy sidecar\n<size:11>routing · retries · timeouts</size>\n<size:11>rate limits · circuit breaking</size>" <<good>> as ea
+}
+
+rectangle "Pod: payments" <<groupGood>> as pb {
+  rectangle "Envoy sidecar\n<size:11>verifies the client certificate</size>\n<size:11>enforces AuthorizationPolicy</size>" <<good>> as eb
+  rectangle "app" <<plain>> as b
+}
+
+rectangle "Prometheus · Grafana\nJaeger" <<muted>> as tel
+
+a --> ea : plain HTTP\n(intercepted)
+ea --> eb : <b>mTLS</b>\nboth sides prove identity
+eb --> b : plain HTTP\n(localhost)
+istiod --> ea : xDS
+istiod --> eb : xDS
+ea --> tel : metrics, logs, spans
+eb --> tel
+
+caption <i>Envoy never decides policy on its own: it does whatever the control plane's xDS config says. The apps' code is unchanged.</i>
+@enduml
