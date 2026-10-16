@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Push-based CI/CD vs pull-based GitOps
+
+rectangle "Push: the pipeline deploys" <<groupBad>> as push {
+  rectangle "git push" <<plain>> as p1
+  rectangle "CI/CD pipeline\n<size:11>build · test · kubectl apply / helm upgrade</size>\n<size:11>holds CLUSTER CREDENTIALS</size>" <<bad>> as p2
+  rectangle "Cluster" <<muted>> as p3
+  p1 --> p2
+  p2 --> p3 : pushes changes IN\n(one-shot, from outside)
+  label "<size:11>Nothing notices later drift: a manual kubectl edit stays until the next deploy</size>" as pl
+  p3 -[hidden]down-> pl
+}
+
+rectangle "Pull: an agent in the cluster deploys (GitOps)" <<groupGood>> as pull {
+  rectangle "git push / merge PR\n<size:11>Git = single source of truth</size>" <<plain>> as g1
+  rectangle "Git repo\n<size:11>desired state, versioned</size>" <<plain>> as g2
+  rectangle "GitOps agent IN the cluster\n<size:11>Argo CD · Flux</size>\n<size:11>pulls, compares, applies</size>" <<good>> as g3
+  rectangle "Cluster" <<muted>> as g4
+  g1 --> g2
+  g3 --> g2 : pulls (poll / webhook)
+  g3 --> g4 : reconciles continuously
+  label "<size:11>No credentials leave the cluster; drift is detected and reverted</size>" as gl
+  g4 -[hidden]down-> gl
+}
+
+push -[hidden]right-> pull
+@enduml

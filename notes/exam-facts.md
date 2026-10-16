@@ -1037,4 +1037,12 @@
 
 ## 07 · Cloud Native Application Delivery
 
-_Not started._
+| Fact | Value | Chapter |
+|---|---|---|
+| Cloud native application delivery (course) | **Fast paced** ← containerization · **scalable** ← microservices · **resilient** ← dynamic orchestration | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| GitOps, defined | Using **Git as the single source of truth** to manage **infrastructure and applications**; an **in-cluster agent pulls** the desired state and **continuously reconciles** the cluster to it. Term coined by **Weaveworks, 2017**. "Great for Kubernetes cluster management" | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| OpenGitOps principles | **1 Declarative** · **2 Versioned and immutable** · **3 Pulled automatically** · **4 Continuously reconciled**. OpenGitOps = **CNCF Sandbox** (Jan 2021), GitOps Working Group | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| Push vs pull CD | **Push** = CI pipeline runs `kubectl apply`/`helm upgrade` with **cluster credentials outside the cluster**; drift unnoticed. **Pull (GitOps)** = agent **in the cluster** pulls from Git; credentials stay in; drift detected and reverted; rollback = `git revert`. CI still builds and pushes images | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| What breaches GitOps | **Manual, out-of-band changes to the live cluster** (`kubectl edit/apply/scale`, dashboard clicks) instead of committing to Git → **drift**, reverted by self-heal | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| GitOps self-heal vs Kubernetes self-heal | Kubernetes heals toward **etcd** (deleted Pod → recreated). GitOps heals toward **Git** — restores a deleted **Deployment, Service or whole namespace**. Restores configuration, **not data** | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
+| Secrets in GitOps | Never plaintext in Git: **Sealed Secrets**, **SOPS**, **External Secrets Operator** | [07-01](07-cloud-native-application-delivery/01-application-delivery-and-gitops.md) |
