@@ -1,0 +1,34 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Telemetry: the three pillars, and where alerts fit
+
+rectangle "Sources of output" <<group>> as src {
+  rectangle "Systems\n<size:11>nodes, OS, kernel</size>" <<plain>> as s1
+  rectangle "Components\n<size:11>kubelet, API server, etcd</size>" <<plain>> as s2
+  rectangle "Processes\n<size:11>containers, daemons</size>" <<plain>> as s3
+  rectangle "Applications\n<size:11>your services</size>" <<plain>> as s4
+  s1 -[hidden]down-> s2
+  s2 -[hidden]down-> s3
+  s3 -[hidden]down-> s4
+}
+
+rectangle "The 3 pillars of observability" <<groupGood>> as pillars {
+  rectangle "<b>Logs</b>\n<size:11>discrete events, as text: what happened</size>\n<size:11>levels · formats · files or streams · syslog</size>" <<good>> as l
+  rectangle "<b>Metrics</b>\n<size:11>numbers measured over time: how much, how often</size>\n<size:11>gauges · counters · meters · histograms</size>" <<good>> as m
+  rectangle "<b>Traces</b>\n<size:11>one request's end-to-end path: where the time went</size>\n<size:11>spans across services</size>" <<good>> as t
+  l -[hidden]down-> m
+  m -[hidden]down-> t
+}
+
+rectangle "<b>Alerts</b>\n<size:11>NOT a pillar: rules evaluated</size>\n<size:11>OVER the pillars' data</size>" <<accent>> as a
+rectangle "Team\n<size:11>email · Slack · PagerDuty</size>" <<muted>> as team
+
+src --> pillars : telemetry
+l --> a
+m --> a : most alerts
+t --> a
+a --> team : proactive notification
+
+caption <i>Observability = accurately measuring a system's state from the telemetry it emits. Some definitions count alerts as telemetry; the course does not count them as a pillar.</i>
+@enduml

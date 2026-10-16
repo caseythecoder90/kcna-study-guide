@@ -707,7 +707,18 @@ curl -i localhost:8080/actuator/health/readiness    # Spring Boot: 200 UP / 503 
 
 ## 5. Observability tooling
 
-_Section 6._
+### `kubectl top` and the Metrics Server (chapter 06-01)
+
+```bash
+kubectl top node                                   # current CPU/memory per node
+kubectl top pod -A --sort-by=memory                # all namespaces, biggest first
+kubectl top pod <pod> --containers                 # per container
+kubectl get apiservice v1beta1.metrics.k8s.io      # is the Metrics API registered and Available?
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes | jq .
+kubectl get --raw /apis/metrics.k8s.io/v1beta1/namespaces/default/pods | jq .
+```
+
+**`kubectl top` is a client of `metrics.k8s.io`, served by the Metrics Server through the API aggregation layer — CPU and memory now, no history.** Full reference: [`commands/observability.md`](commands/observability.md).
 
 ## 6. Delivery tooling (Helm, GitOps)
 

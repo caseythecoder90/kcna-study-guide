@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title One trace = one request; each span = one operation in it
+
+rectangle "Request path (context propagated in the W3C traceparent header)" <<group>> as path {
+  rectangle "frontend" as f
+  rectangle "checkout" as c
+  rectangle "payments" as p
+  rectangle "inventory" as i
+  database "orders DB" as db
+  f --> c : traceparent: 00-<trace-id>-<parent-span-id>-01
+  c --> p
+  c --> i
+  i --> db
+}
+
+rectangle "The same trace in a backend (Jaeger, Zipkin, Grafana Tempo) — a waterfall" <<groupGood>> as wf {
+  rectangle "GET /order   frontend   ████████████████████████████████████  420 ms   <size:11>root span</size>" <<plain>> as w1
+  rectangle "   POST /checkout   checkout     ██████████████████████████████  380 ms" <<plain>> as w2
+  rectangle "      charge   payments                 ██████████████████████  290 ms   <size:11><- the slow hop</size>" <<bad>> as w3
+  rectangle "      reserve   inventory     ████████  60 ms" <<plain>> as w4
+  rectangle "         SELECT   orders DB      ███  20 ms" <<plain>> as w5
+  w1 -[hidden]down-> w2
+  w2 -[hidden]down-> w3
+  w3 -[hidden]down-> w4
+  w4 -[hidden]down-> w5
+}
+
+path -[hidden]down-> wf
+
+caption <i>Every span carries the same trace ID, its own span ID, its parent's ID, start and end times, and attributes. Instrumentation lives in the application (OpenTelemetry SDK or agent), or in a mesh proxy.</i>
+@enduml
