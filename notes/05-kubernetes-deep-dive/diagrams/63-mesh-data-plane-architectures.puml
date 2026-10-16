@@ -1,0 +1,30 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Service mesh: one control plane, two ways to build the data plane
+
+rectangle "Control plane — the brain\n<size:11>config, certificates for mTLS, policy · pushes config to every proxy, never touches requests</size>\n<size:11>Istio: istiod · Linkerd: destination + identity + proxy-injector</size>" <<accent>> as cp
+
+rectangle "Sidecar data plane — a proxy in EVERY Pod" <<groupGood>> as side {
+  rectangle "Node 1" <<group>> as n1 {
+    rectangle "Pod\n<size:11>app container | sidecar proxy</size>" <<good>> as p1
+    rectangle "Pod\n<size:11>app container | sidecar proxy</size>" <<good>> as p2
+    p1 -[hidden]down-> p2
+  }
+  label "<size:11>Istio (classic), Linkerd · finest control, full L7 per workload</size>\n<size:11>cost: one proxy's CPU/memory per Pod, injected into the Pod spec</size>" as sl
+  n1 -[hidden]down-> sl
+}
+
+rectangle "Per-node (host) proxy data plane — one proxy per NODE" <<group>> as host {
+  rectangle "Node 1" <<group>> as n2 {
+    rectangle "node proxy\n<size:11>DaemonSet</size>" as np
+    rectangle "app Pod · app Pod · app Pod\n<size:11>no sidecars</size>" <<plain>> as ap
+    np -[hidden]down-> ap
+  }
+  label "<size:11>Traefik Mesh · Istio ambient (ztunnel) · Cilium</size>\n<size:11>simpler to run, fewer moving parts; may offer fewer features</size>" as hl
+  n2 -[hidden]down-> hl
+}
+
+side -[hidden]right-> host
+cp --> side : config (xDS)
+cp --> host : config
+@enduml
