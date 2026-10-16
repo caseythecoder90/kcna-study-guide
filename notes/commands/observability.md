@@ -37,3 +37,54 @@ kubectl logs <pod> [-c <container>] [-f] [--tail=50] [--since=10m] [-p]   # -p =
 kubectl logs -l app=web --all-containers --prefix                          # many Pods at once
 ls /var/log/pods/                                                          # on the node: where the runtime writes stdout/stderr
 ```
+
+## kube-prometheus-stack (chapter [06-03](../06-telemetry-and-observability/03-hands-on-with-prometheus.md))
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm search repo prometheus-community/kube-prometheus-stack -l                # every version
+helm install my-observability prometheus-community/kube-prometheus-stack --version 55.5.0
+helm install mon prometheus-community/kube-prometheus-stack -n monitoring --create-namespace -f values.yaml
+
+kubectl get pods -l "release=my-observability"
+kubectl get all -A | grep my-observability
+kubectl get svc                                                               # 9090 prometheus · 9093 alertmanager · 9100 node-exporter · 80 grafana
+kubectl get statefulsets,daemonsets
+kubectl get crd | grep monitoring.coreos.com
+kubectl get servicemonitors,podmonitors,prometheusrules -A
+```
+
+### Access
+
+```bash
+kubectl port-forward svc/my-observability-kube-prom-prometheus 9090:9090
+kubectl port-forward svc/my-observability-kube-prom-alertmanager 9093:9093
+kubectl port-forward svc/my-observability-grafana 3000:80
+kubectl get secret my-observability-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo   # user: admin
+```
+
+### Generate something to watch
+
+```bash
+for i in {1..10}; do kubectl run nginx${i} --image=nginx; sleep 30; done
+for i in {1..10}; do kubectl delete pod nginx${i}; done
+```
+
+### PromQL to try
+
+```promql
+kube_pod_ips                                                   # kube-state-metrics, one series per Pod
+count by (namespace) (kube_pod_info)
+sum by (verb) (rate(apiserver_request_total[5m]))
+topk(5, sum by (pod) (rate(container_cpu_usage_seconds_total[5m])))
+kube_deployment_status_replicas_available < kube_deployment_spec_replicas
+up == 0
+```
+
+### Remove
+
+```bash
+helm uninstall my-observability
+kubectl get crd -o name | grep monitoring.coreos.com | xargs kubectl delete   # CRDs survive uninstall
+```

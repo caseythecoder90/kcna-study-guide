@@ -1,0 +1,32 @@
+# Scrape a Spring Boot app that exposes /actuator/prometheus.
+# The app needs: io.micrometer:micrometer-registry-prometheus on the classpath and
+#   management.endpoints.web.exposure.include: health,info,prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: shop
+  labels:
+    app: orders                  # the ServiceMonitor selects the SERVICE by this label
+spec:
+  selector:
+    app: orders
+  ports:
+    - name: http                 # the ServiceMonitor refers to the port by NAME
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orders
+  namespace: shop
+  # labels: {release: mon}       # needed ONLY if serviceMonitorSelectorNilUsesHelmValues is true (chart default)
+spec:
+  selector:
+    matchLabels:
+      app: orders
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s

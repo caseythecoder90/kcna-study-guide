@@ -1,0 +1,33 @@
+# kube-prometheus-stack values for a small homelab / k3s cluster.
+#   helm install mon prometheus-community/kube-prometheus-stack -n monitoring --create-namespace -f values-homelab.yaml
+prometheus:
+  prometheusSpec:
+    retention: 7d                      # chart default 10d (Prometheus binary default 15d)
+    retentionSize: 8GB                 # whichever limit is hit first
+    # Select EVERY ServiceMonitor / PodMonitor / PrometheusRule, not only ones labelled release=<release>
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    storageSpec:                       # without this the TSDB lives in an emptyDir and dies with the Pod
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi            # default StorageClass (k3s: local-path)
+
+grafana:
+  persistence:
+    enabled: true                      # keep dashboards you build in the UI
+    size: 1Gi
+
+# k3s does not expose these components' metrics endpoints the kubeadm way;
+# without this their targets show DOWN and their alerts fire forever.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false

@@ -720,6 +720,22 @@ kubectl get --raw /apis/metrics.k8s.io/v1beta1/namespaces/default/pods | jq .
 
 **`kubectl top` is a client of `metrics.k8s.io`, served by the Metrics Server through the API aggregation layer — CPU and memory now, no history.** Full reference: [`commands/observability.md`](commands/observability.md).
 
+### Prometheus with kube-prometheus-stack (chapter 06-03)
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm search repo prometheus-community/kube-prometheus-stack -l            # all chart versions
+helm install my-observability prometheus-community/kube-prometheus-stack --version 55.5.0
+kubectl get pods -l "release=my-observability"
+kubectl port-forward svc/my-observability-kube-prom-prometheus 9090:9090    # Prometheus UI
+kubectl port-forward svc/my-observability-grafana 3000:80                   # Grafana UI
+kubectl get secret my-observability-grafana -o jsonpath='{.data.admin-password}' | base64 -d
+kubectl get servicemonitors,podmonitors,prometheusrules -A                  # operator CRDs
+for i in {1..10}; do kubectl run nginx${i} --image=nginx; sleep 30; done    # watch kube_pod_ips grow
+```
+
+**Prometheus and Alertmanager are operator-managed StatefulSets, node-exporter a DaemonSet; ServiceMonitors say what to scrape.** Full reference: [`commands/observability.md`](commands/observability.md).
+
 ## 6. Delivery tooling (Helm, GitOps)
 
 ### Helm (chapter 05-21)

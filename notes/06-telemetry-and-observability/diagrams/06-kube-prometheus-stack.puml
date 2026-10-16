@@ -1,0 +1,29 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title helm install my-observability prometheus-community/kube-prometheus-stack
+
+rectangle "kube-prom-operator (Deployment)\n<size:11>watches monitoring.coreos.com CRDs and turns them into running Prometheus / Alertmanager + config</size>" <<accent>> as op
+
+rectangle "Custom resources (what you edit)" <<group>> as crs {
+  rectangle "Prometheus\nAlertmanager" <<plain>> as cr1
+  rectangle "ServiceMonitor · PodMonitor\n<size:11>WHAT to scrape</size>" <<plain>> as cr2
+  rectangle "PrometheusRule\n<size:11>alerting + recording rules</size>" <<plain>> as cr3
+  cr1 -[hidden]right-> cr2
+  cr2 -[hidden]right-> cr3
+}
+
+rectangle "Created by the operator / chart (what runs)" <<groupGood>> as run {
+  rectangle "Prometheus\n<size:11>StatefulSet · svc :9090</size>" <<good>> as prom
+  rectangle "Alertmanager\n<size:11>StatefulSet · svc :9093</size>" <<good>> as am
+  rectangle "Grafana\n<size:11>Deployment · svc :80 → 3000</size>" <<good>> as graf
+  rectangle "kube-state-metrics\n<size:11>Deployment · :8080</size>" <<good>> as ksm
+  rectangle "node-exporter\n<size:11>DaemonSet · :9100 · every node</size>" <<good>> as ne
+  prom -[hidden]right-> am
+  am -[hidden]right-> graf
+  graf -[hidden]right-> ksm
+  ksm -[hidden]right-> ne
+}
+
+crs --> op : watched
+op --> run : creates and configures
+@enduml
