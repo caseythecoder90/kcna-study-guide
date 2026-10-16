@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Flux = the GitOps Toolkit: small controllers, each with its own CRDs (namespace flux-system)
+
+rectangle "Sources" <<group>> as src {
+  rectangle "Git repo" <<plain>> as git
+  rectangle "Helm repo / OCI registry" <<plain>> as helmrepo
+  rectangle "Container registry\n<size:11>new image tags</size>" <<plain>> as reg
+}
+
+rectangle "GitOps Toolkit" <<groupGood>> as gtk {
+  rectangle "source-controller\n<size:11>GitRepository · OCIRepository</size>\n<size:11>HelmRepository · HelmChart · Bucket</size>\n<size:11>fetches + packages ARTIFACTS</size>" <<good>> as sc
+  rectangle "kustomize-controller\n<size:11>Kustomization (Flux CRD)</size>\n<size:11>builds + applies YAML/Kustomize, prunes,</size>\n<size:11>health checks, SOPS decryption</size>" <<good>> as kc
+  rectangle "helm-controller\n<size:11>HelmRelease</size>\n<size:11>declarative helm install / upgrade / rollback</size>" <<good>> as hc
+  rectangle "notification-controller\n<size:11>Provider · Alert · Receiver</size>\n<size:11>Slack/Teams out · Git webhooks in</size>" <<good>> as nc
+  rectangle "image-reflector + image-automation\n<size:11>ImageRepository · ImagePolicy</size>\n<size:11>ImageUpdateAutomation: commits new tags BACK to Git</size>" <<plain>> as ic
+}
+
+rectangle "Cluster" <<accent>> as k8s
+
+git --> sc
+helmrepo --> sc
+sc --> kc : artifact
+sc --> hc : chart
+kc --> k8s : apply + reconcile
+hc --> k8s : release
+reg --> ic : watch tags
+@enduml

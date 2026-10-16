@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Centralized vs decentralized: the usual way each tool is deployed
+
+rectangle "Argo CD: hub and spoke (centralized)" <<group>> as argo {
+  rectangle "Management cluster\n<size:11>one Argo CD · one UI</size>\n<size:11>holds credentials to every cluster</size>" <<accent>> as hub
+  rectangle "dev cluster" <<muted>> as a1
+  rectangle "staging cluster" <<muted>> as a2
+  rectangle "prod cluster" <<muted>> as a3
+  hub --> a1 : pushes from hub
+  hub --> a2
+  hub --> a3
+}
+
+rectangle "Flux: one instance per cluster (decentralized)" <<groupGood>> as flux {
+  rectangle "Git: fleet repo\n<size:11>clusters/dev · clusters/staging · clusters/prod</size>" <<plain>> as fgit
+  rectangle "dev cluster\n<size:11>its own Flux</size>" <<good>> as f1
+  rectangle "staging cluster\n<size:11>its own Flux</size>" <<good>> as f2
+  rectangle "prod cluster\n<size:11>its own Flux</size>" <<good>> as f3
+  f1 --> fgit : pulls its path
+  f2 --> fgit
+  f3 --> fgit
+}
+
+argo -[hidden]right-> flux
+
+caption <i>Both can be run either way: Argo CD can be installed per cluster, and one Flux can target remote clusters through kubeconfig Secrets.</i>
+@enduml

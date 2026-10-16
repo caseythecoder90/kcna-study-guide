@@ -812,3 +812,13 @@ argo submit -n argo --watch <workflow>.yaml ; argo list -n argo ; argo logs -n a
 ```
 
 **Argo Workflows orchestrates parallel jobs (each step a Pod, steps or DAG); it is a separate tool from Argo CD.**
+
+### Flux (chapter 07-04)
+
+```bash
+flux bootstrap github --owner=$GITHUB_USER --repository=fleet-infra --branch=main --path=./clusters/my-cluster --personal
+flux get kustomizations -A ; flux get helmreleases -A
+flux reconcile kustomization <name> --with-source
+```
+
+**Flux = the GitOps Toolkit (source-, kustomize-, helm-, notification-controller); automatic, interval-based, pull reconciliation.**
