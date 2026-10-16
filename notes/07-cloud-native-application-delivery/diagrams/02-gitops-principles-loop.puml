@@ -1,0 +1,17 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title The four OpenGitOps principles as one loop
+
+rectangle "1. Declarative\n<size:11>desired state written as data:</size>\n<size:11>YAML, Helm, Kustomize</size>" <<good>> as d
+rectangle "2. Versioned and immutable\n<size:11>stored in Git: every change is a commit,</size>\n<size:11>reviewed, auditable, revertible</size>" <<good>> as v
+rectangle "3. Pulled automatically\n<size:11>an agent fetches the desired state</size>\n<size:11>from the source itself</size>" <<good>> as p
+rectangle "4. Continuously reconciled\n<size:11>observe actual state · compare</size>\n<size:11>· apply the difference · repeat</size>" <<accent>> as r
+rectangle "Running cluster" <<muted>> as c
+
+d --> v : commit + merge
+v --> p
+p --> r
+r --> c : apply
+c --> r : observe (drift?)
+@enduml

@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Why Argo CD brought back a deleted namespace: two loops, two sources of truth
+
+rectangle "Git repository\n<size:11>the desired state of the APPLICATION</size>" <<accent>> as git
+
+rectangle "Loop 2: GitOps (Argo CD / Flux)" <<groupGood>> as outer {
+  rectangle "Compares Git with the live objects\n<size:11>Namespace, Deployment, Service, PVC missing?</size>\n<size:11>→ OutOfSync → re-apply from Git (self-heal)</size>" <<good>> as o1
+}
+
+rectangle "Kubernetes API / etcd\n<size:11>the desired state of each OBJECT</size>" <<plain>> as etcd
+
+rectangle "Loop 1: Kubernetes controllers" <<group>> as inner {
+  rectangle "Deployment → ReplicaSet → Pods\n<size:11>Pod deleted? recreate it</size>\n<size:11>Node lost? reschedule</size>" as i1
+}
+
+rectangle "Running containers" <<muted>> as run
+
+git --> o1
+o1 --> etcd : kubectl apply equivalent
+etcd --> i1
+i1 --> run
+
+caption <i>Delete a Pod: loop 1 fixes it. Delete the Deployment or the whole namespace: its desired state is gone from etcd, so loop 1 has nothing to restore. Only loop 2, reading Git, can recreate it.</i>
+@enduml
