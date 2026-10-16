@@ -736,6 +736,16 @@ for i in {1..10}; do kubectl run nginx${i} --image=nginx; sleep 30; done    # wa
 
 **Prometheus and Alertmanager are operator-managed StatefulSets, node-exporter a DaemonSet; ServiceMonitors say what to scrape.** Full reference: [`commands/observability.md`](commands/observability.md).
 
+
+### Grafana (chapter 06-04)
+
+```bash
+kubectl port-forward svc/my-observability-grafana 3000:80
+kubectl get secret my-observability-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+kubectl get configmaps -A -l grafana_dashboard=1      # dashboards-as-code picked up by the sidecar
+```
+
+**Grafana queries data sources (PromQL to Prometheus) and stores no metrics; dashboards are JSON.**
 ### Kubernetes cost observability (chapter 06-05)
 
 ```bash
