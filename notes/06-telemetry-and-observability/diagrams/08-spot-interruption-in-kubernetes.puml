@@ -1,0 +1,20 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title A Spot node being reclaimed, and how Kubernetes absorbs it
+
+rectangle "1. Running\n<size:11>Spot node joins the cluster</size>\n<size:11>you pay the current Spot price</size>\n<size:11>(set by long-term supply and demand)</size>" <<good>> as s1
+rectangle "2. AWS needs the capacity back\n<size:11>(or the price rises above your</size>\n<size:11>optional max price)</size>" <<muted>> as s2
+rectangle "3. Interruption notice\n<size:11>2 minutes before (AWS)</size>\n<size:11>~30 s on GCP and Azure</size>" <<bad>> as s3
+rectangle "4. Handler reacts\n<size:11>Karpenter or Node Termination Handler</size>\n<size:11>cordon + drain the node</size>\n<size:11>(Eviction API, respects PDBs)</size>" <<accent>> as s4
+rectangle "5. Pods rescheduled\n<size:11>ReplicaSets recreate Pods elsewhere</size>\n<size:11>autoscaler adds a replacement node</size>" <<good>> as s5
+rectangle "6. Instance is\nterminated · stopped · hibernated\n<size:11>(your chosen behaviour)</size>" <<muted>> as s6
+
+s1 --> s2
+s2 --> s3
+s3 --> s4
+s4 --> s5
+s5 --> s6
+
+caption <i>Spot works when losing any one node is routine: several replicas, PodDisruptionBudgets, no state on the node, graceful shutdown well under 2 minutes.</i>
+@enduml

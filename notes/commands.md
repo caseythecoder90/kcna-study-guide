@@ -736,6 +736,20 @@ for i in {1..10}; do kubectl run nginx${i} --image=nginx; sleep 30; done    # wa
 
 **Prometheus and Alertmanager are operator-managed StatefulSets, node-exporter a DaemonSet; ServiceMonitors say what to scrape.** Full reference: [`commands/observability.md`](commands/observability.md).
 
+### Kubernetes cost observability (chapter 06-05)
+
+```bash
+helm repo add opencost https://opencost.github.io/opencost-helm-chart
+helm install opencost opencost/opencost -n opencost --create-namespace \
+  --set opencost.prometheus.internal.namespaceName=monitoring \
+  --set opencost.prometheus.internal.serviceName=mon-kube-prom-prometheus \
+  --set opencost.prometheus.internal.port=9090
+kubectl -n opencost port-forward svc/opencost 9090:9090        # UI
+kubectl get nodes -L karpenter.sh/capacity-type,eks.amazonaws.com/capacityType   # which nodes are Spot
+```
+
+**OpenCost (CNCF) / Kubecost allocate node cost to namespaces and workloads from Prometheus usage; label workloads with an owner so costs land on a team.**
+
 ## 6. Delivery tooling (Helm, GitOps)
 
 ### Helm (chapter 05-21)

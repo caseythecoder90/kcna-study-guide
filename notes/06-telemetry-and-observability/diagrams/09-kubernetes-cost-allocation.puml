@@ -1,0 +1,25 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title How Kubecost / OpenCost turn a cloud bill into per-team costs
+
+rectangle "Inputs" <<group>> as in {
+  rectangle "Prices\n<size:11>cloud pricing APIs or billing export</size>\n<size:11>(on-prem: a custom price sheet)</size>" <<plain>> as price
+  rectangle "Usage and requests\n<size:11>Prometheus: CPU, memory, GPU,</size>\n<size:11>storage, network per container</size>" <<plain>> as use
+  rectangle "Ownership\n<size:11>namespaces, labels, annotations</size>\n<size:11>(team, app, env, cost-center)</size>" <<plain>> as own
+  price -[hidden]right-> use
+  use -[hidden]right-> own
+}
+
+rectangle "Allocation engine\n<size:11>cost = max(request, usage) × price, per container</size>\n<size:11>+ shared costs (control plane, system Pods)</size>\n<size:11>+ IDLE = provisioned but unused</size>" <<accent>> as eng
+
+rectangle "Outputs" <<groupGood>> as out {
+  rectangle "Cost by namespace, Deployment,\nlabel, team (showback / chargeback)" <<good>> as o1
+  rectangle "Efficiency + right-sizing\nrecommendations" <<good>> as o2
+  rectangle "Budgets and alerts\n(spend anomalies)" <<good>> as o3
+  o1 -[hidden]right-> o2
+  o2 -[hidden]right-> o3
+}
+
+in --> eng
+eng --> out
+@enduml
