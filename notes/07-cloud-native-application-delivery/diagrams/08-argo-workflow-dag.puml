@@ -1,0 +1,21 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title An Argo Workflow as a DAG: every box is a Pod
+
+rectangle "checkout\n<size:11>git clone</size>" <<plain>> as a
+rectangle "unit-tests" <<good>> as b
+rectangle "lint" <<good>> as c
+rectangle "security-scan" <<good>> as d
+rectangle "build-image\n<size:11>kaniko / buildkit</size>" as e
+rectangle "push + update tag\n<size:11>commit to config repo</size>" <<accent>> as f
+
+a --> b
+a --> c
+a --> d
+b --> e
+c --> e
+d --> e
+e --> f
+
+caption <i>unit-tests, lint and security-scan depend only on checkout, so they run IN PARALLEL as three Pods; build-image waits for all three.</i>
+@enduml

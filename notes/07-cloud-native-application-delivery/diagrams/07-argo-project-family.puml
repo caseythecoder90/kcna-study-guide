@@ -1,0 +1,17 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title The Argo project: four tools, one family (CNCF Graduated)
+
+rectangle "Argo Events\n<size:11>EVENT-DRIVEN automation</size>\n<size:11>EventSource (webhook, Kafka, S3, cron, Git)</size>\n<size:11>→ Sensor → trigger</size>" <<plain>> as ev
+rectangle "Argo Workflows\n<size:11>WORKFLOW ENGINE: parallel jobs, each step a Pod</size>\n<size:11>Workflow CRD · steps or DAG · artifacts</size>\n<size:11>CI, data and ML pipelines</size>" <<good>> as wf
+rectangle "Argo CD\n<size:11>GitOps CONTINUOUS DELIVERY</size>\n<size:11>Application CRD · sync Git → cluster</size>" <<accent>> as cd
+rectangle "Argo Rollouts\n<size:11>PROGRESSIVE DELIVERY</size>\n<size:11>Rollout CRD · canary · blue-green</size>\n<size:11>analysis (Prometheus) → promote or abort</size>" <<good>> as ro
+rectangle "Git (config repo)" <<muted>> as git
+rectangle "Users / production traffic" <<muted>> as traffic
+
+ev --> wf : triggers\n(e.g. on git push)
+wf --> git : CI: build, test, push image,\ncommit new tag
+git --> cd : pulled
+cd --> ro : applies the Rollout
+ro --> traffic : shifts traffic step by step
+@enduml

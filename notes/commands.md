@@ -803,3 +803,12 @@ argocd app get <app> ; argocd app diff <app> ; argocd app sync <app> ; argocd ap
 ```
 
 **Manual sync is the default; `automated` = continuous deployment, `selfHeal` reverts drift, `prune` deletes what left Git.** Full reference: [`commands/gitops.md`](commands/gitops.md).
+
+### Argo Workflows (chapter 07-03)
+
+```bash
+kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v4.1.5/quick-start-minimal.yaml
+argo submit -n argo --watch <workflow>.yaml ; argo list -n argo ; argo logs -n argo @latest
+```
+
+**Argo Workflows orchestrates parallel jobs (each step a Pod, steps or DAG); it is a separate tool from Argo CD.**

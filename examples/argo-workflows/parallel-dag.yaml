@@ -1,0 +1,38 @@
+# A CI-shaped Argo Workflow: checkout, then three steps IN PARALLEL, then a build that waits for all three.
+# Every task becomes its own Pod.   argo submit -n argo --watch parallel-dag.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: ci-pipeline-
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      dag:
+        tasks:
+          - name: checkout
+            template: run
+            arguments: {parameters: [{name: msg, value: "git clone"}]}
+          - name: unit-tests
+            dependencies: [checkout]
+            template: run
+            arguments: {parameters: [{name: msg, value: "go test ./..."}]}
+          - name: lint
+            dependencies: [checkout]
+            template: run
+            arguments: {parameters: [{name: msg, value: "golangci-lint run"}]}
+          - name: security-scan
+            dependencies: [checkout]
+            template: run
+            arguments: {parameters: [{name: msg, value: "trivy fs ."}]}
+          - name: build-image
+            dependencies: [unit-tests, lint, security-scan]
+            template: run
+            arguments: {parameters: [{name: msg, value: "build and push image, then commit the new tag for Argo CD"}]}
+    - name: run
+      inputs:
+        parameters: [{name: msg}]
+      container:
+        image: busybox:1.36
+        command: [sh, -c]
+        args: ["echo '{{inputs.parameters.msg}}'; sleep 5"]
