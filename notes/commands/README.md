@@ -6,19 +6,7 @@ Both stay in sync — when a chapter adds new commands, update **both** the rele
 
 ## Index
 
-Files are created as the course reaches each topic. Planned layout:
-
-| File | What will be in it | Course section |
-|---|---|---|
-| `docker.md` | `docker run/ps/images/build/exec/logs`, image layers, registries | 3 |
-| `workloads.md` | Pods, Deployments, ReplicaSets, DaemonSets, StatefulSets, Jobs | 5 |
-| `services-networking.md` | Services, Ingress, DNS, NetworkPolicy | 5 |
-| `storage.md` | Volumes, PV/PVC, StorageClasses | 5 |
-| `security.md` | RBAC, ServiceAccounts, `auth can-i` | 5 |
-| `helm.md` | Repos, install/upgrade/rollback | 5, 7 |
-| `observability.md` | `kubectl top`, Prometheus/Grafana access | 6 |
-
-## Written so far
+One file per tool. All Kubernetes workload, networking, storage and security commands live in `kubectl-basics.md`, in course order.
 
 | File | What's in it | Chapter |
 |---|---|---|

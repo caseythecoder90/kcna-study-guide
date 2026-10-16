@@ -1,6 +1,6 @@
 # CNCF projects and standards — cheat sheet
 
-> One row per project, tool, or specification the course mentions. Category and maturity are what the exam asks about most ("which of these is a CNCF graduated project?", "which project provides X?"). Updated in the same PR as every chapter; the course's own *Product Summary Cheat Sheet* (section 9) is folded in here at the end.
+> One row per project, tool, or specification the course mentions. Category and maturity are what the exam asks about most ("which of these is a CNCF graduated project?", "which project provides X?"). Covers every project named in the seven course sections. The course's own *Product Summary Cheat Sheet* (section 9) is a useful cross-check: anything on it that's missing here is worth adding.
 >
 > Maturity levels, lowest to highest: **Sandbox → Incubating → Graduated** (plus **Archived**); the TOC moves projects between them by 2/3 vote — see [02-05](02-cloud-native-architecture/05-community-and-governance.md). "Not CNCF" marks tools that are widely used in the ecosystem but are not CNCF projects (Docker, Terraform, Ansible, ...). Check current status at https://landscape.cncf.io/ before the exam — projects move.
 

@@ -14,6 +14,7 @@ The notes follow James Spurin's Udemy course *"KCNA: Kubernetes and Cloud Native
 - `tools/diagrams/` holds the shared PlantUML theme (`kcna-theme.puml`) and the render script.
 - `notes/exam-facts.md` is the **global recall sheet**: every hard fact worth a multiple-choice question (dates, version numbers, ports, defaults, personas, acronyms). Grows with every chapter.
 - `notes/cncf-projects.md` is the **project cheat sheet**: every CNCF project, tool, or standard the course mentions, with its category, maturity level, and a one-line "what it does". Grows with every chapter.
+- `notes/exam-review.md` is the **final-review guide**: domain weights mapped to chapters, the confusable pairs, ports, and the practice-exam plan. Update it when a practice exam exposes a new confusable pair.
 - `notes/commands.md` is the global single-file command reference; `notes/commands/` holds per-topic command files. Same idea as the CKAD repo, lighter weight.
 - `README.md` (repo root) is the public landing page. `examples/` holds runnable manifests/Dockerfiles from the hands-on lectures.
 - `extras/` holds material beyond the exam (currently a Keycloak contributor starter guide). Not subject to the notes schema or the recall-sheet rule, but diagrams there still use the PlantUML pipeline (`!include ../../tools/diagrams/kcna-theme.puml` from `extras/diagrams/`).
