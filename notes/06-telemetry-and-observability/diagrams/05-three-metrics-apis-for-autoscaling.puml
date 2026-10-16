@@ -1,0 +1,28 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title What the HPA can read, and who serves each API
+
+rectangle "HorizontalPodAutoscaler" <<accent>> as hpa
+
+rectangle "metrics.k8s.io\n<size:11>Resource metrics: CPU, memory</size>\n<size:11>type: Resource</size>" <<group>> as r {
+  rectangle "metrics-server\n<size:11>(or Prometheus Adapter)</size>" <<plain>> as ms
+}
+rectangle "custom.metrics.k8s.io\n<size:11>metrics about Kubernetes objects</size>\n<size:11>type: Pods / Object</size>" <<groupGood>> as c {
+  rectangle "Prometheus Adapter\n<size:11>runs PromQL, e.g. requests/s per Pod</size>" <<good>> as pa
+}
+rectangle "external.metrics.k8s.io\n<size:11>metrics from outside the cluster</size>\n<size:11>type: External</size>" <<groupGood>> as e {
+  rectangle "Prometheus Adapter · KEDA\n<size:11>e.g. queue depth</size>" <<good>> as pe
+}
+
+rectangle "Prometheus" <<plain>> as prom
+rectangle "kubelets" <<plain>> as kub
+
+hpa --> r
+hpa --> c
+hpa --> e
+ms --> kub : scrape
+pa --> prom : query
+pe --> prom : query
+
+caption <i>All three are aggregated APIs registered with the kube-apiserver. The adapter translates Prometheus query results into Kubernetes metrics API responses.</i>
+@enduml
