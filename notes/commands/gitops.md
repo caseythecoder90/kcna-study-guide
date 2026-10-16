@@ -1,6 +1,6 @@
 # GitOps — commands
 
-Companion to section 7: [`07-02 Argo CD`](../07-cloud-native-application-delivery/02-argo-cd.md). Runnable lab: [`examples/argocd/`](../../examples/argocd/).
+Companion to section 7: [`07-02 Argo CD`](../07-cloud-native-application-delivery/02-argo-cd.md), [`07-03 Argo Workflows`](../07-cloud-native-application-delivery/03-argo-workflows-and-the-argo-family.md), [`07-04 Flux`](../07-cloud-native-application-delivery/04-flux-and-the-gitops-toolkit.md). Runnable labs: [`examples/argocd/`](../../examples/argocd/), [`examples/argo-workflows/`](../../examples/argo-workflows/), [`examples/flux/`](../../examples/flux/).
 
 ## Argo CD: install (the course's way)
 
@@ -71,4 +71,27 @@ argo get -n argo @latest
 argo logs -n argo @latest
 argo template list -n argo ; argo cron list -n argo
 kubectl -n argo port-forward svc/argo-server 2746:2746   # UI (self-signed HTTPS)
+```
+
+## Flux (chapter [07-04](../07-cloud-native-application-delivery/04-flux-and-the-gitops-toolkit.md))
+
+```bash
+brew install fluxcd/tap/flux                  # or: curl -s https://fluxcd.io/install.sh | sudo bash
+flux check --pre
+flux install                                  # controllers only (no Git self-management)
+flux bootstrap github --owner=$GITHUB_USER --repository=fleet-infra \
+  --branch=main --path=./clusters/my-cluster --personal     # Flux manages itself from Git
+
+flux get sources git -A
+flux get kustomizations -A
+flux get helmreleases -A
+flux reconcile source git flux-system
+flux reconcile kustomization <name> --with-source
+flux suspend kustomization <name> ; flux resume kustomization <name>
+flux logs --level=error
+flux tree kustomization flux-system
+flux create source git podinfo --url=https://github.com/stefanprodan/podinfo --branch=master --interval=1m --export
+flux create kustomization podinfo --source=GitRepository/podinfo --path=./kustomize --prune=true --interval=10m --export
+flux uninstall
+kubectl -n flux-system get gitrepositories,kustomizations,helmrepositories,helmreleases
 ```
