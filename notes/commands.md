@@ -791,4 +791,15 @@ kubectl version --client         # shows the embedded Kustomize version
 
 **`-k` takes a directory containing `kustomization.yaml`. Base = shared YAML, overlay = per-environment changes; Helm templates, Kustomize patches.** Full reference: [`commands/kustomize.md`](commands/kustomize.md).
 
-GitOps tooling: _Section 7._
+### Argo CD (chapter 07-02)
+
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d   # user admin
+kubectl -n argocd port-forward svc/argocd-server 8080:80
+argocd app create <app> --repo <url> --path <dir> --dest-server https://kubernetes.default.svc --dest-namespace <ns> --sync-policy automated --self-heal --auto-prune
+argocd app get <app> ; argocd app diff <app> ; argocd app sync <app> ; argocd app history <app>
+```
+
+**Manual sync is the default; `automated` = continuous deployment, `selfHeal` reverts drift, `prune` deletes what left Git.** Full reference: [`commands/gitops.md`](commands/gitops.md).

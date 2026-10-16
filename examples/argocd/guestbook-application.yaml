@@ -1,0 +1,24 @@
+# An Argo CD Application: the public guestbook example, auto-synced with prune + self-heal.
+#   kubectl apply -f guestbook-application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # deleting the Application also deletes its resources
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    targetRevision: HEAD
+    path: guestbook
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: guestbook
+  syncPolicy:
+    automated:
+      prune: true          # delete what is removed from Git
+      selfHeal: true       # revert kubectl edits and deletions
+    syncOptions:
+      - CreateNamespace=true

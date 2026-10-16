@@ -1,0 +1,37 @@
+# One Application per tenant namespace, generated from a list.
+# Uses the public guestbook app as a stand-in for "the billing microservice".
+#   kubectl apply -f tenants-applicationset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: guestbook-tenants
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - tenant: acme
+          - tenant: globex
+          - tenant: initech
+  template:
+    metadata:
+      name: 'guestbook-{{.tenant}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io   # removing a tenant also removes its resources
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps.git
+        targetRevision: HEAD
+        path: guestbook
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'tenant-{{.tenant}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

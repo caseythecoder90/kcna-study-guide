@@ -1,0 +1,35 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Two separate questions Argo CD answers about every Application
+
+rectangle "SYNC STATUS: does the cluster match Git?" <<group>> as sync {
+  rectangle "Synced\n<size:11>live == rendered Git manifests</size>" <<good>> as s1
+  rectangle "OutOfSync\n<size:11>something differs: a new commit,</size>\n<size:11>a manual edit, a deleted object</size>" <<bad>> as s2
+  s1 -[hidden]right-> s2
+}
+
+rectangle "HEALTH STATUS: is what's running working?" <<group>> as health {
+  rectangle "Healthy" <<good>> as h1
+  rectangle "Progressing\n<size:11>rollout under way</size>" as h2
+  rectangle "Degraded\n<size:11>failing / crash-looping</size>" <<bad>> as h3
+  rectangle "Suspended · Missing · Unknown" <<muted>> as h4
+  h1 -[hidden]right-> h2
+  h2 -[hidden]right-> h3
+  h3 -[hidden]right-> h4
+}
+
+rectangle "Sync policy: what to do when OutOfSync" <<groupGood>> as pol {
+  rectangle "Manual (default)\n<size:11>show the diff, wait for</size>\n<size:11>a human to click SYNC</size>" <<plain>> as m
+  rectangle "automated\n<size:11>apply new Git commits</size>\n<size:11>automatically</size>" <<good>> as a
+  rectangle "+ selfHeal: true\n<size:11>also revert LIVE changes</size>\n<size:11>(kubectl edit, deletions)</size>" <<good>> as sh
+  rectangle "+ prune: true\n<size:11>delete objects that were</size>\n<size:11>removed from Git</size>" <<good>> as pr
+  m -[hidden]right-> a
+  a -[hidden]right-> sh
+  sh -[hidden]right-> pr
+}
+
+sync -[hidden]down-> health
+health -[hidden]down-> pol
+
+caption <i>An app can be Synced but Degraded (Git describes a broken image), or OutOfSync but Healthy (someone scaled it by hand).</i>
+@enduml
