@@ -1,0 +1,27 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title Same EC2 instance, three ways to pay for it
+
+rectangle "On-Demand" <<groupBad>> as od {
+  rectangle "Pay per second (60 s minimum)\n<size:11>no commitment · start and stop any time</size>\n<size:11>the most expensive rate</size>" <<bad>> as od1
+  label "<size:11>Best for: spiky, short-lived or unknown workloads</size>\n<size:11>Trap: the On-Demand paradigm — everything, forever, at full price</size>" as odl
+  od1 -[hidden]down-> odl
+}
+
+rectangle "Reserved Instances / Savings Plans" <<group>> as ri {
+  rectangle "Commit for 1 or 3 years\n<size:11>up to 72% off On-Demand</size>\n<size:11>a BILLING discount, not a specific machine</size>" as ri1
+  label "<size:11>Best for: the steady baseline that runs 24/7</size>\n<size:11>Risk: paying for a commitment you stop using</size>" as ril
+  ri1 -[hidden]down-> ril
+}
+
+rectangle "Spot" <<groupGood>> as sp {
+  rectangle "Spare EC2 capacity\n<size:11>up to 90% off On-Demand</size>\n<size:11>can be reclaimed with a 2-minute warning</size>" <<good>> as sp1
+  label "<size:11>Best for: stateless, fault-tolerant, flexible work</size>\n<size:11>Risk: interruption, or no capacity available</size>" as spl
+  sp1 -[hidden]down-> spl
+}
+
+od -[hidden]right-> ri
+ri -[hidden]right-> sp
+
+caption <i>A typical mix: Reserved/Savings Plans for the baseline, Spot for the elastic and fault-tolerant part, On-Demand for whatever is left.</i>
+@enduml

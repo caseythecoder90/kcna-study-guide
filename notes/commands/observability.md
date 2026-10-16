@@ -88,3 +88,21 @@ up == 0
 helm uninstall my-observability
 kubectl get crd -o name | grep monitoring.coreos.com | xargs kubectl delete   # CRDs survive uninstall
 ```
+
+## Cost observability (chapter [06-05](../06-telemetry-and-observability/05-cost-management.md))
+
+```bash
+# OpenCost, reading the kube-prometheus-stack Prometheus from 06-03 (release "mon" in namespace "monitoring")
+helm repo add opencost https://opencost.github.io/opencost-helm-chart
+helm repo update
+helm install opencost opencost/opencost -n opencost --create-namespace \
+  --set opencost.prometheus.internal.namespaceName=monitoring \
+  --set opencost.prometheus.internal.serviceName=mon-kube-prom-prometheus \
+  --set opencost.prometheus.internal.port=9090
+kubectl -n opencost port-forward svc/opencost 9090:9090         # UI on :9090, API on :9003
+
+# Spot capacity
+kubectl get nodes -L karpenter.sh/capacity-type,eks.amazonaws.com/capacityType
+kubectl taint nodes <spot-node> lifecycle=spot:NoSchedule        # only tolerating workloads land here
+kubectl get pdb -A                                               # what a Spot drain must respect
+```
