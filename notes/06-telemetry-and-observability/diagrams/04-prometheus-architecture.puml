@@ -1,0 +1,39 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Prometheus: pull, store, query, alert, and Grafana on top
+
+rectangle "Targets expose /metrics (text format)" <<group>> as targets {
+  rectangle "Your apps\n<size:11>client library / Micrometer</size>\n<size:11>/actuator/prometheus</size>" <<plain>> as app
+  rectangle "Exporters\n<size:11>node-exporter :9100 (hardware/OS)</size>\n<size:11>kube-state-metrics (object state)</size>" <<plain>> as exp
+  rectangle "Kubernetes components\n<size:11>API server, kubelet + cAdvisor, CoreDNS</size>" <<plain>> as k8s
+  app -[hidden]down-> exp
+  exp -[hidden]down-> k8s
+}
+
+rectangle "Short-lived jobs" <<plain>> as job
+rectangle "Pushgateway :9091\n<size:11>holds pushed metrics</size>" <<muted>> as pgw
+
+rectangle "Prometheus server :9090" <<groupGood>> as prom {
+  rectangle "Service discovery\n<size:11>Kubernetes API, static config</size>" <<plain>> as sd
+  rectangle "Retrieval\n<size:11>scrapes every target on an interval (PULL)</size>" <<good>> as ret
+  database "TSDB\n<size:11>local, on disk</size>\n<size:11>default retention 15d</size>" as tsdb
+  rectangle "PromQL engine + HTTP API\n<size:11>+ alerting and recording rules</size>" <<good>> as q
+  sd --> ret : targets
+  ret --> tsdb : samples
+  tsdb --> q
+}
+
+rectangle "Alertmanager :9093\n<size:11>dedupe · group · silence · route</size>" <<accent>> as am
+rectangle "email · Slack · PagerDuty" <<muted>> as notify
+rectangle "Grafana :3000\n<size:11>dashboards (PromQL queries)</size>" <<accent>> as graf
+rectangle "Prometheus Adapter\n<size:11>custom.metrics.k8s.io → HPA</size>" <<plain>> as adapt
+
+job --> pgw : push
+targets --> ret : scraped (pull)
+pgw --> ret : scraped (pull)
+q --> am : firing alerts
+am --> notify
+q --> graf : PromQL
+q --> adapt : PromQL
+@enduml
