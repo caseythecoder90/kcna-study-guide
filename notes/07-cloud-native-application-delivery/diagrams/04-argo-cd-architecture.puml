@@ -1,0 +1,32 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+left to right direction
+title Argo CD inside the cluster (namespace argocd)
+
+rectangle "Users" <<group>> as users {
+  rectangle "Web UI · argocd CLI\n<size:11>gRPC / REST</size>" <<plain>> as ui
+  rectangle "Git webhook\n<size:11>(optional: instant refresh)</size>" <<plain>> as hook
+}
+
+rectangle "Git repositories\n<size:11>plain YAML · Helm · Kustomize · Jsonnet</size>" <<plain>> as git
+
+rectangle "Argo CD" <<groupGood>> as argo {
+  rectangle "argocd-server (Deployment)\n<size:11>API + Web UI, RBAC, SSO via Dex</size>\n<size:11>Service :80/:443</size>" <<good>> as srv
+  rectangle "argocd-repo-server (Deployment)\n<size:11>clones Git, RENDERS manifests</size>\n<size:11>(helm template, kustomize build) :8081</size>" <<good>> as repo
+  rectangle "argocd-application-controller (StatefulSet)\n<size:11>compares LIVE vs TARGET state</size>\n<size:11>sets Synced/OutOfSync + health, SYNCS</size>" <<accent>> as ctl
+  rectangle "argocd-redis :6379\n<size:11>cache</size>" <<plain>> as redis
+  rectangle "applicationset-controller\n<size:11>ApplicationSet → many Applications</size>" <<plain>> as aps
+  rectangle "notifications-controller\n<size:11>Slack, email on sync events</size>" <<plain>> as notif
+  rectangle "dex-server\n<size:11>SSO: OIDC, GitHub, LDAP</size>" <<plain>> as dex
+}
+
+rectangle "Kubernetes API\n<size:11>this cluster or remote clusters</size>" <<muted>> as k8s
+
+ui --> srv
+hook --> srv
+srv --> repo
+ctl --> repo : "desired manifests?"
+repo --> git : fetch
+ctl --> k8s : watch live state\n+ apply on sync
+ctl --> redis
+@enduml

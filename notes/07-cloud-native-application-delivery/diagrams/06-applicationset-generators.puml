@@ -1,0 +1,23 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+title ApplicationSet: one template × a generator = many Applications
+
+rectangle "ApplicationSet  billing" <<accent>> as aps
+rectangle "Generator (list · cluster · git · matrix · SCM · pull request)\n<size:11>list: [acme, globex, initech]   →   {{.tenant}}</size>" <<plain>> as gen
+rectangle "Template\n<size:11>source: config repo, path apps/billing</size>\n<size:11>destination namespace: tenant-{{.tenant}}</size>" <<plain>> as tpl
+
+rectangle "Generated Applications (kept in sync by the applicationset-controller)" <<groupGood>> as out {
+  rectangle "billing-acme\n<size:11>→ ns tenant-acme</size>" <<good>> as a1
+  rectangle "billing-globex\n<size:11>→ ns tenant-globex</size>" <<good>> as a2
+  rectangle "billing-initech\n<size:11>→ ns tenant-initech</size>" <<good>> as a3
+  a1 -[hidden]right-> a2
+  a2 -[hidden]right-> a3
+}
+
+aps --> gen
+aps --> tpl
+gen --> out
+tpl --> out
+
+caption <i>Add a tenant to the list (or a cluster, or a directory in Git) and its Application appears; remove it and the Application is deleted.</i>
+@enduml
