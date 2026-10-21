@@ -114,6 +114,21 @@ kubectl get events --sort-by=.metadata.creationTimestamp    # Scheduled · Pulli
 kubectl get pods -v=8                                       # the REST calls behind the command
 ```
 
+### 3a-2. On the node: the runtime chain (chapter 02-07)
+
+```bash
+# Run ON a node (kind: docker exec -it kind-control-plane bash · k3s: sudo k3s crictl ...)
+crictl pods                                   # Pod sandboxes (CRI's view)
+crictl ps                                     # containers + their POD ID
+crictl inspect <container-id> | jq '.info.pid'                 # host PID of the container's process
+ps -ef --forest | grep -A4 containerd-shim    # one shim per Pod; children = pause + containers
+sudo lsns -p <pid>                            # net/ipc/uts shared with pause; pid/mnt private
+cat /proc/<pid>/cgroup                        # the cgroup enforcing resources.limits
+sudo jq '.process.args, .linux.namespaces' /run/containerd/io.containerd.runtime.v2.task/k8s.io/<container-id>/config.json   # the OCI bundle
+```
+
+**kubelet →(CRI gRPC)→ containerd →(ttrpc)→ shim, one per Pod →(exec + OCI bundle)→ runc, which exits → your process. A container is a process with namespaces and cgroups.**
+
 ### 3b. Find vs reach — DNS and the CNI (chapter 04-01 further study)
 
 ```bash

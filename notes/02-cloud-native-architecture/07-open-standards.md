@@ -60,21 +60,98 @@ Docker donated **runC** to the OCI at its founding as the reference implementati
 
 The kubelet is the gRPC client, connecting over a Unix socket set with `--container-runtime-endpoint` (containerd: `unix:///run/containerd/containerd.sock`; CRI-O: `unix:///var/run/crio/crio.sock`). The v1 API is stable since 1.23 and mandatory from 1.26: a runtime that doesn't speak it can't register a node.
 
-### 3.2 kubelet → CRI plugin → runtime → OCI runtime — how they relate
+### 3.2 Specs vs programs: the key to the whole chain
 
-The lecture's picture — kubelet → "CRI plugin" → containerd / CRI-O / Kata / Firecracker → pod — flattens two layers into one. The precise chain has **two interfaces at two levels**:
+The lecture's picture (kubelet → "CRI plugin" → containerd / CRI-O / Kata / Firecracker → pod) is confusing because it puts two different *kinds* of thing in the same row of boxes. Separate them first:
 
-![The runtime chain: kubelet speaks CRI to a high-level runtime (containerd or CRI-O), which speaks the OCI runtime-spec to a low-level runtime (runc, crun, gVisor, Kata), which creates the Pod's containers](./diagrams/19-cri-runtime-chain.svg)
+- A **specification** is a document: an API definition or a file format. **Nothing "runs" a spec.** CRI, the OCI runtime-spec, the OCI distribution-spec and CNI are all specs.
+- A **program** is what you'd see in `ps`: kubelet, containerd, the shim, runc, the CNI plugin, your container's processes.
 
-1. **kubelet** decides a Pod should run on this node and calls the runtime over **CRI**.
-2. The **high-level runtime** implements CRI. It manages images, snapshots, and the pod sandbox, and it *does not create containers itself*:
-   - **containerd** — the common default (kind, EKS, GKE, AKS). Its CRI support is a **plugin built into the containerd daemon** — this is the "CRI plugin" on the slide: the piece of containerd that listens on the CRI socket and translates CRI calls into containerd operations. (It began life as a separate `cri-containerd` process and was merged in as a plugin in containerd 1.1.)
-   - **CRI-O** — Red Hat's runtime built *only* to serve CRI, nothing else; OpenShift's default.
-   - **Docker Engine** is *not* CRI-native. Kubernetes carried a built-in adapter, the **dockershim**, until it was **removed in 1.24**; Docker can still be used through the external **cri-dockerd** adapter.
-3. For each container, the high-level runtime writes an OCI bundle and hands it to a **low-level OCI runtime** via the **runtime-spec** — normally **runc**, or a sandboxed alternative (crun, gVisor, Kata) selected per Pod with a **`RuntimeClass`**.
-4. The low-level runtime creates the namespaces and cgroups and starts the process; the containers of a Pod share the sandbox's network and IPC namespaces (the **pause** container holds them open).
+**Every arrow between two programs is a spec. Every box is a program.**
 
-So: **CRI is the kubelet's interface to a runtime; OCI's runtime-spec is that runtime's interface to the thing that actually makes the container.** Kata Containers and Firecracker sit at the *bottom* of the chain (they replace runc's isolation model), not beside containerd; the slide draws them as peers of containerd for simplicity.
+| Specification (the contract) | What it defines | Called by (client) | Implemented by (server) | How they actually talk |
+|---|---|---|---|---|
+| **CRI** | Pod sandboxes, containers, images: `RunPodSandbox`, `CreateContainer`, `StartContainer`, `PullImage`, ... | **kubelet** | **containerd** (its CRI plugin) or **CRI-O** | **gRPC** over a Unix socket: `/run/containerd/containerd.sock` |
+| **OCI distribution-spec** | Pulling and pushing images over HTTP | containerd | A **registry** (Docker Hub, GHCR, ECR, Harbor) | HTTPS |
+| **OCI image-spec** | The format of what's pulled: manifest, config, layer tarballs | — (it's a file format) | Produced by image builders | Files |
+| **CNI** | Connect or disconnect a network namespace | containerd (not the kubelet) | A **CNI plugin binary** (Calico, Cilium, Flannel, bridge) | **exec** the binary: JSON config on stdin, `CNI_COMMAND=ADD` in env |
+| **OCI runtime-spec** | A **bundle** (`config.json` + `rootfs/`) and the operations `create`, `start`, `state`, `kill`, `delete` | The **shim** | **runc** (or crun, gVisor `runsc`, Kata) | **exec** the binary: `runc create --bundle <dir> <id>` |
+
+So the course's "CRI plugin" is a part of the containerd **program** that implements the CRI **spec**. "CRI implementation" and "OCI runtime implementation" are programs. "CRI" and "OCI runtime spec" are only the contracts between them.
+
+### 3.3 What is actually running on a node
+
+![Programs and the standards between them: kubelet calls containerd over CRI; containerd pulls from registries, execs CNI plugins and starts one shim per Pod over ttrpc; the shim execs runc with an OCI bundle; runc creates the pause and app processes and exits, leaving them as children of the shim](./diagrams/19-cri-runtime-chain.svg)
+
+| Program | Lifetime | How many | Its job |
+|---|---|---|---|
+| **kubelet** | Long-running daemon (systemd) | One per node | Watches the API server for Pods bound to its node, drives the runtime over CRI, reports status back, runs probes. **Never creates a container itself** |
+| **containerd** | Long-running daemon | One per node | Serves CRI through its built-in **CRI plugin**. Pulls images, unpacks layers into **snapshots** (overlayfs), creates the Pod's network namespace, calls CNI, writes each container's **OCI bundle**, and starts and stops shims. **Doesn't create containers itself** |
+| **containerd-shim-runc-v2** (the **shim**) | Long-running | **One per Pod** (the runc shim groups a Pod's containers by its sandbox ID) | **The parent process of the Pod's containers.** It calls runc, holds the containers' stdin/stdout (which become `kubectl logs`), collects exit codes, and reports to containerd over **ttrpc** (a lightweight gRPC). It's deliberately **not a child of containerd**, so restarting or upgrading containerd (or the kubelet) **doesn't kill running containers** ([05-18](../05-kubernetes-deep-dive/18-when-nodes-fail.md)) |
+| **runc** | **Short-lived**: runs for each `create`/`start`, then **exits** | 0 most of the time | Reads `config.json`, asks the **kernel** for namespaces and cgroups, mounts the rootfs, then execs the container's process. When it exits, the shim adopts the process |
+| **CNI plugin** | **Short-lived** | Runs once per Pod creation and deletion | Creates the veth pair, assigns the Pod IP (IPAM) and sets routes, then exits ([§4.2](#42-what-cni-actually-does-to-a-running-container)) |
+| **pause** | As long as the Pod | One per Pod | PID 1 of the sandbox. Does nothing but sleep, which **keeps the Pod's network, IPC and UTS namespaces alive** while app containers come and go |
+| **Your containers' processes** | As long as the container | Per container | Ordinary Linux processes that **joined pause's namespaces** and have their own PID and mount namespaces and cgroup limits |
+
+**A "container" isn't a thing the kernel knows about.** It's an ordinary process that runc started with its own namespaces (what it can *see*) and cgroups (what it can *use*) ([03-01](../03-containers-with-docker/01-introduction-to-containers.md)). That's why, on the node, `ps` shows your nginx as a regular process:
+
+```
+systemd
+├─ kubelet
+├─ containerd
+└─ containerd-shim-runc-v2 -namespace k8s.io -id 3f9a...   # one shim for the whole Pod
+   ├─ /pause                                               # the sandbox
+   ├─ nginx: master process nginx                          # app container, PID 1 in its own PID namespace
+   │  └─ nginx: worker process
+   └─ sh -c "tail -f /var/log/app.log"                     # a sidecar in the same Pod
+```
+
+(runc isn't in the tree: it already exited. The CNI plugin isn't there either.)
+
+### 3.4 How a Pod comes to life
+
+![The CRI call sequence: RunPodSandbox creates the network namespace, calls CNI ADD and starts pause through the shim and runc; then for each container PullImage, CreateContainer writes the OCI bundle, StartContainer has runc start the process; the kubelet reports status and starts probes](./diagrams/22-pod-startup-sequence.svg)
+
+1. **Scheduling happens elsewhere.** The scheduler writes `spec.nodeName`. The node's **kubelet**, watching the API server, sees a Pod it now owns.
+2. **`RunPodSandbox`: build the Pod's shared environment first.** containerd pulls the **pause** image if needed and **creates a network namespace**. It execs the **CNI plugin** (`ADD`), which plugs an `eth0` into that namespace and assigns the **Pod IP**. It starts a **shim** for the Pod, and the shim runs **runc** to start **pause** inside that namespace. runc exits, and pause stays, holding the namespaces open. The kubelet gets back a **sandbox ID**.
+3. **For each container** (init containers one at a time, in order, then the app containers):
+   - **`PullImage`**: containerd downloads the manifest and layers from the registry (distribution-spec) and unpacks the layers into a **snapshot**, an overlayfs view that becomes the container's root filesystem ([03-03](../03-containers-with-docker/03-container-images.md)).
+   - **`CreateContainer`**: containerd translates the container's Pod spec into an **OCI bundle**. That's `config.json` (the image's entrypoint and command, env, **join pause's network, IPC and UTS namespaces**, its own PID and mount namespaces, **cgroup limits from `resources`**, mounts for volumes and the ServiceAccount token, security context) plus the rootfs.
+   - **`StartContainer`**: containerd tells the Pod's shim to start it. The shim runs `runc create` (sets up namespaces, cgroups, mounts) and `runc start` (execs your process). runc exits, and the shim becomes the process's parent.
+4. **Report and watch.** The kubelet's **PLEG** (Pod Lifecycle Event Generator) polls or receives container state from the runtime. The kubelet updates the Pod's status in the API server (Pod IP, `Running`, container states), then starts **probes** ([05-20](../05-kubernetes-deep-dive/20-probes-and-the-kubelet.md)).
+
+Deletion runs the same path backwards: `StopContainer` (SIGTERM, grace period, SIGKILL), then `StopPodSandbox` (**CNI `DEL`** releases the IP, pause stops), then `RemovePodSandbox`.
+
+**Why containers in a Pod share `localhost`:** they all **joined the same network namespace**, the one created in step 2 and held by pause. **Why a crashed app container keeps the Pod IP:** the crash ends only that process. The namespace belongs to pause, so the kubelet just calls `CreateContainer`/`StartContainer` again in the same sandbox.
+
+### 3.5 Which programs you can swap
+
+| Layer | Default | Alternatives | What changes |
+|---|---|---|---|
+| CRI implementation | **containerd**: the common default (kind, EKS, GKE, AKS, k3s). Its CRI support began as a separate `cri-containerd` process and was merged in as a plugin in containerd 1.1 | **CRI-O**: Red Hat's runtime built *only* to serve CRI; OpenShift's default. It uses one **conmon** monitor process **per container** where containerd uses one shim per Pod | Nothing for the kubelet: same CRI calls, different socket (`/var/run/crio/crio.sock`) |
+| | **Docker Engine** is *not* CRI-native. Kubernetes carried a built-in adapter, the **dockershim**, until it was **removed in 1.24**. Docker can still be used through the external **cri-dockerd** adapter | | |
+| OCI runtime | **runc** (namespaces + cgroups, shared host kernel) | **crun** (C, faster), **gVisor** `runsc` (user-space kernel), **Kata Containers** (each Pod in a lightweight VM, via QEMU or **Firecracker**) | Selected **per Pod** with a **`RuntimeClass`**. Same bundle, different isolation |
+| CNI plugin | Whatever the cluster installed | Calico, Cilium, Flannel, ... | How the Pod is wired to the network ([§4](#4-container-network-interface-cni)) |
+
+So: **CRI is the kubelet's interface to a runtime; OCI's runtime-spec is that runtime's interface to the thing that actually makes the container.** Kata Containers and Firecracker sit at the *bottom* of the chain (they replace runc's isolation model), not beside containerd. The slide draws them as peers of containerd for simplicity.
+
+### 3.6 See it on a node
+
+These run **on the node**, not through kubectl. On kind, `docker exec -it kind-control-plane bash` first. On k3s, use `sudo k3s crictl`; the socket is `/run/k3s/containerd/containerd.sock`.
+
+```bash
+crictl pods                                   # Pod sandboxes the kubelet asked for (CRI's view)
+crictl ps                                     # containers, with their POD ID
+crictl inspectp <pod-id> | jq '.info.runtimeSpec.linux.namespaces'   # the sandbox's namespaces
+crictl inspect <container-id> | jq '.info.pid'                      # the container's host PID
+ps -ef --forest | grep -A4 containerd-shim    # one shim per Pod, its children = pause + containers
+sudo lsns -p <pid>                            # the namespaces that process is in (net = pause's)
+cat /proc/<pid>/cgroup                        # the cgroup that enforces its resources.limits
+sudo ls /run/containerd/io.containerd.runtime.v2.task/k8s.io/<container-id>/   # the OCI bundle: config.json + rootfs
+sudo jq '.process.args, .linux.namespaces' /run/containerd/io.containerd.runtime.v2.task/k8s.io/<container-id>/config.json
+```
+
+Compare `lsns` for two containers in the same Pod: the **net**, **ipc** and **uts** namespace IDs match each other and pause, while **pid** and **mnt** differ. That's the shared half and the private half of a Pod from [04-02](../04-kubernetes-fundamentals/02-pods.md), visible in the kernel.
 
 ---
 
@@ -191,6 +268,7 @@ For the exam: know what SMI *was* — the course still lists it — and, if a qu
 - **OCI**: founded **June 2015** by Docker and others under the **Linux Foundation**; three specs — **image**, **runtime**, **distribution**. **runc** is the **reference implementation of the runtime-spec**, donated by Docker. Distribution-spec descends from the **Docker Registry HTTP API v2**.
 - Build tools implement the image-spec (Docker, BuildKit, Podman, Buildah); runtimes implement the runtime-spec (runc, crun, gVisor, Kata); registries implement the distribution-spec.
 - **CRI** = the **gRPC interface between the kubelet and the container runtime**; implementations are **containerd** and **CRI-O**. **dockershim was removed in 1.24** — Docker Engine needs cri-dockerd. Kata and Firecracker are *isolation* runtimes below containerd, not CRI implementations.
+- **Programs vs specs:** a question listing "CRI, OCI runtime-spec" as things that *run containers* is a trap. They are contracts. The programs are **kubelet → containerd (CRI plugin) → shim (one per Pod) → runc** (exits after starting the process). **CNI plugins are exec'd by the runtime, not the kubelet.**
 - **CNI** = the standard for **configuring network interfaces in containers**; a plugin is an executable invoked by the runtime with **ADD / DEL / CHECK / VERSION**. **Required by Kubernetes**: nodes stay **NotReady** until a CNI plugin is installed. Calico, Cilium, Flannel are providers; **NetworkPolicy is enforced by the CNI provider**, not by Kubernetes itself.
 - **CSI** = the standard so **one storage driver works across orchestrators**; services **Identity / Controller / Node**. **Rook** = open source, CNCF **Graduated**; **Portworx** = commercial.
 - **SMI** = the (archived) standard interface for service meshes; its role passed to the **Gateway API**.

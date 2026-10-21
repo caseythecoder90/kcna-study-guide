@@ -20,7 +20,7 @@ Then the kubelet on `worker-2` is stopped. On k3s the kubelet runs inside the `k
 systemctl stop k3s-agent.service
 ```
 
-**The containers do not stop.** The kubelet handed the Pod to containerd when it started it, and containerd and the per-container shims keep running without the kubelet. (k3s's systemd unit uses `KillMode=process`, so stopping the service kills only the k3s process, not the containerd and shims it started.) The node is effectively partitioned: its workloads run, but nobody is reporting on them.
+**The containers do not stop.** The kubelet handed the Pod to containerd when it started it, and containerd and the per-Pod shims keep running without the kubelet. (k3s's systemd unit uses `KillMode=process`, so stopping the service kills only the k3s process, not the containerd and shims it started.) The node is effectively partitioned: its workloads run, but nobody is reporting on them.
 
 What follows, watched from the control plane:
 
