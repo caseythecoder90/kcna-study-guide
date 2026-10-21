@@ -41,6 +41,21 @@ kubectl get pod nginx -o jsonpath='{.spec.nodeName}{"\n"}'   # the field the sch
 kubectl delete pod nginx
 ```
 
+## On the node — the runtime chain behind a Pod ([02-07](../02-cloud-native-architecture/07-open-standards.md#36-see-it-on-a-node))
+
+```bash
+# Run ON a node (kind: docker exec -it kind-control-plane bash · k3s: sudo k3s crictl ...)
+crictl pods                                   # Pod sandboxes (CRI's view)
+crictl ps                                     # containers + their POD ID
+crictl inspect <container-id> | jq '.info.pid'                 # host PID of the container's process
+ps -ef --forest | grep -A4 containerd-shim    # one shim per Pod; children = pause + containers
+sudo lsns -p <pid>                            # net/ipc/uts shared with pause; pid/mnt private
+cat /proc/<pid>/cgroup                        # the cgroup enforcing resources.limits
+sudo jq '.process.args, .linux.namespaces' /run/containerd/io.containerd.runtime.v2.task/k8s.io/<container-id>/config.json   # the OCI bundle
+```
+
+**kubelet →(CRI gRPC)→ containerd →(ttrpc)→ shim, one per Pod →(exec + OCI bundle)→ runc, which exits → your process. A container is a process with namespaces and cgroups.**
+
 ## Chapter 01 further study — find vs reach
 
 ```bash

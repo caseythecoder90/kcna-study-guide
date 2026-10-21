@@ -1,33 +1,31 @@
 @startuml
 !include ../../../tools/diagrams/kcna-theme.puml
-title Container Runtime Interface — from kubelet to a running container
+title What actually runs on a node: boxes are PROGRAMS, arrows are the STANDARDS between them
 
-rectangle "kubelet\n<size:11>node agent; gRPC client</size>\n<size:11>--container-runtime-endpoint=unix:///run/containerd/containerd.sock</size>" <<accent>> as kubelet
-rectangle "CRI — Container Runtime Interface\n<size:11>gRPC API: RuntimeService (pod sandboxes, containers, exec, logs)</size>\n<size:11>+ ImageService (pull, list, remove) · v1 API required since Kubernetes 1.26</size>" <<good>> as cri
-rectangle "High-level runtime (CRI implementation)" <<group>> as hl {
-  rectangle "containerd\n<size:11>with its built-in CRI plugin;</size>\n<size:11>the common default (kind, EKS, GKE, AKS)</size>" as containerd
-  rectangle "CRI-O\n<size:11>built only to serve CRI;</size>\n<size:11>Red Hat / OpenShift</size>" as crio
-  rectangle "Docker Engine\n<size:11>not CRI-native — needs cri-dockerd;</size>\n<size:11>dockershim removed in 1.24</size>" <<muted>> as docker
-  containerd -[hidden]right-> crio
-  crio -[hidden]right-> docker
+rectangle "kubelet\n<size:11>long-running daemon (systemd) · one per node</size>\n<size:11>decides WHAT should run; never creates a container itself</size>" <<accent>> as kubelet
+
+rectangle "containerd\n<size:11>long-running daemon · one per node</size>\n<size:11>its built-in CRI plugin = the server side of CRI</size>\n<size:11>pulls images · unpacks layers (snapshotter) · writes OCI bundles</size>" <<good>> as ctd
+
+rectangle "CNI plugin\n<size:11>a plain executable, e.g. /opt/cni/bin/calico</size>\n<size:11>runs for a moment, then EXITS</size>" <<plain>> as cni
+
+rectangle "Registry\n<size:11>Docker Hub, GHCR, ECR</size>" <<muted>> as reg
+
+rectangle "containerd-shim-runc-v2\n<size:11>long-running · ONE PER POD</size>\n<size:11>parent of the Pod's processes: keeps their stdio + logs,</size>\n<size:11>collects exit codes, survives a containerd restart</size>" <<good>> as shim
+
+rectangle "runc\n<size:11>a CLI binary · runs for each create/start, then EXITS</size>\n<size:11>reads config.json, builds namespaces + cgroups, execs the process</size>" <<plain>> as runc
+
+rectangle "The Pod's processes (children of the shim)" <<groupGood>> as pod {
+  rectangle "pause\n<size:11>PID 1 of the sandbox · holds the</size>\n<size:11>network, IPC, UTS namespaces open</size>" <<good>> as pause
+  rectangle "app container(s)\n<size:11>e.g. nginx master + workers</size>\n<size:11>JOIN pause's namespaces</size>" <<good>> as app
+  pause -[hidden]right-> app
 }
-rectangle "OCI runtime-spec\n<size:11>the high-level runtime hands each container's bundle to a low-level runtime</size>" <<good>> as oci
-rectangle "Low-level (OCI) runtime — chosen per Pod with RuntimeClass" <<group>> as ll {
-  rectangle "runc\n<size:11>default: namespaces + cgroups</size>" <<good>> as runc
-  rectangle "crun" <<plain>> as crun
-  rectangle "gVisor / runsc\n<size:11>sandboxed user-space kernel</size>" <<plain>> as gvisor
-  rectangle "Kata Containers\n<size:11>micro-VM per pod via</size>\n<size:11>QEMU or Firecracker</size>" <<plain>> as kata
-  runc -[hidden]right-> crun
-  crun -[hidden]right-> gvisor
-  gvisor -[hidden]right-> kata
-}
-rectangle "Pod\n<size:11>pause (sandbox) container + app containers</size>\n<size:11>sharing network and IPC namespaces</size>" <<good>> as pod
 
-kubelet -down-> cri
-cri -down-> hl
-hl -down-> oci
-oci -down-> ll
-ll -down-> pod
+kubelet -down-> ctd : CRI\ngRPC over unix:///run/containerd/containerd.sock\nRunPodSandbox · PullImage · CreateContainer · StartContainer
+ctd -right-> reg : OCI distribution-spec\n(HTTPS pull)
+ctd -left-> cni : CNI spec\nexec with JSON on stdin\nADD → eth0 + IP
+ctd -down-> shim : ttrpc (shim API)\nover a per-shim socket
+shim -down-> runc : OCI runtime-spec\nexec "runc create" / "runc start"\n+ bundle: config.json + rootfs
+runc -down-> pod : clone() + exec\n(kernel: namespaces, cgroups)
 
-caption <i>Two interfaces at two levels: CRI is how the kubelet talks to a runtime; the OCI runtime-spec is how that runtime talks to the thing that actually creates the container.</i>\n<i>Firecracker is a micro-VM monitor (AWS), not a CRI or OCI runtime itself — it is reached through Kata or firecracker-containerd.</i>
+caption <i>Swap the implementations, keep the standards: CRI-O replaces containerd (with one conmon per container instead of the shim); crun, gVisor or Kata replace runc (picked per Pod by RuntimeClass).</i>
 @enduml

@@ -1,0 +1,49 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+skinparam sequence {
+  ParticipantBorderColor #326CE5
+  ParticipantBackgroundColor #EFF6FF
+  LifeLineBorderColor #94A3B8
+  GroupBorderColor #94A3B8
+  GroupBackgroundColor #F8FAFC
+}
+skinparam sequenceMessageAlign left
+title How a Pod comes to life: the CRI calls, in order
+
+participant "API server" as api
+participant "kubelet" as k
+participant "containerd\n(CRI plugin)" as c
+participant "CNI plugin" as cni
+participant "shim\n(one per Pod)" as s
+participant "runc" as r
+
+api -> k : watch: Pod bound to this node (spec.nodeName)
+
+group 1. Sandbox: the Pod's shared environment
+  k -> c : RunPodSandbox(pod config)
+  c -> c : pull pause image if missing\ncreate network namespace
+  c -> cni : exec CNI ADD (netns path)
+  cni --> c : eth0 + Pod IP
+  c -> s : start a shim for this Pod
+  s -> r : runc create + runc start (pause)
+  r --> s : pause running as PID 1; runc exits
+  c --> k : sandbox ID
+end
+
+group 2. For each init container (in order), then each app container
+  k -> c : PullImage(nginx:1.27)
+  c -> c : fetch manifest + layers from registry\nunpack layers into a snapshot (overlayfs)
+  k -> c : CreateContainer(sandbox ID, container config)
+  c -> c : write OCI bundle: config.json\n(JOIN pause's net/ipc/uts namespaces,\nown pid + mnt namespaces, cgroup limits,\nvolume mounts, env) + rootfs
+  k -> c : StartContainer(container ID)
+  c -> s : create + start task
+  s -> r : runc create + runc start
+  r --> s : app process running; runc exits
+end
+
+group 3. Watch and report
+  k -> c : PodSandboxStatus / ContainerStatus (PLEG)
+  k -> api : Pod status: IP, phase Running, container states
+  k -> k : start probes (startup, liveness, readiness)
+end
+@enduml
