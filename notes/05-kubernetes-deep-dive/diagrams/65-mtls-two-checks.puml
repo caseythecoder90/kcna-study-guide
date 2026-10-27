@@ -1,0 +1,36 @@
+@startuml
+!include ../../../tools/diagrams/kcna-theme.puml
+skinparam sequence {
+  ParticipantBorderColor #326CE5
+  ParticipantBackgroundColor #EFF6FF
+  LifeLineBorderColor #94A3B8
+  GroupBorderColor #94A3B8
+  GroupBackgroundColor #F8FAFC
+}
+skinparam sequenceMessageAlign left
+title mTLS with kubectl: each side runs TWO checks on the other
+
+participant "kubectl\n<size:11>holds: ca.crt (CA public cert)</size>\n<size:11>client cert + CLIENT PRIVATE KEY</size>" as c
+participant "kube-apiserver\n<size:11>holds: ca.crt (--client-ca-file)</size>\n<size:11>apiserver.crt + SERVER PRIVATE KEY</size>" as s
+
+c -> s : hello + fresh random value
+s -> c : hello + fresh random value
+note over c, s : Both random values go into the handshake transcript, so it is different every time (no replay)
+
+group The server proves itself
+  s -> c : its certificate (apiserver.crt)
+  s -> c : a SIGNATURE over the transcript, made with the server's private key
+  c -> c : CHECK 1 - is the certificate genuine?\nverify the CA's signature on it with ca.crt
+  c -> c : CHECK 2 - is the sender its owner?\nverify the transcript signature with the PUBLIC KEY inside apiserver.crt
+end
+
+group You prove yourself (the "mutual" in mTLS)
+  c -> s : your certificate (client-certificate-data)
+  c -> s : a SIGNATURE over the transcript, made with client-key-data
+  s -> s : CHECK 1 - is the certificate genuine?\nverify the CA's signature on it with ca.crt
+  s -> s : CHECK 2 - is the sender its owner?\nverify the transcript signature with the PUBLIC KEY inside your certificate
+end
+
+s -> s : authenticated: CN = user, O = groups → RBAC
+note over c, s : Private keys never cross the network, only signatures made with them. The CA's private key is not used at all: it signed the certificates once, when they were issued.
+@enduml
