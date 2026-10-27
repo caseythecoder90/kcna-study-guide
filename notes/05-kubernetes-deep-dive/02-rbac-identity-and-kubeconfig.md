@@ -141,6 +141,8 @@ When the cluster was built, a **Certificate Authority** was created — a **core
 
 That asymmetry is the whole of public-key cryptography as it applies here: **anything signed by the private key can be verified by anyone holding the public certificate, and only the holder of the private key could have signed it.**
 
+**When the CA's private key is used:** only when a certificate is **issued**: the API server's certificate when the cluster is built, yours when an admin approves your CSR (§4.2). It is **not** used when you connect. At connection time, everyone verifies those old signatures with the CA's **public** certificate.
+
 ### 3.2 Direction one — you verify the server
 
 ```yaml
@@ -173,7 +175,39 @@ Two different things:
 
 Both directions at once is **mutual TLS** — the mTLS from chapter 02-02, in your own kubeconfig.
 
-### 3.4 Reading it
+### 3.4 Two checks: is the certificate genuine, and is it yours?
+
+The CA's signature on a certificate only answers half the question. **A certificate is public information.** It contains your name (`CN`), your groups (`O`), **your public key** and the CA's signature, and it is sent across the network every time you connect. Anyone who captured or copied it would hold a perfectly genuine certificate. So each side runs **two separate checks** on the other:
+
+| Check | Question | How it's answered | Verified with |
+|---|---|---|---|
+| **1. Genuine** | Did our CA really issue this certificate, unaltered? | Verify the **CA's signature on the certificate** | The **CA's public certificate** (`ca.crt`) |
+| **2. Possession** | Is the one presenting it the owner, or someone replaying a copy? | The presenter **signs this connection's handshake with its private key** | The **public key inside the presented certificate** |
+
+![mTLS: each side verifies the CA's signature on the other's certificate, then verifies a signature over this handshake made with the matching private key](./diagrams/65-mtls-two-checks.svg)
+
+How check 2 works:
+
+1. Your certificate and `client-key-data` were generated as a **key pair**: a signature made with the private key can only be verified by the public key in the certificate.
+2. Each TLS handshake starts with **fresh random values** from both sides, so the handshake data (the *transcript*) is different every time.
+3. Your client **signs the transcript with your private key** (TLS calls this message *CertificateVerify*) and sends the signature, **never the key itself**.
+4. The API server verifies the signature with the **public key from your certificate**. A thief holding only a copy of your certificate can't produce that signature, and a signature recorded from an earlier connection doesn't match the new transcript.
+
+**The API server proves itself the same way.** It signs the handshake with its own private key (`apiserver.key`, on the control plane), and your client checks that signature with the public key in the server's certificate. Without that, an attacker could replay the API server's real certificate. **mTLS = both sides run both checks.**
+
+The passport analogy: the **hologram** proves the passport is real (check 1); **your face matching the photo** proves it's yours (check 2). The private key is the face, and a photocopy doesn't have one.
+
+#### The three key pairs
+
+| Key pair | Private key: never leaves its owner | Public part: shared freely | Used for |
+|---|---|---|---|
+| **Cluster CA** | `ca.key`, on the control plane (kubeadm: `/etc/kubernetes/pki/`) | `ca.crt`: `certificate-authority-data` in kubeconfigs; the API server's `--client-ca-file` | **Signing certificates when they're issued**, not during connections |
+| **API server** | `apiserver.key` (`--tls-private-key-file`) | `apiserver.crt` (`--tls-cert-file`), sent in the handshake | Proving the server is the genuine API server |
+| **You** | **`client-key-data`** | **`client-certificate-data`**, sent in the handshake | Proving you are the `CN` in your certificate |
+
+**Your kubeconfig is a password.** `client-certificate-data` + `client-key-data` together pass both checks, so anyone who copies the file **is you** until the certificate expires, and Kubernetes can't revoke it early (§4.1). Never commit or share a kubeconfig. For people, short-lived **OIDC** tokens (§6) are the better answer.
+
+### 3.5 Reading it
 
 ```bash
 kubectl config view --raw -o jsonpath='{.users[0].user.client-certificate-data}' \
@@ -328,6 +362,7 @@ That last point is the whole architecture in one sentence, and it is why the "Ku
 - **A kubeconfig has four blocks:** `clusters` (where), `users` (credentials), `contexts` (a pointer triple of cluster + user + namespace), and `current-context`. **All the names are arbitrary labels.**
 - **`kubectl config use-context`** switches cluster; **`set-context --current --namespace=`** switches namespace; **`rename-context`** gives a generated name a friendly one. **`$KUBECONFIG`** takes a list of files that kubectl merges.
 - **Two certificates, opposite directions.** `certificate-authority-data` is the **CA's public certificate**, used by *you* to verify the **server** is genuine (anti-MITM). `client-certificate-data` + `client-key-data` are used by the **server** to verify **you**. Together: **mutual TLS**.
+- **Why `client-key-data` matters:** the CA's signature proves a certificate is **genuine**; signing the handshake with the **private key** proves the presenter **owns** it. A copied certificate alone fails the second check. The CA's private key isn't used during connections, only when certificates are issued.
 - **In a client certificate, `CN` is the username and `O` is a group** (repeat `O` for several). Every authenticated request also joins **`system:authenticated`**.
 - **Kubernetes does not manage normal users.** There is **no User object** and normal users **cannot be added through an API call** — any certificate signed by the cluster CA is accepted. **Certificate revocation is not supported**; an issued certificate is valid until it expires.
 - **ServiceAccounts are the exception** — they *are* Kubernetes objects, **tied to a namespace**, used by **applications inside the cluster**, with the username form `system:serviceaccount:<namespace>:<name>`.

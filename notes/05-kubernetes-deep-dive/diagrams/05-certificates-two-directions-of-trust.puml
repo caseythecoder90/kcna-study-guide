@@ -5,11 +5,11 @@ title Two certificates, two directions of trust
 rectangle "The cluster's Certificate Authority\n<size:11>created when the cluster was built · a core component</size>\n<size:11>holds a PRIVATE key (kept on the control plane) and a PUBLIC certificate</size>\n<size:11>anything signed by the private key can be verified with the public one</size>" <<accent>> as ca
 
 rectangle "Direction 1 · you verify the SERVER" <<groupGood>> as d1 {
-  rectangle "certificate-authority-data in your kubeconfig\n<size:11>the CA's PUBLIC certificate — safe to share, it verifies but cannot sign</size>\n\n<size:11>The API server presents its own certificate, signed by that CA.</size>\n<size:11>Your client checks the signature against the public cert it already holds.</size>\n\n<size:11>WHY: so you are talking to the GENUINE API server and not an imposter.</size>\n<size:11>This is what protects you from a man-in-the-middle attack.</size>" <<good>> as v1
+  rectangle "certificate-authority-data in your kubeconfig\n<size:11>the CA's PUBLIC certificate — safe to share, it verifies but cannot sign</size>\n\n<size:11>The API server presents its own certificate, signed by that CA.</size>\n<size:11>Your client checks the signature against the public cert it already holds,</size>\n<size:11>and the server proves it owns that certificate by signing the handshake.</size>\n\n<size:11>WHY: so you are talking to the GENUINE API server and not an imposter.</size>\n<size:11>This is what protects you from a man-in-the-middle attack.</size>" <<good>> as v1
 }
 
 rectangle "Direction 2 · the server verifies YOU" <<groupGood>> as d2 {
-  rectangle "client-certificate-data + client-key-data in your kubeconfig\n<size:11>a certificate SIGNED BY THE CA, plus YOUR private key (never shared)</size>\n\n<size:11>The API server checks the signature with the CA's public cert.</size>\n<size:11>Valid signature = an identity this cluster issued = authenticated.</size>\n\n<size:11>Both directions at once is MUTUAL TLS — chapter 02-02's mTLS, in your own kubeconfig.</size>" <<good>> as v2
+  rectangle "client-certificate-data + client-key-data in your kubeconfig\n<size:11>a certificate SIGNED BY THE CA, plus YOUR private key (never shared)</size>\n\n<size:11>Check 1: the API server verifies the CA's signature on your certificate (genuine?).</size>\n<size:11>Check 2: you sign the handshake with your private key; it verifies that with the</size>\n<size:11>public key inside your certificate (is it YOURS, not a stolen copy?).</size>\n\n<size:11>Both directions at once is MUTUAL TLS — chapter 02-02's mTLS, in your own kubeconfig.</size>" <<good>> as v2
 }
 
 rectangle "And the identity itself is IN the certificate's Subject" <<group>> as subj {
